@@ -1,0 +1,115 @@
+# =============================================================================
+# DOCKER COMPOSE - DEVELOPMENT INFRASTRUCTURE
+# =============================================================================
+# This compose file runs infrastructure services for HYBRID development mode.
+# Django runs LOCALLY on your machine, connecting to these Docker services.
+#
+# Usage:
+#   Start infrastructure:    docker compose -f docker-compose.dev.yml up -d
+#   Stop infrastructure:     docker compose -f docker-compose.dev.yml down
+#   Reset (delete data):     docker compose -f docker-compose.dev.yml down -v
+#   View logs:               docker compose -f docker-compose.dev.yml logs -f
+#
+# With nginx (for testing production-like setup):
+#   Start with nginx:        docker compose -f docker-compose.dev.yml --profile nginx up -d
+#
+# Then run Django locally:
+#   DJANGO_SETTINGS_MODULE=backend_core.settings.local_docker python manage.py runserver
+# =============================================================================
+
+name: django-dev
+
+services:
+  # ==========================================================================
+  # POSTGRESQL DATABASE
+  # ==========================================================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: dev_postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: backend_core_db
+      POSTGRES_USER: django_user
+      POSTGRES_PASSWORD: postgres_dev_password
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U django_user -d backend_core_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dev_network
+
+  # ==========================================================================
+  # REDIS (Cache & Channels Layer)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: dev_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    # Optional: Persist Redis data (uncomment if needed)
+    # volumes:
+    #   - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - dev_network
+
+  # ==========================================================================
+  # NGINX (Optional - for testing production-like setup)
+  # ==========================================================================
+  # Activate with: docker compose -f docker-compose.dev.yml --profile nginx up -d
+  # Note: Requires Django to be running on localhost:8000
+  # ==========================================================================
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: dev_nginx
+    restart: unless-stopped
+    profiles:
+      - nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - dev_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/nginx-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  dev_network:
+    driver: bridge
+    name: dev_network
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  postgres_dev_data:
+    name: postgres_dev_data
+  # Uncomment if you want Redis persistence
+  # redis_dev_data:
+  #   name: redis_dev_data
+
+# =============================================================================
+# NOTES
+# =============================================================================
+# 1. Ports 5432 and 6379 must be FREE on your machine
+# 2. Database shell:  docker exec -it dev_postgres psql -U django_user -d backend_core_db
+# 3. Redis CLI:       docker exec -it dev_redis redis-cli
+# 4. Reset all data:  docker compose -f docker-compose.dev.yml down -v
+# 5. With nginx:      docker compose -f docker-compose.dev.yml --profile nginx up -d

@@ -1,0 +1,115 @@
+# ============================================
+# CORE DJANGO FRAMEWORK
+# ============================================
+Django==5.1.15
+djangorestframework==3.16.1
+
+# ============================================
+# ASGI & WEBSOCKET SUPPORT
+# ============================================
+# Daphne: ASGI server for Django Channels
+daphne==4.1.2
+
+# Django Channels: WebSocket and background task support
+channels==4.3.2
+
+# Channels Redis: Redis channel layer backend for Channels
+channels-redis==4.2.1
+
+# ============================================
+# DATABASE DRIVERS
+# ============================================
+# PostgreSQL adapter for Python
+psycopg2-binary==2.9.11
+
+# ============================================
+# CACHING & SESSION BACKENDS
+# ============================================
+# Python Redis client
+redis==7.1.0
+
+# Django Redis: Redis cache backend for Django
+django-redis==6.0.0
+
+# ============================================
+# API DOCUMENTATION
+# ============================================
+# OpenAPI 3.0 schema generation for DRF
+drf-spectacular==0.29.0
+
+# ============================================
+# CROSS-ORIGIN RESOURCE SHARING
+# ============================================
+# Handle CORS headers for API access
+django-cors-headers==4.9.0
+
+# ============================================
+# PRODUCTION WSGI/ASGI SERVERS
+# ============================================
+# WSGI HTTP server for production
+gunicorn==23.0.0
+
+# ASGI server (used as Gunicorn worker class)
+uvicorn[standard]==0.40.0
+
+# ============================================
+# IMAGE PROCESSING
+# ============================================
+# Python Imaging Library
+Pillow==12.1.0
+
+# ============================================
+# AUTHENTICATION
+# ============================================
+# JSON Web Token implementation for Python
+PyJWT==2.10.1
+
+# ============================================
+# TASK QUEUE
+# ============================================
+# Celery: Distributed task queue
+celery==5.4.0
+
+# Django Celery Beat: Periodic task scheduling
+django-celery-beat==2.7.0
+
+# ============================================
+# EMAIL
+# ============================================
+# HTML to plain text conversion for email fallbacks
+html2text==2024.2.26
+
+# Cryptography: For SNS signature verification
+cryptography==46.0.3
+
+# HTTP requests library (for SNS webhook verification)
+requests==2.32.5
+
+# ============================================
+# OBSERVABILITY
+# ============================================
+# Structured logging with JSON output
+structlog==25.5.0
+
+# ============================================
+# UTILITIES
+# ============================================
+# Load environment variables from .env files
+python-dotenv==1.0.1
+
+# ============================================
+# CLOUD STORAGE (OPTIONAL - S3/Cloudflare R2)
+# ============================================
+# AWS SDK for Python
+boto3==1.35.87
+
+# Django storage backends for S3
+django-storages[s3]==1.14.4
+
+# ============================================
+# NOTES:
+# ============================================
+# - daphne MUST be installed before Django in INSTALLED_APPS
+# - channels-redis requires Redis server running
+# - boto3 and django-storages are optional (only needed if USE_S3=true)
+# - uvicorn[standard] includes websockets and performance extras

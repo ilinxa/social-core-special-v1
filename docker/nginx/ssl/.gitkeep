@@ -1,0 +1,7 @@
+# This directory stores SSL certificates
+# Files in this directory should be gitignored (except .gitkeep)
+#
+# Expected files:
+#   - cert.pem    (SSL certificate)
+#   - key.pem     (SSL private key)
+#   - chain.pem   (Certificate chain, optional)

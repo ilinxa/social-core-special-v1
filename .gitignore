@@ -1,0 +1,25 @@
+# Environment / secrets
+.env
+.env.dev
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# Logs
+*.log
+
+# Temp files
+tmp_*.json
+
+# Ad-hoc debug scripts
+e2e_*.ps1
+
+# Claude Code local settings (CLAUDE.md is tracked)
+.claude/settings.local.json

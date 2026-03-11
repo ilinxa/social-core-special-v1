@@ -1,0 +1,23 @@
+[run]
+source = apps
+omit =
+    */migrations/*
+    */tests/*
+    */admin.py
+    */apps.py
+    */management/*
+
+[report]
+fail_under = 80
+show_missing = true
+precision = 1
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    def __str__
+    if TYPE_CHECKING
+    raise NotImplementedError
+    pass
+
+[html]
+directory = htmlcov

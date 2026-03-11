@@ -1,0 +1,17 @@
+-r base.txt
+
+# Development tools
+django-debug-toolbar==4.4.6
+django-extensions==3.2.3
+ipython==8.29.0
+
+# Code quality
+black==24.10.0
+flake8==7.1.1
+isort==5.13.2
+
+# Testing
+pytest==8.3.4
+pytest-django==4.9.0
+pytest-cov==6.0.0
+factory-boy==3.3.1

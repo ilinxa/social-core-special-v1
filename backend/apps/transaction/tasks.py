@@ -1,0 +1,101 @@
+from celery import shared_task
+from django.utils import timezone
+from apps.core.observability.logging.celery import LoggedTask
+from apps.core.observability import get_logger
+from apps.transaction.selectors import TransactionSelector
+
+logger = get_logger(__name__)
+
+
+@shared_task(base=LoggedTask)
+def expire_transactions_task():
+    """Hourly: expire transactions past their expiration date."""
+    expired = TransactionSelector.list_expired_needing_update()
+    count = 0
+    for txn in expired:
+        from apps.transaction.services import TransactionService
+        try:
+            TransactionService.expire(transaction_id=txn.id)
+            count += 1
+        except Exception as e:
+            logger.error(
+                "task.expire.failed",
+                transaction_id=str(txn.id),
+                error=str(e),
+            )
+    logger.info("task.expire.complete", count=count)
+
+
+@shared_task(bind=True, base=LoggedTask, max_retries=3)
+def retry_outcome_execution_task(self, transaction_id: str):
+    """Retry failed outcome execution with exponential backoff."""
+    from uuid import UUID
+    from apps.transaction.services import TransactionService
+    from apps.core.types import ActorContext
+
+    try:
+        txn = TransactionSelector.get_by_id(transaction_id=UUID(transaction_id))
+        if txn.outcome_executed:
+            return
+        TransactionService._execute_outcome(
+            transaction=txn, actor_context=ActorContext.for_system(),
+        )
+    except Exception as exc:
+        logger.error(
+            "task.retry_outcome.failed",
+            transaction_id=transaction_id,
+            error=str(exc),
+        )
+        raise self.retry(exc=exc, countdown=300)
+
+
+@shared_task(base=LoggedTask)
+def cleanup_old_transaction_logs_task(retention_days: int = 90):
+    """Daily: delete logs for terminal transactions older than retention."""
+    from apps.transaction.models import TransactionLog
+    from apps.transaction.constants import TERMINAL_STATES
+    from datetime import timedelta
+
+    cutoff = timezone.now() - timedelta(days=retention_days)
+    deleted, _ = TransactionLog.objects.filter(
+        timestamp__lt=cutoff,
+        transaction__status__in=list(TERMINAL_STATES),
+    ).delete()
+    logger.info("task.cleanup.complete", deleted=deleted)
+
+
+@shared_task(base=LoggedTask)
+def send_expiration_reminder_task():
+    """Daily: remind targets about transactions expiring in 24-48 hours."""
+    from apps.transaction.models import Transaction
+    from django.contrib.auth import get_user_model
+    from datetime import timedelta
+    User = get_user_model()
+
+    now = timezone.now()
+    expiring = Transaction.objects.filter(
+        expires_at__gte=now + timedelta(hours=24),
+        expires_at__lt=now + timedelta(hours=48),
+        status="pending",
+    )
+
+    try:
+        from apps.notifications.services import NotificationService
+    except ImportError:
+        return
+
+    count = 0
+    for txn in expiring:
+        if txn.mode == "invitation" and txn.target_type == "user":
+            target = User.objects.filter(id=txn.target_id).first()
+            if target:
+                NotificationService.send(
+                    user=target,
+                    notification_type="transaction_expiring_soon",
+                    context={
+                        "transaction_id": str(txn.id),
+                        "expires_at": txn.expires_at.isoformat(),
+                    },
+                )
+                count += 1
+    logger.info("task.reminder.complete", count=count)

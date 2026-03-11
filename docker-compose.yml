@@ -1,0 +1,169 @@
+name: django-production
+
+services:
+  # ==========================================================================
+  # DJANGO APPLICATION
+  # ==========================================================================
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: django-backend:latest
+    container_name: django_app
+    restart: unless-stopped
+
+    # Load environment variables from .env file
+    env_file:
+      - .env
+
+    environment:
+      POSTGRES_HOST: db
+      REDIS_URL: redis://redis:6379
+      DJANGO_SETTINGS_MODULE: backend_core.settings.production
+
+    # Expose port 8000 (use nginx in production, direct access for testing)
+    # When using nginx, comment out this ports section
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    volumes:
+      # Static files (collected by Django, served by nginx)
+      - static_volume:/app/staticfiles
+      # Media files (user uploads, served by nginx)
+      - media_volume:/app/media
+
+    networks:
+      - frontend
+      - backend
+
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/admin/')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================================================
+  # REDIS (Cache & Channels Layer)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis_cache
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ==========================================================================
+  # POSTGRESQL DATABASE
+  # ==========================================================================
+  db:
+    image: postgres:17-alpine
+    container_name: postgres_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+      - database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # NGINX REVERSE PROXY (Uncomment for production with SSL)
+  # ==========================================================================
+  # To enable nginx:
+  #   1. Uncomment this entire nginx service block
+  #   2. Comment out the 'ports' section in the 'app' service above
+  #   3. Place SSL certificates in docker/nginx/ssl/
+  #   4. Update server_name in docker/nginx/nginx.conf
+  # ==========================================================================
+  # nginx:
+  #   image: nginx:1.25-alpine
+  #   container_name: nginx_proxy
+  #   restart: unless-stopped
+  #
+  #   ports:
+  #     - "80:80"    # HTTP (redirects to HTTPS)
+  #     - "443:443"  # HTTPS
+  #
+  #   volumes:
+  #     # Nginx configuration (production)
+  #     - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #     # SSL certificates
+  #     - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+  #     # Static files (served directly by nginx)
+  #     - static_volume:/app/staticfiles:ro
+  #     # Media files (served directly by nginx)
+  #     - media_volume:/app/media:ro
+  #     # Let's Encrypt webroot (for certificate renewal)
+  #     - certbot_webroot:/var/www/certbot:ro
+  #
+  #   depends_on:
+  #     app:
+  #       condition: service_healthy
+  #
+  #   networks:
+  #     - frontend
+  #
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost/nginx-health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+# ==========================================================================
+# VOLUMES
+# ==========================================================================
+volumes:
+  postgres_data:
+    name: postgres_prod_data
+  redis_data:
+    name: redis_prod_data
+  static_volume:
+    name: django_static_files
+  media_volume:
+    name: django_media_files
+  # Certbot webroot for Let's Encrypt (uncomment when using nginx)
+  # certbot_webroot:
+  #   name: certbot_webroot
+
+# ==========================================================================
+# NETWORKS
+# ==========================================================================
+networks:
+  # Public-facing network (nginx, app)
+  frontend:
+    driver: bridge
+    name: frontend_network
+
+  # Internal network (app, db, redis)
+  backend:
+    driver: bridge
+    name: backend_network
+
+  # Database-only network (db) - no external access
+  database:
+    driver: bridge
+    internal: true
+
+
