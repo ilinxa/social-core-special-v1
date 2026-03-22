@@ -12,13 +12,12 @@ from django.db import IntegrityError, transaction
 
 from apps.notifications.models import NotificationLog, NotificationPreference
 from apps.notifications.tests.factories import (
-    NotificationPreferenceFactory,
     DisabledPreferenceFactory,
-    NotificationLogFactory,
-    SentNotificationLogFactory,
     FailedNotificationLogFactory,
+    NotificationLogFactory,
+    NotificationPreferenceFactory,
+    SentNotificationLogFactory,
 )
-
 
 # =============================================================================
 # NOTIFICATION PREFERENCE

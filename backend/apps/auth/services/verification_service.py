@@ -14,21 +14,19 @@ Security:
     - Old tokens invalidated when new one is created
 """
 
-from typing import Optional
 import uuid
 
 from django.conf import settings
 from django.db import transaction
 from django.http import HttpRequest
 
-from apps.core.exceptions import TokenExpired, TokenInvalid
-from apps.users.services import UserService
-
 from apps.auth.models import EmailVerificationToken
+from apps.core.exceptions import TokenExpired, TokenInvalid
 
 # Observability
 from apps.core.observability import get_logger
-from apps.core.observability.audit import AuditService, AuditLog
+from apps.core.observability.audit import AuditLog, AuditService
+from apps.users.services import UserService
 
 logger = get_logger(__name__)
 
@@ -43,9 +41,7 @@ class VerificationService:
     @staticmethod
     @transaction.atomic
     def create_token(
-        *,
-        user,
-        request: Optional[HttpRequest] = None
+        *, user, request: HttpRequest | None = None
     ) -> EmailVerificationToken:
         """
         Create verification token and send email.
@@ -69,63 +65,64 @@ class VerificationService:
         token = EmailVerificationToken.create_for_user(user)
 
         # Build verification URL
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
         verification_link = f"{frontend_url}/verify-email?token={token.token}"
 
-        # Log verification details to console in DEBUG mode
-        if getattr(settings, 'DEBUG', False):
-            print(f"\n{'=' * 60}")
-            print("VERIFICATION CODE (Dev Console)")
-            print(f"{'=' * 60}")
-            print(f"User: {user.email}")
-            print(f"Code: {token.code}")
-            print(f"Link: {verification_link}")
-            print(f"{'=' * 60}\n")
-
-        # Send notification via Notifications system
-        try:
-            from apps.notifications.services import NotificationService
-
-            NotificationService.send(
-                user=user,
-                notification_type='verify_email',
-                context={
-                    'verification_link': verification_link,
-                    'code': token.code
-                },
-                force_channels=['email']  # Always send via email
-            )
-
+        # Log verification details in DEBUG mode (structured output via structlog)
+        if getattr(settings, "DEBUG", False):
             logger.info(
-                "auth.verification.sent",
-                user_id=str(user.id),
-                token_id=str(token.token),
+                "dev.verification_code",
+                user=user.email,
+                code=token.code,
+                link=verification_link,
             )
 
-            # Audit: Verification email sent
-            AuditService.log(
-                action=AuditLog.Action.VERIFICATION_SENT,
-                actor=user,
-                resource=token,
-                request=request,
-            )
+        # Defer notification until transaction commits (Celery dispatch safety)
+        _user, _link, _code = user, verification_link, token.code
 
-        except Exception as e:
-            logger.error(
-                "auth.verification.send_failed",
-                user_id=str(user.id),
-                error=str(e),
-            )
-            raise
+        def _send_verification():
+            try:
+                from apps.notifications.services import NotificationService
+
+                NotificationService.send(
+                    user=_user,
+                    notification_type="verify_email",
+                    context={
+                        "verification_link": _link,
+                        "code": _code,
+                    },
+                    force_channels=["email"],
+                )
+            except Exception as e:
+                logger.error(
+                    "auth.verification.send_failed",
+                    user_id=str(_user.id),
+                    error=str(e),
+                )
+
+        transaction.on_commit(_send_verification)
+
+        logger.info(
+            "auth.verification.scheduled",
+            user_id=str(user.id),
+            token_id=str(token.token),
+        )
+
+        # Audit: Verification email scheduled
+        AuditService.log(
+            action=AuditLog.Action.VERIFICATION_SENT,
+            actor=user,
+            resource=token,
+            request=request,
+        )
 
         return token
 
     @staticmethod
     @transaction.atomic
     def verify_by_token(
-        token_uuid: uuid.UUID,
-        request: Optional[HttpRequest] = None
-    ) -> 'User':
+        token_uuid: uuid.UUID, request: HttpRequest | None = None
+    ) -> "User":
         """
         Verify email using magic link token.
 
@@ -140,10 +137,11 @@ class VerificationService:
             TokenInvalid: Token not found or already used
             TokenExpired: Token has expired
         """
-        token = EmailVerificationToken.objects.filter(
-            token=token_uuid,
-            is_used=False
-        ).select_related('user').first()
+        token = (
+            EmailVerificationToken.objects.filter(token=token_uuid, is_used=False)
+            .select_related("user")
+            .first()
+        )
 
         if not token:
             logger.warning(
@@ -190,10 +188,8 @@ class VerificationService:
     @staticmethod
     @transaction.atomic
     def verify_by_code(
-        email: str,
-        code: str,
-        request: Optional[HttpRequest] = None
-    ) -> 'User':
+        email: str, code: str, request: HttpRequest | None = None
+    ) -> "User":
         """
         Verify email using 6-digit code.
 
@@ -210,11 +206,13 @@ class VerificationService:
             TokenExpired: Code has expired
         """
         # Find token by code and email
-        token = EmailVerificationToken.objects.filter(
-            email__iexact=email.strip(),
-            code=code,
-            is_used=False
-        ).select_related('user').first()
+        token = (
+            EmailVerificationToken.objects.filter(
+                email__iexact=email.strip(), code=code, is_used=False
+            )
+            .select_related("user")
+            .first()
+        )
 
         if not token:
             logger.warning(
@@ -260,9 +258,8 @@ class VerificationService:
 
     @staticmethod
     def resend_verification(
-        user,
-        request: Optional[HttpRequest] = None
-    ) -> Optional[EmailVerificationToken]:
+        user, request: HttpRequest | None = None
+    ) -> EmailVerificationToken | None:
         """
         Resend verification email.
 
@@ -288,8 +285,8 @@ class VerificationService:
 
             NotificationService.send(
                 user=user,
-                notification_type='welcome',
-                context={}  # user_name auto-added by channel
+                notification_type="welcome",
+                context={},  # user_name auto-added by channel
             )
 
         except Exception as e:

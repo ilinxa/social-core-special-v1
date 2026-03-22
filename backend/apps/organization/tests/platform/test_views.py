@@ -57,7 +57,9 @@ class TestPlatformAccountView:
 
         assert response.status_code == 403
 
-    def test_configure_already_configured_platform(self, admin_client, configured_platform):
+    def test_configure_already_configured_platform(
+        self, admin_client, configured_platform
+    ):
         """Test that configuring already configured platform fails."""
         response = admin_client.post(
             "/api/v1/platform/account/",
@@ -73,7 +75,10 @@ class TestPlatformAccountViewPermissions:
     """Tests for _permissions injection in platform account GET responses."""
 
     def test_get_response_includes_permissions(
-        self, authenticated_client, platform_account, platform_profile,
+        self,
+        authenticated_client,
+        platform_account,
+        platform_profile,
     ):
         """GET account response includes _permissions dict."""
         response = authenticated_client.get("/api/v1/platform/account/")
@@ -83,7 +88,10 @@ class TestPlatformAccountViewPermissions:
         assert isinstance(response.data["_permissions"], dict)
 
     def test_regular_user_gets_view_only_permissions(
-        self, authenticated_client, platform_account, platform_profile,
+        self,
+        authenticated_client,
+        platform_account,
+        platform_profile,
     ):
         """Regular authenticated user can view but not edit."""
         response = authenticated_client.get("/api/v1/platform/account/")
@@ -94,7 +102,10 @@ class TestPlatformAccountViewPermissions:
         assert perms["can_edit_settings"] is False
 
     def test_staff_gets_profile_edit_permission(
-        self, staff_client, platform_account, platform_profile,
+        self,
+        staff_client,
+        platform_account,
+        platform_profile,
     ):
         """Staff can edit profile but not settings."""
         response = staff_client.get("/api/v1/platform/account/")
@@ -105,7 +116,10 @@ class TestPlatformAccountViewPermissions:
         assert perms["can_edit_settings"] is False
 
     def test_superuser_gets_all_permissions(
-        self, admin_client, platform_account, platform_profile,
+        self,
+        admin_client,
+        platform_account,
+        platform_profile,
     ):
         """Superuser gets all permissions."""
         response = admin_client.get("/api/v1/platform/account/")
@@ -136,7 +150,9 @@ class TestPlatformProfileViewPermissions:
     """Tests for _permissions injection in platform profile GET responses."""
 
     def test_get_profile_includes_permissions(
-        self, authenticated_client, platform_profile,
+        self,
+        authenticated_client,
+        platform_profile,
     ):
         """GET profile response includes _permissions dict."""
         response = authenticated_client.get("/api/v1/platform/profile/")
@@ -145,7 +161,9 @@ class TestPlatformProfileViewPermissions:
         assert "_permissions" in response.data
 
     def test_patch_profile_excludes_permissions(
-        self, staff_client, platform_profile,
+        self,
+        staff_client,
+        platform_profile,
     ):
         """PATCH profile response does NOT include _permissions."""
         response = staff_client.patch(
@@ -162,9 +180,7 @@ class TestPlatformProfileViewPermissions:
 class TestPlatformProfileView:
     """Tests for PlatformProfileView endpoints."""
 
-    def test_get_platform_profile(
-        self, authenticated_client, platform_profile
-    ):
+    def test_get_platform_profile(self, authenticated_client, platform_profile):
         """Test getting platform profile."""
         response = authenticated_client.get("/api/v1/platform/profile/")
 
@@ -172,9 +188,7 @@ class TestPlatformProfileView:
         assert "name" in response.data
         assert "tagline" in response.data
 
-    def test_update_platform_profile_as_staff(
-        self, staff_client, platform_profile
-    ):
+    def test_update_platform_profile_as_staff(self, staff_client, platform_profile):
         """Test updating platform profile as staff user."""
         response = staff_client.patch(
             "/api/v1/platform/profile/",
@@ -198,9 +212,7 @@ class TestPlatformProfileView:
 
         assert response.status_code == 403
 
-    def test_update_platform_profile_partial(
-        self, staff_client, platform_profile
-    ):
+    def test_update_platform_profile_partial(self, staff_client, platform_profile):
         """Test partial profile update."""
         original_name = platform_profile.name
 
@@ -273,7 +285,9 @@ class TestPlatformSettingsView:
 class TestPlatformAccountViewAnonymous:
     """Tests for anonymous (unauthenticated) access to PlatformAccountView."""
 
-    def test_anonymous_get_returns_200(self, api_client, platform_account, platform_profile):
+    def test_anonymous_get_returns_200(
+        self, api_client, platform_account, platform_profile
+    ):
         """Anonymous GET to /api/v1/platform/account/ returns 200 when platform exists."""
         response = api_client.get("/api/v1/platform/account/")
 
@@ -282,7 +296,10 @@ class TestPlatformAccountViewAnonymous:
         assert "is_configured" in response.data
 
     def test_anonymous_get_returns_permissions(
-        self, api_client, platform_account, platform_profile,
+        self,
+        api_client,
+        platform_account,
+        platform_profile,
     ):
         """Anonymous GET returns _permissions with can_view=True and all others False."""
         response = api_client.get("/api/v1/platform/account/")
@@ -310,7 +327,10 @@ class TestPlatformRelationshipInjection:
     """Tests for _relationship injection on platform account detail."""
 
     def test_anonymous_get_no_relationship(
-        self, api_client, platform_account, platform_profile,
+        self,
+        api_client,
+        platform_account,
+        platform_profile,
     ):
         """Anonymous GET does NOT include _relationship."""
         response = api_client.get("/api/v1/platform/account/")
@@ -318,7 +338,10 @@ class TestPlatformRelationshipInjection:
         assert "_relationship" not in response.data
 
     def test_authenticated_non_member_gets_null_relationship(
-        self, authenticated_client, platform_account, platform_profile,
+        self,
+        authenticated_client,
+        platform_account,
+        platform_profile,
     ):
         """Authenticated non-member GET includes _relationship with null values."""
         response = authenticated_client.get("/api/v1/platform/account/")
@@ -329,11 +352,15 @@ class TestPlatformRelationshipInjection:
         assert rel["active_transaction"] is None
 
     def test_platform_member_gets_relationship_with_status(
-        self, api_client, platform_account, platform_profile, another_user,
+        self,
+        api_client,
+        platform_account,
+        platform_profile,
+        another_user,
     ):
         """Platform member GET includes _relationship with membership_status."""
-        from apps.rbac.models import Membership, Role
         from apps.core.constants import AccountType, MembershipStatus
+        from apps.rbac.models import Membership, Role
 
         # Create a platform membership for another_user
         owner_role = Role.objects.filter(
@@ -367,7 +394,10 @@ class TestPlatformRelationshipInjection:
         assert rel["membership_status"] == "active"
 
     def test_non_member_relationship_includes_follow_fields(
-        self, authenticated_client, platform_account, platform_profile,
+        self,
+        authenticated_client,
+        platform_account,
+        platform_profile,
     ):
         """Authenticated non-member relationship includes follow fields."""
         response = authenticated_client.get("/api/v1/platform/account/")
@@ -378,7 +408,10 @@ class TestPlatformRelationshipInjection:
         assert rel["active_follow_transaction"] is None
 
     def test_active_follow_shows_follow_id(
-        self, api_client, platform_account, platform_profile,
+        self,
+        api_client,
+        platform_account,
+        platform_profile,
     ):
         """Following the platform populates follow_id in _relationship."""
         from apps.network.tests.factories import FollowFactory
@@ -399,7 +432,9 @@ class TestPlatformRelationshipInjection:
         assert rel["follow_id"] == str(follow.id)
 
     def test_update_settings_open_member_request(
-        self, admin_client, platform_account,
+        self,
+        admin_client,
+        platform_account,
     ):
         """Superuser can update open_member_request setting."""
         response = admin_client.patch(
@@ -413,7 +448,9 @@ class TestPlatformRelationshipInjection:
         assert platform_account.open_member_request is False
 
     def test_non_member_update_settings_denied(
-        self, authenticated_client, platform_account,
+        self,
+        authenticated_client,
+        platform_account,
     ):
         """Non-superuser cannot update platform settings."""
         response = authenticated_client.patch(

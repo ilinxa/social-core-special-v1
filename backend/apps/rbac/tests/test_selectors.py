@@ -9,14 +9,15 @@ Tests cover:
 - Cache invalidation
 """
 
-import pytest
 from uuid import uuid4
+
+import pytest
 from django.core.cache import cache
 
-from apps.core.constants import AccountType, PermissionScope, MembershipStatus
+from apps.core.constants import AccountType, MembershipStatus, PermissionScope
 from apps.core.exceptions import NotFound
-from apps.rbac.models import Permission, Role, RolePermission, Membership
-from apps.rbac.selectors import PermissionSelector, RoleSelector, MembershipSelector
+from apps.rbac.models import Membership, Permission, Role, RolePermission
+from apps.rbac.selectors import MembershipSelector, PermissionSelector, RoleSelector
 from apps.rbac.tests.conftest import skip_if_locmem_cache
 
 
@@ -73,7 +74,9 @@ class TestPermissionSelector:
             applicable_scopes=["business"],
         )
 
-        result = PermissionSelector.get_permissions_by_category(category="test_category")
+        result = PermissionSelector.get_permissions_by_category(
+            category="test_category"
+        )
         assert result.count() == 2
 
     def test_get_permissions_for_membership(self, role_with_permissions, user):
@@ -159,12 +162,16 @@ class TestPermissionSelector:
         assert cache.get(cache_key) is not None
 
         # Invalidate
-        PermissionSelector.invalidate_membership_permissions(membership_id=membership.id)
+        PermissionSelector.invalidate_membership_permissions(
+            membership_id=membership.id
+        )
 
         # Verify cache is cleared
         assert cache.get(cache_key) is None
 
-    def test_invalidate_role_permissions(self, role_with_permissions, user, another_user):
+    def test_invalidate_role_permissions(
+        self, role_with_permissions, user, another_user
+    ):
         """Test invalidating permissions for all memberships with a role."""
         m1 = Membership.objects.create(
             user=user,
@@ -367,7 +374,9 @@ class TestMembershipSelector:
         )
         assert memberships.count() == 3
 
-    def test_get_memberships_for_account_with_status_filter(self, business_with_members):
+    def test_get_memberships_for_account_with_status_filter(
+        self, business_with_members
+    ):
         """Test filtering memberships by status."""
         member1 = business_with_members["member1_membership"]
         member1.status = MembershipStatus.SUSPENDED
@@ -382,7 +391,9 @@ class TestMembershipSelector:
         )
         assert suspended.count() == 1
 
-    def test_get_memberships_for_account_include_all_statuses(self, business_with_members):
+    def test_get_memberships_for_account_include_all_statuses(
+        self, business_with_members
+    ):
         """Test including all statuses."""
         member1 = business_with_members["member1_membership"]
         member1.status = MembershipStatus.BANNED
@@ -474,7 +485,8 @@ class TestMembershipSelector:
 
         # With pending_approval included
         with_pending = MembershipSelector.get_memberships_for_user(
-            user=user, include_pending_approval=True,
+            user=user,
+            include_pending_approval=True,
         )
         assert with_pending.count() == 2
         statuses = set(with_pending.values_list("status", flat=True))
@@ -734,7 +746,9 @@ class TestPlatformMembershipSelector:
         assert result == platform_owner_membership
         assert result.account_type == AccountType.PLATFORM
 
-    def test_get_platform_membership_for_user_account(self, platform_owner_membership, platform):
+    def test_get_platform_membership_for_user_account(
+        self, platform_owner_membership, platform
+    ):
         """get_membership_for_user_account works for platform."""
         result = MembershipSelector.get_membership_for_user_account(
             user=platform_owner_membership.user,
@@ -762,7 +776,10 @@ class TestPlatformMembershipSelector:
         assert result == platform_owner_membership
 
     def test_get_active_platform_excludes_suspended(
-        self, platform, platform_admin_role, another_user,
+        self,
+        platform,
+        platform_admin_role,
+        another_user,
     ):
         """Suspended platform memberships are not returned as active."""
         Membership.objects.create(
@@ -873,7 +890,9 @@ class TestPlatformMembershipSelector:
         )
         assert count == 2
 
-    def test_get_users_with_platform_permission_excludes_inactive(self, platform_with_members):
+    def test_get_users_with_platform_permission_excludes_inactive(
+        self, platform_with_members
+    ):
         """Suspended platform members excluded from permission query."""
         platform = platform_with_members["platform"]
         admin = platform_with_members["admin_membership"]

@@ -112,6 +112,7 @@ class CompanySize(models.TextChoices):
 # FORM BUILDER ENUMS
 # =============================================================================
 
+
 class FormStatus(models.TextChoices):
     """Form template lifecycle states."""
 

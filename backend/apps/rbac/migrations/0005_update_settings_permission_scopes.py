@@ -9,7 +9,6 @@ Without this, Platform Admin role cannot receive these permissions
 
 from django.db import migrations
 
-
 UPDATES = [
     # (code, new_applicable_scopes)
     ("can_edit_profile", ["business", "global_only", "platform_only"]),
@@ -18,13 +17,13 @@ UPDATES = [
 
 
 def update_scopes(apps, schema_editor):
-    Permission = apps.get_model('rbac', 'Permission')
+    Permission = apps.get_model("rbac", "Permission")
     for code, new_scopes in UPDATES:
         Permission.objects.filter(code=code).update(applicable_scopes=new_scopes)
 
 
 def reverse_scopes(apps, schema_editor):
-    Permission = apps.get_model('rbac', 'Permission')
+    Permission = apps.get_model("rbac", "Permission")
     for code, _ in UPDATES:
         Permission.objects.filter(code=code).update(
             applicable_scopes=["business", "global_only"],
@@ -33,7 +32,7 @@ def reverse_scopes(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('rbac', '0004_seed_cms_permissions'),
+        ("rbac", "0004_seed_cms_permissions"),
     ]
 
     operations = [

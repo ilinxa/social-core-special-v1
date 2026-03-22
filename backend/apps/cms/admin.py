@@ -6,10 +6,18 @@ Superuser-only interface for managing CMS structure.
 """
 
 from django.contrib import admin
+
 from apps.cms.models import (
-    Site, Page, SectionTemplate, BlockTemplate,
-    PageSectionPlacement, SectionBlockPlacement,
-    ContentVersion, MediaFolder, MediaFile, CMSApiKey,
+    BlockTemplate,
+    CMSApiKey,
+    ContentVersion,
+    MediaFile,
+    MediaFolder,
+    Page,
+    PageSectionPlacement,
+    SectionBlockPlacement,
+    SectionTemplate,
+    Site,
 )
 
 
@@ -38,8 +46,14 @@ class SiteAdmin(admin.ModelAdmin):
     fieldsets = [
         ("Basic Info", {"fields": ["name", "slug", "domain", "description"]}),
         ("Ownership", {"fields": ["owner_type", "owner_id"]}),
-        ("Settings", {"fields": ["default_locale", "metadata", "is_active", "homepage"]}),
-        ("Audit", {"fields": ["id", "created_at", "updated_at", "created_by", "updated_by"]}),
+        (
+            "Settings",
+            {"fields": ["default_locale", "metadata", "is_active", "homepage"]},
+        ),
+        (
+            "Audit",
+            {"fields": ["id", "created_at", "updated_at", "created_by", "updated_by"]},
+        ),
     ]
 
 
@@ -54,9 +68,23 @@ class PageAdmin(admin.ModelAdmin):
         ("Basic Info", {"fields": ["title", "slug", "path", "description"]}),
         ("Site", {"fields": ["site"]}),
         ("Type & SEO", {"fields": ["page_type", "metadata"]}),
-        ("Status", {"fields": ["status", "published_at", "order", "is_required", "is_visible"]}),
+        (
+            "Status",
+            {
+                "fields": [
+                    "status",
+                    "published_at",
+                    "order",
+                    "is_required",
+                    "is_visible",
+                ]
+            },
+        ),
     ]
     actions = ["publish_pages", "archive_pages"]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("site")
 
     @admin.action(description="Publish selected pages")
     def publish_pages(self, request, queryset):
@@ -88,6 +116,9 @@ class PageSectionPlacementAdmin(admin.ModelAdmin):
     search_fields = ["label", "page__title"]
     inlines = [SectionBlockPlacementInline]
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("page", "template")
+
     @admin.display(description="Label")
     def label_or_template(self, obj):
         return obj.label or obj.template.display_name
@@ -106,17 +137,34 @@ class SectionBlockPlacementAdmin(admin.ModelAdmin):
 
 @admin.register(ContentVersion)
 class ContentVersionAdmin(admin.ModelAdmin):
-    list_display = ["block_placement", "version_number", "action", "created_by", "created_at"]
+    list_display = [
+        "block_placement",
+        "version_number",
+        "action",
+        "created_by",
+        "created_at",
+    ]
     list_filter = ["action"]
     readonly_fields = [
-        "block_placement", "content_snapshot", "version_number",
-        "action", "created_by", "created_at", "notes",
+        "block_placement",
+        "content_snapshot",
+        "version_number",
+        "action",
+        "created_by",
+        "created_at",
+        "notes",
     ]
 
 
 @admin.register(MediaFile)
 class MediaFileAdmin(admin.ModelAdmin):
-    list_display = ["original_filename", "mime_type", "file_size", "folder", "is_tombstoned"]
+    list_display = [
+        "original_filename",
+        "mime_type",
+        "file_size",
+        "folder",
+        "is_tombstoned",
+    ]
     list_filter = ["mime_type", "is_tombstoned"]
     search_fields = ["original_filename", "title", "alt_text"]
     readonly_fields = ["id", "storage_key", "created_at", "updated_at"]

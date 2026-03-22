@@ -29,8 +29,6 @@ Usage:
     JTIBlacklist.blacklist_user_tokens(user_id)
 """
 
-from typing import Optional
-
 from django.conf import settings
 from django.utils import timezone
 
@@ -47,7 +45,7 @@ class JTIBlacklist:
     """
 
     _redis = None
-    KEY_PREFIX = 'jti_blacklist:'
+    KEY_PREFIX = "jti_blacklist:"
 
     @classmethod
     def _get_redis(cls):
@@ -55,13 +53,14 @@ class JTIBlacklist:
         if cls._redis is None:
             try:
                 import redis
-                redis_url = getattr(settings, 'REDIS_URL', 'redis://localhost:6379/0')
+
+                redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
                 cls._redis = redis.from_url(redis_url)
                 # Test connection
                 cls._redis.ping()
             except Exception as e:
                 logger.warning(f"Redis connection failed: {e}. Using fallback cache.")
-                cls._redis = 'fallback'
+                cls._redis = "fallback"
 
         return cls._redis
 
@@ -76,56 +75,69 @@ class JTIBlacklist:
                         After this time, the token would be expired anyway.
         """
         if ttl_seconds is None:
-            jwt_auth = getattr(settings, 'JWT_AUTH', {})
-            ttl_seconds = jwt_auth.get('ACCESS_TOKEN_LIFETIME', 900)
+            jwt_auth = getattr(settings, "JWT_AUTH", {})
+            ttl_seconds = jwt_auth.get("ACCESS_TOKEN_LIFETIME", 900)
 
         redis_client = cls._get_redis()
 
-        if redis_client == 'fallback':
+        if redis_client == "fallback":
             # Fallback to Django cache
             from django.core.cache import cache
+
             cache_key = f"{cls.KEY_PREFIX}{jti}"
-            cache.set(cache_key, '1', ttl_seconds)
+            cache.set(cache_key, "1", ttl_seconds)
             return
 
         try:
             key = f"{cls.KEY_PREFIX}{jti}"
-            redis_client.setex(key, ttl_seconds, '1')
+            redis_client.setex(key, ttl_seconds, "1")
         except Exception as e:
             logger.error(f"Failed to blacklist JTI: {e}")
             # Fallback to Django cache
             from django.core.cache import cache
+
             cache_key = f"{cls.KEY_PREFIX}{jti}"
-            cache.set(cache_key, '1', ttl_seconds)
+            cache.set(cache_key, "1", ttl_seconds)
 
     @classmethod
     def is_blacklisted(cls, jti: str) -> bool:
         """
         Check if JTI is blacklisted.
 
+        Security: Fail-closed — if Redis is unavailable, raises ServiceUnavailable
+        to deny access rather than silently accepting potentially revoked tokens.
+
         Args:
             jti: The JWT ID to check
 
         Returns:
             True if blacklisted, False otherwise
+
+        Raises:
+            ServiceUnavailable: If Redis is unavailable (fail-closed)
         """
+        from apps.core.exceptions import ServiceUnavailable
+
         redis_client = cls._get_redis()
 
-        if redis_client == 'fallback':
-            # Fallback to Django cache
-            from django.core.cache import cache
-            cache_key = f"{cls.KEY_PREFIX}{jti}"
-            return cache.get(cache_key) is not None
+        if redis_client == "fallback":
+            # Fail closed — deny access when blacklist cannot be checked
+            logger.error("auth.blacklist.redis_unavailable", extra={"jti": jti})
+            raise ServiceUnavailable(
+                message="Security service temporarily unavailable",
+                service="blacklist",
+            )
 
         try:
             key = f"{cls.KEY_PREFIX}{jti}"
             return redis_client.exists(key) > 0
         except Exception as e:
             logger.error(f"Failed to check JTI blacklist: {e}")
-            # Fallback to Django cache
-            from django.core.cache import cache
-            cache_key = f"{cls.KEY_PREFIX}{jti}"
-            return cache.get(cache_key) is not None
+            # Fail closed — deny access when blacklist cannot be checked
+            raise ServiceUnavailable(
+                message="Security service temporarily unavailable",
+                service="blacklist",
+            )
 
     @classmethod
     def blacklist_user_tokens(cls, user_id: int) -> int:
@@ -148,10 +160,8 @@ class JTIBlacklist:
 
         # Get all active refresh tokens (each has a JTI)
         active_tokens = RefreshToken.objects.filter(
-            user_id=user_id,
-            is_revoked=False,
-            expires_at__gt=timezone.now()
-        ).values_list('jti', flat=True)
+            user_id=user_id, is_revoked=False, expires_at__gt=timezone.now()
+        ).values_list("jti", flat=True)
 
         count = 0
         for jti in active_tokens:
@@ -160,7 +170,7 @@ class JTIBlacklist:
 
         logger.info(
             "auth.blacklist.user_tokens",
-            extra={'user_id': user_id, 'tokens_blacklisted': count}
+            extra={"user_id": user_id, "tokens_blacklisted": count},
         )
 
         return count
@@ -178,8 +188,9 @@ class JTIBlacklist:
         """
         redis_client = cls._get_redis()
 
-        if redis_client == 'fallback':
+        if redis_client == "fallback":
             from django.core.cache import cache
+
             cache_key = f"{cls.KEY_PREFIX}{jti}"
             cache.delete(cache_key)
             return True

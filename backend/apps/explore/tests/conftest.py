@@ -19,6 +19,7 @@ def user(db):
 def authenticated_client(api_client, user):
     """API client with JWT authentication."""
     from apps.auth.services import AuthService
+
     tokens = AuthService.login(email=user.email, password="testpass123")
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
     return api_client

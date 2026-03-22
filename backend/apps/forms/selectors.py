@@ -1,10 +1,11 @@
-from typing import Optional, List
+from typing import List
 from uuid import UUID
+
 from django.db.models import QuerySet
 
+from apps.core.constants import OwnerType
 from apps.core.exceptions import NotFound
-from apps.forms.models import FormTemplate, FormField, FormResponse
-from apps.core.constants import FormStatus, OwnerType
+from apps.forms.models import FormField, FormResponse, FormTemplate
 
 
 class FormTemplateSelector:
@@ -18,14 +19,14 @@ class FormTemplateSelector:
         return form
 
     @staticmethod
-    def get_by_id_or_none(*, form_template_id: UUID) -> Optional[FormTemplate]:
+    def get_by_id_or_none(*, form_template_id: UUID) -> FormTemplate | None:
         return FormTemplate.objects.filter(id=form_template_id).first()
 
     @staticmethod
     def get_by_slug(
         *,
         owner_type: str,
-        owner_id: Optional[UUID],
+        owner_id: UUID | None,
         slug: str,
         current_only: bool = True,
     ) -> FormTemplate:
@@ -68,8 +69,8 @@ class FormTemplateSelector:
     def list_by_owner(
         *,
         owner_type: str,
-        owner_id: Optional[UUID],
-        status: Optional[str] = None,
+        owner_id: UUID | None,
+        status: str | None = None,
         current_only: bool = True,
     ) -> QuerySet[FormTemplate]:
         qs = FormTemplate.objects.filter(
@@ -83,14 +84,14 @@ class FormTemplateSelector:
         return qs
 
     @staticmethod
-    def list_public_templates(*, scope: Optional[str] = None) -> QuerySet[FormTemplate]:
+    def list_public_templates(*, scope: str | None = None) -> QuerySet[FormTemplate]:
         qs = FormTemplate.objects.public_templates()
         if scope:
             qs = qs.filter(scope=scope)
         return qs
 
     @staticmethod
-    def list_system_forms(*, scope: Optional[str] = None) -> QuerySet[FormTemplate]:
+    def list_system_forms(*, scope: str | None = None) -> QuerySet[FormTemplate]:
         qs = FormTemplate.objects.filter(
             owner_type=OwnerType.SYSTEM,
             is_current=True,
@@ -103,10 +104,10 @@ class FormTemplateSelector:
     def get_by_slug_or_none(
         *,
         owner_type: str,
-        owner_id: Optional[UUID],
+        owner_id: UUID | None,
         slug: str,
         current_only: bool = True,
-    ) -> Optional[FormTemplate]:
+    ) -> FormTemplate | None:
         qs = FormTemplate.objects.filter(
             owner_type=owner_type,
             owner_id=owner_id,
@@ -153,7 +154,7 @@ class FormFieldSelector:
     def list_by_form(
         *,
         form_template_id: UUID,
-        step_tag: Optional[str] = None,
+        step_tag: str | None = None,
     ) -> QuerySet[FormField]:
         qs = FormField.objects.filter(form_template_id=form_template_id)
         if step_tag:
@@ -193,14 +194,14 @@ class FormResponseSelector:
         return response
 
     @staticmethod
-    def get_by_id_or_none(*, response_id: UUID) -> Optional[FormResponse]:
+    def get_by_id_or_none(*, response_id: UUID) -> FormResponse | None:
         return FormResponse.objects.filter(id=response_id).first()
 
     @staticmethod
     def list_by_form(
         *,
         form_template_id: UUID,
-        status: Optional[str] = None,
+        status: str | None = None,
     ) -> QuerySet[FormResponse]:
         qs = FormResponse.objects.filter(
             form_template_id=form_template_id,
@@ -213,7 +214,7 @@ class FormResponseSelector:
     def list_by_submitter(
         *,
         user_id: UUID,
-        form_template_id: Optional[UUID] = None,
+        form_template_id: UUID | None = None,
     ) -> QuerySet[FormResponse]:
         qs = FormResponse.objects.filter(submitted_by_id=user_id)
         if form_template_id:
@@ -221,7 +222,7 @@ class FormResponseSelector:
         return qs.select_related("form_template")
 
     @staticmethod
-    def get_by_transaction_id(*, transaction_id: UUID) -> Optional[FormResponse]:
+    def get_by_transaction_id(*, transaction_id: UUID) -> FormResponse | None:
         return (
             FormResponse.objects.select_related("form_template")
             .filter(transaction_id=transaction_id)
@@ -233,7 +234,7 @@ class FormResponseSelector:
         *,
         user_id: UUID,
         form_template_id: UUID,
-        status: Optional[str] = None,
+        status: str | None = None,
     ) -> bool:
         qs = FormResponse.objects.filter(
             submitted_by_id=user_id,

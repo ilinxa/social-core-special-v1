@@ -10,28 +10,27 @@ import uuid
 import pytest
 
 from apps.core.constants import (
+    FieldType,
+    FormScope,
     FormStatus,
     OwnerType,
-    FormScope,
     ResponseStatus,
-    FieldType,
 )
 from apps.core.exceptions import NotFound
 from apps.forms.selectors import (
-    FormTemplateSelector,
     FormFieldSelector,
     FormResponseSelector,
+    FormTemplateSelector,
 )
 from apps.forms.tests.factories import (
-    FormTemplateFactory,
     ActiveFormTemplateFactory,
-    SystemFormTemplateFactory,
-    PublicFormTemplateFactory,
     FormFieldFactory,
     FormResponseFactory,
+    FormTemplateFactory,
+    PublicFormTemplateFactory,
+    SystemFormTemplateFactory,
 )
 from apps.users.tests.factories import UserFactory
-
 
 # =============================================================================
 # FORM TEMPLATE SELECTOR TESTS
@@ -264,9 +263,15 @@ class TestFormTemplateSelector:
     def test_count_indexed_fields(self):
         """count_indexed_fields returns the number of indexed fields only."""
         form = FormTemplateFactory()
-        FormFieldFactory(form_template=form, field_key="indexed_1", is_indexed=True, order=0)
-        FormFieldFactory(form_template=form, field_key="indexed_2", is_indexed=True, order=1)
-        FormFieldFactory(form_template=form, field_key="not_indexed", is_indexed=False, order=2)
+        FormFieldFactory(
+            form_template=form, field_key="indexed_1", is_indexed=True, order=0
+        )
+        FormFieldFactory(
+            form_template=form, field_key="indexed_2", is_indexed=True, order=1
+        )
+        FormFieldFactory(
+            form_template=form, field_key="not_indexed", is_indexed=False, order=2
+        )
 
         count = FormTemplateSelector.count_indexed_fields(form_template_id=form.id)
 
@@ -323,9 +328,15 @@ class TestFormFieldSelector:
     def test_list_by_form_step_filter(self):
         """list_by_form filters by step_tag when provided."""
         form = FormTemplateFactory()
-        FormFieldFactory(form_template=form, field_key="s1_f1", step_tag="step1", order=0)
-        FormFieldFactory(form_template=form, field_key="s1_f2", step_tag="step1", order=1)
-        FormFieldFactory(form_template=form, field_key="s2_f1", step_tag="step2", order=2)
+        FormFieldFactory(
+            form_template=form, field_key="s1_f1", step_tag="step1", order=0
+        )
+        FormFieldFactory(
+            form_template=form, field_key="s1_f2", step_tag="step1", order=1
+        )
+        FormFieldFactory(
+            form_template=form, field_key="s2_f1", step_tag="step2", order=2
+        )
 
         results = FormFieldSelector.list_by_form(
             form_template_id=form.id,
@@ -341,9 +352,15 @@ class TestFormFieldSelector:
     def test_list_indexed_fields(self):
         """list_indexed_fields returns only indexed fields, ordered."""
         form = FormTemplateFactory()
-        FormFieldFactory(form_template=form, field_key="idx_1", is_indexed=True, order=1)
-        FormFieldFactory(form_template=form, field_key="idx_2", is_indexed=True, order=0)
-        FormFieldFactory(form_template=form, field_key="normal", is_indexed=False, order=2)
+        FormFieldFactory(
+            form_template=form, field_key="idx_1", is_indexed=True, order=1
+        )
+        FormFieldFactory(
+            form_template=form, field_key="idx_2", is_indexed=True, order=0
+        )
+        FormFieldFactory(
+            form_template=form, field_key="normal", is_indexed=False, order=2
+        )
 
         results = FormFieldSelector.list_indexed_fields(form_template_id=form.id)
 
@@ -358,7 +375,9 @@ class TestFormFieldSelector:
         form = FormTemplateFactory()
         FormFieldFactory(form_template=form, field_key="f1", step_tag="step1", order=0)
         FormFieldFactory(form_template=form, field_key="f2", step_tag="step2", order=1)
-        FormFieldFactory(form_template=form, field_key="f3", step_tag="", order=2)  # excluded
+        FormFieldFactory(
+            form_template=form, field_key="f3", step_tag="", order=2
+        )  # excluded
 
         tags = FormFieldSelector.get_step_tags(form_template_id=form.id)
 

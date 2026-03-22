@@ -12,6 +12,8 @@ export const queryKeys = {
     byUsername: (username: string) =>
       [...queryKeys.users.all, "username", username] as const,
     memberships: () => [...queryKeys.users.all, "memberships"] as const,
+    withBusinessPermission: (params?: Record<string, unknown>) =>
+      [...queryKeys.users.all, "with-business-permission", params] as const,
   },
   business: {
     all: ["business"] as const,
@@ -60,6 +62,10 @@ export const queryKeys = {
       [...queryKeys.transactions.all, "form-mappings", accountType, accountId] as const,
     formResponse: (transactionId: string) =>
       [...queryKeys.transactions.all, "form-response", transactionId] as const,
+    requiredForm: (transactionId: string) =>
+      [...queryKeys.transactions.all, "required-form", transactionId] as const,
+    businessCreationRequest: () =>
+      [...queryKeys.transactions.all, "business-creation-request"] as const,
   },
   forms: {
     all: ["forms"] as const,

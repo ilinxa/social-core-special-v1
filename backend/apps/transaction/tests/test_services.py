@@ -1,31 +1,44 @@
-import pytest
-from uuid import uuid4
 from datetime import timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
+import pytest
 from django.utils import timezone
 
-from apps.core.exceptions import NotFound, ConflictError, ValidationError, PermissionDenied, BusinessRuleViolation
-from apps.core.types import ActorContext
-from apps.core.constants import ContextType, AccountType
-from apps.transaction.services import TransactionService
-from apps.transaction.models import Transaction, TransactionLog
-from apps.transaction.constants import (
-    TransactionMode, TransactionStatus, PartyType, ApproverPolicy,
+from apps.core.constants import AccountType, ContextType
+from apps.core.exceptions import (
+    BusinessRuleViolation,
+    ConflictError,
+    NotFound,
+    PermissionDenied,
+    ValidationError,
 )
+from apps.core.types import ActorContext
+from apps.transaction.constants import (
+    ApproverPolicy,
+    PartyType,
+    TransactionMode,
+    TransactionStatus,
+)
+from apps.transaction.models import Transaction, TransactionLog
+from apps.transaction.services import TransactionService
 from apps.transaction.tests.factories import TransactionFactory, TransactionLogFactory
 from apps.users.tests.factories import UserFactory
-
 
 # =========================================================================
 # CREATE INVITATION
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestCreateInvitation:
 
     def test_happy_path_creates_pending_transaction(
-        self, owner_actor_context, another_user, business, base_member_role,
+        self,
+        owner_actor_context,
+        another_user,
+        business,
+        base_member_role,
     ):
         txn = TransactionService.create_invitation(
             transaction_type="business_membership_invitation",
@@ -43,7 +56,9 @@ class TestCreateInvitation:
         assert txn.logs.count() >= 2  # created + state_changed
 
     def test_wrong_mode_type_raises_validation_error(
-        self, owner_actor_context, another_user,
+        self,
+        owner_actor_context,
+        another_user,
     ):
         with pytest.raises(ValidationError, match="not an invitation type"):
             TransactionService.create_invitation(
@@ -53,11 +68,16 @@ class TestCreateInvitation:
             )
 
     def test_missing_permission_raises_permission_denied(
-        self, another_user, business, member_membership,
+        self,
+        another_user,
+        business,
+        member_membership,
     ):
         from apps.rbac.services import RBACService
+
         ctx = RBACService.build_actor_context(
-            membership=member_membership, request=None,
+            membership=member_membership,
+            request=None,
         )
         with pytest.raises(PermissionDenied, match="Missing required permission"):
             TransactionService.create_invitation(
@@ -67,7 +87,10 @@ class TestCreateInvitation:
             )
 
     def test_duplicate_active_raises_conflict_error(
-        self, owner_actor_context, another_user, base_member_role,
+        self,
+        owner_actor_context,
+        another_user,
+        base_member_role,
     ):
         TransactionService.create_invitation(
             transaction_type="business_membership_invitation",
@@ -84,7 +107,11 @@ class TestCreateInvitation:
             )
 
     def test_existing_member_raises_conflict_error(
-        self, owner_actor_context, another_user, member_membership, base_member_role,
+        self,
+        owner_actor_context,
+        another_user,
+        member_membership,
+        base_member_role,
     ):
         """Inviting an already-active member raises ConflictError."""
         with pytest.raises(ConflictError, match="already an active member"):
@@ -96,7 +123,11 @@ class TestCreateInvitation:
             )
 
     def test_invitation_blocked_by_existing_request(
-        self, owner_actor_context, another_user, business, base_member_role,
+        self,
+        owner_actor_context,
+        another_user,
+        business,
+        base_member_role,
     ):
         """Creating invitation when user already has a pending request raises ConflictError."""
         TransactionService.create_request(
@@ -113,7 +144,11 @@ class TestCreateInvitation:
             )
 
     def test_invitation_succeeds_after_request_cancelled(
-        self, owner_actor_context, another_user, business, base_member_role,
+        self,
+        owner_actor_context,
+        another_user,
+        business,
+        base_member_role,
         user_actor_context,
     ):
         """Invitation succeeds after conflicting request is cancelled."""
@@ -124,9 +159,11 @@ class TestCreateInvitation:
         )
         # Build a simple actor context for the requesting user
         from apps.core.types import ActorContext
+
         cancel_ctx = ActorContext.for_user_context(another_user, request=None)
         TransactionService.cancel(
-            transaction_id=txn.id, actor_context=cancel_ctx,
+            transaction_id=txn.id,
+            actor_context=cancel_ctx,
         )
         result = TransactionService.create_invitation(
             transaction_type="business_membership_invitation",
@@ -137,7 +174,9 @@ class TestCreateInvitation:
         assert result.status == TransactionStatus.PENDING
 
     def test_invalid_payload_raises_validation_error(
-        self, owner_actor_context, another_user,
+        self,
+        owner_actor_context,
+        another_user,
     ):
         with pytest.raises(ValidationError, match="role_id"):
             TransactionService.create_invitation(
@@ -148,11 +187,17 @@ class TestCreateInvitation:
             )
 
     def test_owner_only_non_owner_raises_permission_denied(
-        self, another_user, business, member_membership, base_member_role,
+        self,
+        another_user,
+        business,
+        member_membership,
+        base_member_role,
     ):
         from apps.rbac.services import RBACService
+
         ctx = RBACService.build_actor_context(
-            membership=member_membership, request=None,
+            membership=member_membership,
+            request=None,
         )
         with pytest.raises(PermissionDenied):
             TransactionService.create_invitation(
@@ -162,7 +207,10 @@ class TestCreateInvitation:
             )
 
     def test_sets_expires_at_from_config(
-        self, owner_actor_context, another_user, base_member_role,
+        self,
+        owner_actor_context,
+        another_user,
+        base_member_role,
     ):
         before = timezone.now()
         txn = TransactionService.create_invitation(
@@ -177,7 +225,10 @@ class TestCreateInvitation:
         assert expected_min <= txn.expires_at <= expected_max
 
     def test_stores_initiator_context_snapshot(
-        self, owner_actor_context, another_user, base_member_role,
+        self,
+        owner_actor_context,
+        another_user,
+        base_member_role,
     ):
         txn = TransactionService.create_invitation(
             transaction_type="business_membership_invitation",
@@ -189,25 +240,40 @@ class TestCreateInvitation:
         assert ctx.user_id == owner_actor_context.user_id
 
     def test_role_level_validation_rejects_equal_level_role(
-        self, another_user, business, base_member_role, member_membership,
+        self,
+        another_user,
+        business,
+        base_member_role,
+        member_membership,
     ):
         """Cannot assign a role with level equal to actor's level."""
+        from apps.rbac.models import Permission, RolePermission
         from apps.rbac.services import RBACService
         from apps.rbac.tests.factories import RoleFactory
-        from apps.rbac.models import Permission, RolePermission
+
         # Give member invite permission
         perm, _ = Permission.objects.get_or_create(
             code="can_invite_member",
-            defaults={"name": "Invite", "description": "Invite", "category": "membership",
-                      "applicable_scopes": ["business"]},
+            defaults={
+                "name": "Invite",
+                "description": "Invite",
+                "category": "membership",
+                "applicable_scopes": ["business"],
+            },
         )
         RolePermission.objects.get_or_create(
-            role=base_member_role, permission=perm, defaults={"scope": "business"},
+            role=base_member_role,
+            permission=perm,
+            defaults={"scope": "business"},
         )
-        ctx = RBACService.build_actor_context(membership=member_membership, request=None)
+        ctx = RBACService.build_actor_context(
+            membership=member_membership, request=None
+        )
         # Create a role at same level (10) as the member
         same_level_role = RoleFactory(
-            account_type=AccountType.BUSINESS, account_id=business.id, level=10,
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=10,
         )
         with pytest.raises(BusinessRuleViolation, match="equal or higher authority"):
             TransactionService.create_invitation(
@@ -218,10 +284,16 @@ class TestCreateInvitation:
             )
 
     def test_role_level_validation_rejects_owner_role(
-        self, owner_actor_context, another_user, business, owner_role,
+        self,
+        owner_actor_context,
+        another_user,
+        business,
+        owner_role,
     ):
         """Owner role (level 0) can never be assigned via invitation."""
-        with pytest.raises(BusinessRuleViolation, match="Owner role cannot be assigned"):
+        with pytest.raises(
+            BusinessRuleViolation, match="Owner role cannot be assigned"
+        ):
             TransactionService.create_invitation(
                 transaction_type="business_membership_invitation",
                 initiator_context=owner_actor_context,
@@ -230,7 +302,11 @@ class TestCreateInvitation:
             )
 
     def test_role_level_validation_accepts_lower_role(
-        self, owner_actor_context, another_user, business, base_member_role,
+        self,
+        owner_actor_context,
+        another_user,
+        business,
+        base_member_role,
     ):
         """Owner (level 0) can assign Base Member (level 10)."""
         txn = TransactionService.create_invitation(
@@ -245,6 +321,7 @@ class TestCreateInvitation:
 # =========================================================================
 # CREATE REQUEST
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestCreateRequest:
@@ -306,7 +383,11 @@ class TestCreateRequest:
             )
 
     def test_request_blocked_by_existing_invitation(
-        self, owner_actor_context, another_user, business, base_member_role,
+        self,
+        owner_actor_context,
+        another_user,
+        business,
+        base_member_role,
     ):
         """Creating request when user already has a pending invitation raises ConflictError."""
         TransactionService.create_invitation(
@@ -323,10 +404,14 @@ class TestCreateRequest:
             )
 
     def test_no_cross_check_for_different_businesses(
-        self, owner_actor_context, another_user, business,
+        self,
+        owner_actor_context,
+        another_user,
+        business,
     ):
         """Cross-type check does not flag transactions for different businesses."""
         from apps.organization.tests.factories import BusinessAccountFactory
+
         other_business = BusinessAccountFactory(open_member_request=True)
         # Request to a different business
         TransactionService.create_request(
@@ -394,11 +479,15 @@ class TestCreateRequest:
 # ACCEPT
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestAccept:
 
     def test_happy_path_target_acceptance(
-        self, pending_invitation, another_user, base_member_role,
+        self,
+        pending_invitation,
+        another_user,
+        base_member_role,
     ):
         target_ctx = ActorContext.for_user_context(another_user, request=None)
         result = TransactionService.accept(
@@ -417,7 +506,9 @@ class TestAccept:
             )
 
     def test_wrong_actor_raises_permission_denied(
-        self, pending_invitation, third_user,
+        self,
+        pending_invitation,
+        third_user,
     ):
         wrong_ctx = ActorContext.for_user_context(third_user, request=None)
         with pytest.raises(PermissionDenied):
@@ -427,7 +518,10 @@ class TestAccept:
             )
 
     def test_accept_creates_log_entries(
-        self, pending_invitation, another_user, base_member_role,
+        self,
+        pending_invitation,
+        another_user,
+        base_member_role,
     ):
         target_ctx = ActorContext.for_user_context(another_user, request=None)
         result = TransactionService.accept(
@@ -435,23 +529,32 @@ class TestAccept:
             actor_context=target_ctx,
         )
         logs = TransactionLog.objects.filter(
-            transaction=result, new_status=TransactionStatus.ACCEPTED,
+            transaction=result,
+            new_status=TransactionStatus.ACCEPTED,
         )
         assert logs.exists()
 
     def test_accept_with_acceptance_payload_role_id(
-        self, base_member_role, business, user,
-        owner_membership, owner_role, can_approve_membership_perm,
+        self,
+        base_member_role,
+        business,
+        user,
+        owner_membership,
+        owner_role,
+        can_approve_membership_perm,
     ):
         """Approving a request with acceptance_payload role_id succeeds."""
-        from apps.rbac.services import RBACService
         from apps.rbac.models import RolePermission
+        from apps.rbac.services import RBACService
+
         RolePermission.objects.get_or_create(
-            role=owner_role, permission=can_approve_membership_perm,
+            role=owner_role,
+            permission=can_approve_membership_perm,
             defaults={"scope": "business"},
         )
         approver_ctx = RBACService.build_actor_context(
-            membership=owner_membership, request=None,
+            membership=owner_membership,
+            request=None,
         )
         requester = UserFactory()
         req_ctx = ActorContext.for_user_context(requester, request=None)
@@ -475,18 +578,26 @@ class TestAccept:
         assert result.status == TransactionStatus.ACCEPTED
 
     def test_accept_rejects_owner_role_in_acceptance_payload(
-        self, base_member_role, business, user,
-        owner_membership, owner_role, can_approve_membership_perm,
+        self,
+        base_member_role,
+        business,
+        user,
+        owner_membership,
+        owner_role,
+        can_approve_membership_perm,
     ):
         """Cannot assign owner role via acceptance_payload."""
-        from apps.rbac.services import RBACService
         from apps.rbac.models import RolePermission
+        from apps.rbac.services import RBACService
+
         RolePermission.objects.get_or_create(
-            role=owner_role, permission=can_approve_membership_perm,
+            role=owner_role,
+            permission=can_approve_membership_perm,
             defaults={"scope": "business"},
         )
         approver_ctx = RBACService.build_actor_context(
-            membership=owner_membership, request=None,
+            membership=owner_membership,
+            request=None,
         )
         requester = UserFactory()
         req_ctx = ActorContext.for_user_context(requester, request=None)
@@ -502,7 +613,9 @@ class TestAccept:
             context_id=business.id,
             status=TransactionStatus.PENDING,
         )
-        with pytest.raises(BusinessRuleViolation, match="Owner role cannot be assigned"):
+        with pytest.raises(
+            BusinessRuleViolation, match="Owner role cannot be assigned"
+        ):
             TransactionService.accept(
                 transaction_id=pending.id,
                 actor_context=approver_ctx,
@@ -513,6 +626,7 @@ class TestAccept:
 # =========================================================================
 # DENY
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestDeny:
@@ -537,7 +651,9 @@ class TestDeny:
             )
 
     def test_wrong_actor_raises_permission_denied(
-        self, pending_invitation, third_user,
+        self,
+        pending_invitation,
+        third_user,
     ):
         wrong_ctx = ActorContext.for_user_context(third_user, request=None)
         with pytest.raises(PermissionDenied):
@@ -550,6 +666,7 @@ class TestDeny:
 # =========================================================================
 # DISMISS
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestDismiss:
@@ -585,6 +702,7 @@ class TestDismiss:
 # CANCEL
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestCancel:
 
@@ -605,11 +723,14 @@ class TestCancel:
         ctx = ActorContext.for_user_context(user, request=None)
         with pytest.raises((ValidationError, PermissionDenied)):
             TransactionService.cancel(
-                transaction_id=txn.id, actor_context=ctx,
+                transaction_id=txn.id,
+                actor_context=ctx,
             )
 
     def test_non_initiator_raises_permission_denied(
-        self, pending_invitation, another_user,
+        self,
+        pending_invitation,
+        another_user,
     ):
         wrong_ctx = ActorContext.for_user_context(another_user, request=None)
         with pytest.raises(PermissionDenied, match="initiator"):
@@ -622,6 +743,7 @@ class TestCancel:
 # =========================================================================
 # EXPIRE
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestExpire:
@@ -643,6 +765,7 @@ class TestExpire:
 # INVALIDATE
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestInvalidate:
 
@@ -661,7 +784,8 @@ class TestInvalidate:
             resolved_at=timezone.now(),
         )
         result = TransactionService.invalidate(
-            transaction_id=txn.id, reason="test",
+            transaction_id=txn.id,
+            reason="test",
         )
         assert result.status == TransactionStatus.ACCEPTED
 
@@ -669,6 +793,7 @@ class TestInvalidate:
 # =========================================================================
 # PRIVATE: _transition
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestTransition:
@@ -702,7 +827,8 @@ class TestTransition:
             actor_context=ctx,
         )
         log = TransactionLog.objects.filter(
-            transaction=txn, new_status=TransactionStatus.PENDING,
+            transaction=txn,
+            new_status=TransactionStatus.PENDING,
         ).first()
         assert log is not None
         assert log.previous_status == TransactionStatus.CREATED
@@ -712,43 +838,52 @@ class TestTransition:
 # PRIVATE: _validate_payload
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestValidatePayload:
 
     def test_required_field_missing_raises(self):
         from apps.transaction.types import get_transaction_type
+
         config = get_transaction_type("business_membership_invitation")
         with pytest.raises(ValidationError, match="role_id"):
             TransactionService._validate_payload(config, {})
 
     def test_type_mismatch_raises(self):
         from apps.transaction.types import get_transaction_type
+
         config = get_transaction_type("business_membership_invitation")
         with pytest.raises(ValidationError, match="must be a string"):
             TransactionService._validate_payload(
-                config, {"role_id": 12345},
+                config,
+                {"role_id": 12345},
             )
 
     def test_max_length_exceeded_raises(self):
         from apps.transaction.types import get_transaction_type
+
         config = get_transaction_type("business_membership_invitation")
         with pytest.raises(ValidationError, match="max length"):
             TransactionService._validate_payload(
-                config, {"role_id": str(uuid4()), "message": "x" * 501},
+                config,
+                {"role_id": str(uuid4()), "message": "x" * 501},
             )
 
     def test_valid_payload_passes(self):
         from apps.transaction.types import get_transaction_type
+
         config = get_transaction_type("business_membership_invitation")
         # Should not raise
         TransactionService._validate_payload(
-            config, {"role_id": str(uuid4()), "message": "Hello"},
+            config,
+            {"role_id": str(uuid4()), "message": "Hello"},
         )
 
 
 # =========================================================================
 # PRIVATE: _validate_creator_authority
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestValidateCreatorAuthority:
@@ -766,7 +901,10 @@ class TestValidateCreatorAuthority:
         TransactionService._validate_creator_authority(txn)
 
     def test_membership_deleted_invalidates(
-        self, owner_with_invite_perm, another_user, business,
+        self,
+        owner_with_invite_perm,
+        another_user,
+        business,
         owner_actor_context,
     ):
         txn = TransactionFactory(
@@ -787,7 +925,10 @@ class TestValidateCreatorAuthority:
         assert txn.status == TransactionStatus.INVALIDATED
 
     def test_membership_inactive_invalidates(
-        self, owner_with_invite_perm, another_user, business,
+        self,
+        owner_with_invite_perm,
+        another_user,
+        business,
         owner_actor_context,
     ):
         txn = TransactionFactory(
@@ -805,10 +946,14 @@ class TestValidateCreatorAuthority:
             TransactionService._validate_creator_authority(txn)
 
     def test_permission_lost_invalidates(
-        self, owner_with_invite_perm, another_user, business,
+        self,
+        owner_with_invite_perm,
+        another_user,
+        business,
         owner_actor_context,
     ):
         from apps.rbac.models import RolePermission
+
         txn = TransactionFactory(
             transaction_type="business_membership_invitation",
             initiator_context=owner_actor_context.to_dict(),
@@ -822,6 +967,7 @@ class TestValidateCreatorAuthority:
         ).delete()
         # Clear cache
         from apps.rbac.selectors import PermissionSelector
+
         PermissionSelector.invalidate_membership_permissions(
             membership_id=owner_with_invite_perm.id,
         )
@@ -830,7 +976,10 @@ class TestValidateCreatorAuthority:
             TransactionService._validate_creator_authority(txn)
 
     def test_all_ok_passes(
-        self, owner_with_invite_perm, another_user, business,
+        self,
+        owner_with_invite_perm,
+        another_user,
+        business,
         owner_actor_context,
     ):
         txn = TransactionFactory(
@@ -848,12 +997,13 @@ class TestValidateCreatorAuthority:
 # PRIVATE: _execute_outcome
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestExecuteOutcome:
 
     def test_no_handler_marks_executed(self):
+        from apps.transaction.constants import ApproverPolicy, TransactionMode
         from apps.transaction.types import TransactionTypeConfig
-        from apps.transaction.constants import TransactionMode, ApproverPolicy
 
         txn = TransactionFactory(
             status=TransactionStatus.ACCEPTED,
@@ -869,7 +1019,8 @@ class TestExecuteOutcome:
             mock_get.return_value = mock_config
 
             TransactionService._execute_outcome(
-                transaction=txn, actor_context=ctx,
+                transaction=txn,
+                actor_context=ctx,
             )
 
         txn.refresh_from_db()
@@ -878,6 +1029,7 @@ class TestExecuteOutcome:
 
     def test_handler_success_marks_executed(self):
         from apps.users.tests.factories import UserFactory
+
         user_a = UserFactory()
         user_b = UserFactory()
         txn = TransactionFactory(
@@ -889,10 +1041,12 @@ class TestExecuteOutcome:
         ctx = ActorContext.for_system()
 
         from apps.transaction.outcome_handlers import register_all_handlers
+
         register_all_handlers()
 
         TransactionService._execute_outcome(
-            transaction=txn, actor_context=ctx,
+            transaction=txn,
+            actor_context=ctx,
         )
 
         txn.refresh_from_db()
@@ -911,7 +1065,8 @@ class TestExecuteOutcome:
         ):
             with pytest.raises(ValueError, match="Boom"):
                 TransactionService._execute_outcome(
-                    transaction=txn, actor_context=ctx,
+                    transaction=txn,
+                    actor_context=ctx,
                 )
 
         txn.refresh_from_db()
@@ -921,6 +1076,7 @@ class TestExecuteOutcome:
 # =========================================================================
 # NOTIFICATIONS
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestNotifySafe:
@@ -948,13 +1104,15 @@ class TestNotifySafe:
 # MANAGERS
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestTransactionQuerySet:
 
     def test_active_excludes_terminal(self):
         TransactionFactory(status=TransactionStatus.PENDING)
         TransactionFactory(
-            status=TransactionStatus.ACCEPTED, resolved_at=timezone.now(),
+            status=TransactionStatus.ACCEPTED,
+            resolved_at=timezone.now(),
         )
         assert Transaction.objects.active().count() == 1
 
@@ -982,34 +1140,47 @@ class TestTransactionQuerySet:
     def test_for_context(self):
         ctx_id = uuid4()
         TransactionFactory(
-            context_type=ContextType.BUSINESS, context_id=ctx_id,
+            context_type=ContextType.BUSINESS,
+            context_id=ctx_id,
         )
         TransactionFactory(
-            context_type=ContextType.BUSINESS, context_id=uuid4(),
+            context_type=ContextType.BUSINESS,
+            context_id=uuid4(),
         )
         result = Transaction.objects.for_context(
-            ContextType.BUSINESS, ctx_id,
+            ContextType.BUSINESS,
+            ctx_id,
         )
         assert result.count() == 1
 
     def test_for_initiator(self):
         uid = uuid4()
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=uid,
+            initiator_type=PartyType.USER,
+            initiator_id=uid,
         )
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=uuid4(),
+            initiator_type=PartyType.USER,
+            initiator_id=uuid4(),
         )
-        assert Transaction.objects.for_initiator(
-            PartyType.USER, uid,
-        ).count() == 1
+        assert (
+            Transaction.objects.for_initiator(
+                PartyType.USER,
+                uid,
+            ).count()
+            == 1
+        )
 
     def test_for_target(self):
         uid = uuid4()
         TransactionFactory(target_type=PartyType.USER, target_id=uid)
-        assert Transaction.objects.for_target(
-            PartyType.USER, uid,
-        ).count() == 1
+        assert (
+            Transaction.objects.for_target(
+                PartyType.USER,
+                uid,
+            ).count()
+            == 1
+        )
 
     def test_of_type(self):
         TransactionFactory(
@@ -1020,9 +1191,12 @@ class TestTransactionQuerySet:
             context_type=ContextType.USER,
             context_id=None,
         )
-        assert Transaction.objects.of_type(
-            "business_membership_invitation",
-        ).count() == 1
+        assert (
+            Transaction.objects.of_type(
+                "business_membership_invitation",
+            ).count()
+            == 1
+        )
 
     def test_needing_outcome_execution(self):
         TransactionFactory(
@@ -1070,6 +1244,7 @@ class TestTransactionQuerySet:
 # PLATFORM TRANSACTION SERVICES
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestPlatformTransactionServices:
     """Tests for transaction services operating in platform context."""
@@ -1077,7 +1252,11 @@ class TestPlatformTransactionServices:
     # --- Create Invitation ---
 
     def test_create_platform_invitation_happy_path(
-        self, platform_owner_actor_ctx, user, platform, platform_base_member_role,
+        self,
+        platform_owner_actor_ctx,
+        user,
+        platform,
+        platform_base_member_role,
     ):
         txn = TransactionService.create_invitation(
             transaction_type="platform_membership_invitation",
@@ -1094,7 +1273,9 @@ class TestPlatformTransactionServices:
     # --- Create Request ---
 
     def test_create_platform_request_happy_path(
-        self, user_actor_context, platform,
+        self,
+        user_actor_context,
+        platform,
     ):
         txn = TransactionService.create_request(
             transaction_type="platform_membership_request",
@@ -1109,7 +1290,9 @@ class TestPlatformTransactionServices:
     # --- Accept ---
 
     def test_accept_platform_invitation(
-        self, platform_pending_invitation, user,
+        self,
+        platform_pending_invitation,
+        user,
     ):
         """Target user accepts platform invitation → membership created."""
         target_ctx = ActorContext.for_user_context(user, request=None)
@@ -1120,7 +1303,9 @@ class TestPlatformTransactionServices:
         assert txn.status == TransactionStatus.ACCEPTED
 
     def test_accept_platform_request_by_authority(
-        self, platform_pending_request, platform_approver_actor_ctx,
+        self,
+        platform_pending_request,
+        platform_approver_actor_ctx,
         platform_base_member_role,
     ):
         """Platform owner with approve permission accepts request."""
@@ -1133,7 +1318,9 @@ class TestPlatformTransactionServices:
     # --- Deny ---
 
     def test_deny_platform_request(
-        self, platform_pending_request, platform_approver_actor_ctx,
+        self,
+        platform_pending_request,
+        platform_approver_actor_ctx,
     ):
         txn = TransactionService.deny(
             transaction_id=platform_pending_request.id,
@@ -1145,7 +1332,9 @@ class TestPlatformTransactionServices:
     # --- Cancel ---
 
     def test_cancel_platform_request(
-        self, platform_pending_request, user,
+        self,
+        platform_pending_request,
+        user,
     ):
         """Requester cancels their own request."""
         user_ctx = ActorContext.for_user_context(user, request=None)
@@ -1158,8 +1347,12 @@ class TestPlatformTransactionServices:
     # --- Conflict Detection ---
 
     def test_platform_duplicate_active_raises_conflict(
-        self, platform_pending_invitation, platform_owner_actor_ctx, user,
-        platform, platform_base_member_role,
+        self,
+        platform_pending_invitation,
+        platform_owner_actor_ctx,
+        user,
+        platform,
+        platform_base_member_role,
     ):
         """Second invitation for same user raises ConflictError."""
         with pytest.raises(ConflictError):
@@ -1171,7 +1364,10 @@ class TestPlatformTransactionServices:
             )
 
     def test_platform_cross_type_conflict(
-        self, platform_pending_invitation, user_actor_context, platform,
+        self,
+        platform_pending_invitation,
+        user_actor_context,
+        platform,
     ):
         """User has pending invitation → request raises ConflictError."""
         with pytest.raises(ConflictError):
@@ -1185,7 +1381,11 @@ class TestPlatformTransactionServices:
     # --- Quota & Open Member Request ---
 
     def test_platform_quota_blocks_invitation(
-        self, platform_owner_actor_ctx, user, platform, platform_base_member_role,
+        self,
+        platform_owner_actor_ctx,
+        user,
+        platform,
+        platform_base_member_role,
     ):
         """Platform at max_members → invitation blocked."""
         # platform_membership already exists (owner), set max_members=1
@@ -1202,7 +1402,10 @@ class TestPlatformTransactionServices:
         assert exc.value.details["rule"] == "member_quota_exceeded"
 
     def test_platform_quota_blocks_request(
-        self, user_actor_context, platform, platform_membership,
+        self,
+        user_actor_context,
+        platform,
+        platform_membership,
     ):
         """Platform at max_members → request blocked."""
         platform.max_members = 1
@@ -1218,7 +1421,9 @@ class TestPlatformTransactionServices:
         assert exc.value.details["rule"] == "member_quota_exceeded"
 
     def test_platform_closed_request_blocked(
-        self, user_actor_context, platform,
+        self,
+        user_actor_context,
+        platform,
     ):
         """open_member_request=False → request blocked."""
         platform.open_member_request = False
@@ -1236,7 +1441,10 @@ class TestPlatformTransactionServices:
     # --- Ownership Transfer ---
 
     def test_platform_ownership_transfer(
-        self, platform_owner_actor_ctx, user, platform,
+        self,
+        platform_owner_actor_ctx,
+        user,
+        platform,
     ):
         """Owner creates ownership transfer → target accepts → transferred."""
         txn = TransactionService.create_invitation(
@@ -1248,13 +1456,16 @@ class TestPlatformTransactionServices:
         assert txn.transaction_type == "platform_ownership_transfer"
 
     def test_platform_ownership_transfer_non_owner_denied(
-        self, platform_base_membership, platform,
+        self,
+        platform_base_membership,
+        platform,
     ):
         """Non-owner cannot create ownership transfer."""
         from apps.rbac.services import RBACService
 
         base_ctx = RBACService.build_actor_context(
-            membership=platform_base_membership, request=None,
+            membership=platform_base_membership,
+            request=None,
         )
         with pytest.raises(PermissionDenied):
             TransactionService.create_invitation(
@@ -1268,31 +1479,44 @@ class TestPlatformTransactionServices:
 # MEMBER QUOTA PRE-CHECKS
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestMemberQuotaPreCheck:
     """Tests for member quota pre-checks in create_invitation/create_request."""
 
     def test_create_invitation_blocked_when_at_quota(
-        self, user, another_user, third_user,
+        self,
+        user,
+        another_user,
+        third_user,
     ):
         """Invitation is blocked when business is at max_members."""
-        from apps.rbac.tests.factories import BusinessAccountFactory, MembershipFactory
-        from apps.rbac.models import Permission, Role, RolePermission, Membership
+        from apps.rbac.models import Membership, Permission, Role, RolePermission
         from apps.rbac.services import RBACService
+        from apps.rbac.tests.factories import BusinessAccountFactory, MembershipFactory
 
         business = BusinessAccountFactory(max_members=1, created_by=user)
         owner_role = Role.objects.create(
-            name="Owner", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=0, is_system_role=True,
+            name="Owner",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=0,
+            is_system_role=True,
         )
         Role.objects.create(
-            name="Base Member", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=10, is_system_role=True,
+            name="Base Member",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=10,
+            is_system_role=True,
         )
         owner_mem = Membership.objects.create(
-            user=user, account_type=AccountType.BUSINESS,
-            account_id=business.id, role=owner_role,
-            is_owner=True, status="active",
+            user=user,
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            role=owner_role,
+            is_owner=True,
+            status="active",
         )
         perm, _ = Permission.objects.get_or_create(
             code="can_invite_member",
@@ -1304,7 +1528,9 @@ class TestMemberQuotaPreCheck:
             },
         )
         RolePermission.objects.get_or_create(
-            role=owner_role, permission=perm, defaults={"scope": "business"},
+            role=owner_role,
+            permission=perm,
+            defaults={"scope": "business"},
         )
         ctx = RBACService.build_actor_context(membership=owner_mem, request=None)
 
@@ -1318,7 +1544,10 @@ class TestMemberQuotaPreCheck:
         assert exc_info.value.details["rule"] == "member_quota_exceeded"
 
     def test_create_invitation_allowed_when_below_quota(
-        self, owner_actor_context, another_user, base_member_role,
+        self,
+        owner_actor_context,
+        another_user,
+        base_member_role,
     ):
         """Invitation succeeds when below max_members (factory default=6)."""
         txn = TransactionService.create_invitation(
@@ -1330,26 +1559,38 @@ class TestMemberQuotaPreCheck:
         assert txn.status == TransactionStatus.PENDING
 
     def test_create_request_blocked_when_at_quota(
-        self, another_user,
+        self,
+        another_user,
     ):
         """Request is blocked when business is at max_members."""
+        from apps.rbac.models import Membership, Role
         from apps.rbac.tests.factories import BusinessAccountFactory
-        from apps.rbac.models import Role, Membership
 
         owner = UserFactory(email="quota_owner@test.com")
-        business = BusinessAccountFactory(max_members=1, open_member_request=True, created_by=owner)
+        business = BusinessAccountFactory(
+            max_members=1, open_member_request=True, created_by=owner
+        )
         owner_role = Role.objects.create(
-            name="Owner", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=0, is_system_role=True,
+            name="Owner",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=0,
+            is_system_role=True,
         )
         Role.objects.create(
-            name="Base Member", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=10, is_system_role=True,
+            name="Base Member",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=10,
+            is_system_role=True,
         )
         Membership.objects.create(
-            user=owner, account_type=AccountType.BUSINESS,
-            account_id=business.id, role=owner_role,
-            is_owner=True, status="active",
+            user=owner,
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            role=owner_role,
+            is_owner=True,
+            status="active",
         )
 
         with pytest.raises(BusinessRuleViolation) as exc_info:
@@ -1362,7 +1603,9 @@ class TestMemberQuotaPreCheck:
         assert exc_info.value.details["rule"] == "member_quota_exceeded"
 
     def test_create_request_allowed_when_below_quota(
-        self, another_user, business,
+        self,
+        another_user,
+        business,
     ):
         """Request succeeds when below max_members (factory default=6)."""
         txn = TransactionService.create_request(

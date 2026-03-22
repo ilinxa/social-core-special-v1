@@ -6,9 +6,9 @@ Creates 3 system forms:
 - system-business-creation (for business_creation_permission_request)
 - system-platform-staff-application (for future platform staff flow)
 """
+
 from django.db import migrations
 from django.utils import timezone
-
 
 SYSTEM_FORMS = [
     {

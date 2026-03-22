@@ -7,18 +7,14 @@ Usage:
     from apps.core.pagination import StandardPagination, CursorResultsPagination
 """
 
-from apps.core.pagination.page import (
-    # Page number pagination
-    StandardPagination,
-    SmallResultsPagination,
-    LargeResultsPagination,
-    # Limit offset pagination
-    LimitOffsetResultsPagination,
-    # Cursor pagination
+from apps.core.pagination.page import (  # Page number pagination; Limit offset pagination; Cursor pagination; No pagination
     CursorResultsPagination,
     IDCursorPagination,
-    # No pagination
+    LargeResultsPagination,
+    LimitOffsetResultsPagination,
     NoPagination,
+    SmallResultsPagination,
+    StandardPagination,
 )
 
 __all__ = [

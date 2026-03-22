@@ -7,32 +7,55 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0007_add_can_create_business'),
+        ("users", "0007_add_can_create_business"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='userprofile',
-            name='bio',
-            field=models.TextField(blank=True, default='', help_text='Short bio for profile discovery.', max_length=500),
+            model_name="userprofile",
+            name="bio",
+            field=models.TextField(
+                blank=True,
+                default="",
+                help_text="Short bio for profile discovery.",
+                max_length=500,
+            ),
         ),
         migrations.AddField(
-            model_name='userprofile',
-            name='city',
-            field=models.CharField(blank=True, db_index=True, default='', help_text='City name (validated against predefined city list).', max_length=100),
+            model_name="userprofile",
+            name="city",
+            field=models.CharField(
+                blank=True,
+                db_index=True,
+                default="",
+                help_text="City name (validated against predefined city list).",
+                max_length=100,
+            ),
         ),
         migrations.AddField(
-            model_name='userprofile',
-            name='country',
-            field=models.CharField(blank=True, db_index=True, default='', help_text='ISO 3166-1 alpha-2 country code.', max_length=2),
+            model_name="userprofile",
+            name="country",
+            field=models.CharField(
+                blank=True,
+                db_index=True,
+                default="",
+                help_text="ISO 3166-1 alpha-2 country code.",
+                max_length=2,
+            ),
         ),
         migrations.AddField(
-            model_name='userprofile',
-            name='tags',
-            field=models.JSONField(blank=True, default=list, help_text='User tags for discovery (e.g., developer, designer).'),
+            model_name="userprofile",
+            name="tags",
+            field=models.JSONField(
+                blank=True,
+                default=list,
+                help_text="User tags for discovery (e.g., developer, designer).",
+            ),
         ),
         migrations.AddIndex(
-            model_name='userprofile',
-            index=django.contrib.postgres.indexes.GinIndex(fields=['tags'], name='userprofile_tags_gin'),
+            model_name="userprofile",
+            index=django.contrib.postgres.indexes.GinIndex(
+                fields=["tags"], name="userprofile_tags_gin"
+            ),
         ),
     ]

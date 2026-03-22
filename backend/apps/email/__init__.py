@@ -13,4 +13,4 @@ Key Components:
     - SES/SMTP backends: Pluggable delivery backends
 """
 
-default_app_config = 'apps.email.apps.EmailConfig'
+default_app_config = "apps.email.apps.EmailConfig"

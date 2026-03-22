@@ -1,37 +1,38 @@
-import pytest
-from uuid import uuid4
 from datetime import timedelta
 from unittest.mock import patch
+from uuid import uuid4
 
+import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.core.constants import AccountType, ContextType
 from apps.core.types import ActorContext
-from apps.core.constants import ContextType, AccountType
-from apps.users.tests.factories import UserFactory
-from apps.transaction.tests.factories import TransactionFactory
-from apps.transaction.constants import (
-    TransactionMode, TransactionStatus, PartyType,
-)
+from apps.transaction.constants import PartyType, TransactionMode, TransactionStatus
 from apps.transaction.tests.conftest import (
-    transaction_detail_url,
     transaction_accept_url,
-    transaction_deny_url,
-    transaction_cancel_url,
-    transaction_dismiss_url,
     transaction_approve_url,
+    transaction_cancel_url,
+    transaction_deny_url,
+    transaction_detail_url,
+    transaction_dismiss_url,
 )
-
+from apps.transaction.tests.factories import TransactionFactory
+from apps.users.tests.factories import UserFactory
 
 # =========================================================================
 # LIST VIEW
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestTransactionListView:
 
     def test_returns_user_transactions(
-        self, authenticated_client, user, transaction_list_url,
+        self,
+        authenticated_client,
+        user,
+        transaction_list_url,
     ):
         # User is initiator
         TransactionFactory(
@@ -48,10 +49,14 @@ class TestTransactionListView:
         assert response.data["count"] == 2
 
     def test_filter_by_role_initiator(
-        self, authenticated_client, user, transaction_list_url,
+        self,
+        authenticated_client,
+        user,
+        transaction_list_url,
     ):
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user.id,
+            initiator_type=PartyType.USER,
+            initiator_id=user.id,
         )
         TransactionFactory(target_type=PartyType.USER, target_id=user.id)
 
@@ -62,10 +67,14 @@ class TestTransactionListView:
         assert response.data["count"] == 1
 
     def test_filter_by_role_target(
-        self, authenticated_client, user, transaction_list_url,
+        self,
+        authenticated_client,
+        user,
+        transaction_list_url,
     ):
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user.id,
+            initiator_type=PartyType.USER,
+            initiator_id=user.id,
         )
         TransactionFactory(target_type=PartyType.USER, target_id=user.id)
 
@@ -76,7 +85,10 @@ class TestTransactionListView:
         assert response.data["count"] == 1
 
     def test_list_includes_expanded_fields(
-        self, authenticated_client, user, transaction_list_url,
+        self,
+        authenticated_client,
+        user,
+        transaction_list_url,
     ):
         """List serializer includes category, initiator_name, target_name."""
         TransactionFactory(
@@ -99,14 +111,19 @@ class TestTransactionListView:
         assert "context_type" in item
 
     def test_filter_by_status(
-        self, authenticated_client, user, transaction_list_url,
+        self,
+        authenticated_client,
+        user,
+        transaction_list_url,
     ):
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user.id,
+            initiator_type=PartyType.USER,
+            initiator_id=user.id,
             status=TransactionStatus.PENDING,
         )
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user.id,
+            initiator_type=PartyType.USER,
+            initiator_id=user.id,
             status=TransactionStatus.ACCEPTED,
         )
         response = authenticated_client.get(
@@ -116,14 +133,19 @@ class TestTransactionListView:
         assert response.data["count"] == 1
 
     def test_filter_by_mode(
-        self, authenticated_client, user, transaction_list_url,
+        self,
+        authenticated_client,
+        user,
+        transaction_list_url,
     ):
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user.id,
+            initiator_type=PartyType.USER,
+            initiator_id=user.id,
             mode=TransactionMode.INVITATION,
         )
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user.id,
+            initiator_type=PartyType.USER,
+            initiator_id=user.id,
             mode=TransactionMode.REQUEST,
         )
         response = authenticated_client.get(
@@ -133,14 +155,19 @@ class TestTransactionListView:
         assert response.data["count"] == 1
 
     def test_filter_by_transaction_type(
-        self, authenticated_client, user, transaction_list_url,
+        self,
+        authenticated_client,
+        user,
+        transaction_list_url,
     ):
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user.id,
+            initiator_type=PartyType.USER,
+            initiator_id=user.id,
             transaction_type="business_membership_invitation",
         )
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user.id,
+            initiator_type=PartyType.USER,
+            initiator_id=user.id,
             transaction_type="user_connection_request",
         )
         response = authenticated_client.get(
@@ -150,15 +177,21 @@ class TestTransactionListView:
         assert response.data["count"] == 1
 
     def test_all_role_with_filters_uses_non_union_query(
-        self, authenticated_client, user, another_user, transaction_list_url,
+        self,
+        authenticated_client,
+        user,
+        another_user,
+        transaction_list_url,
     ):
         """When role=all + filters, re-queries without UNION to support filtering."""
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user.id,
+            initiator_type=PartyType.USER,
+            initiator_id=user.id,
             status=TransactionStatus.PENDING,
         )
         TransactionFactory(
-            target_type=PartyType.USER, target_id=user.id,
+            target_type=PartyType.USER,
+            target_id=user.id,
             status=TransactionStatus.ACCEPTED,
         )
         response = authenticated_client.get(
@@ -168,14 +201,21 @@ class TestTransactionListView:
         assert response.data["count"] == 1
 
     def test_unauthenticated_returns_401(
-        self, api_client, transaction_list_url,
+        self,
+        api_client,
+        transaction_list_url,
     ):
         response = api_client.get(transaction_list_url)
         assert response.status_code == 401
 
     def test_context_filter_returns_all_account_transactions(
-        self, authenticated_client, user, another_user,
-        transaction_list_url, business, owner_membership,
+        self,
+        authenticated_client,
+        user,
+        another_user,
+        transaction_list_url,
+        business,
+        owner_with_approve_perm,
     ):
         """context_type+context_id returns ALL transactions in that account,
         including ones where the viewer is not personally initiator/target."""
@@ -218,8 +258,13 @@ class TestTransactionListView:
         assert response.data["count"] == 2
 
     def test_context_filter_with_mode_filter(
-        self, authenticated_client, user, another_user,
-        transaction_list_url, business, owner_membership,
+        self,
+        authenticated_client,
+        user,
+        another_user,
+        transaction_list_url,
+        business,
+        owner_membership,
     ):
         """context_type+context_id + mode filter works together."""
         TransactionFactory(
@@ -248,8 +293,11 @@ class TestTransactionListView:
         assert response.data["count"] == 1
 
     def test_context_filter_non_member_gets_empty(
-        self, api_client, another_user,
-        transaction_list_url, business,
+        self,
+        api_client,
+        another_user,
+        transaction_list_url,
+        business,
     ):
         """Non-member querying by context_type+context_id gets no results."""
         api_client.force_authenticate(user=another_user)
@@ -271,11 +319,15 @@ class TestTransactionListView:
 # DETAIL VIEW
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestTransactionDetailView:
 
     def test_initiator_can_view(
-        self, authenticated_client, user, pending_invitation,
+        self,
+        authenticated_client,
+        user,
+        pending_invitation,
         owner_actor_context,
     ):
         response = authenticated_client.get(
@@ -307,7 +359,9 @@ class TestTransactionDetailView:
         assert response.status_code == 404
 
     def test_permissions_injected_in_detail_response(
-        self, another_user, pending_invitation,
+        self,
+        another_user,
+        pending_invitation,
     ):
         """GET detail includes _permissions dict."""
         client = APIClient()
@@ -327,7 +381,9 @@ class TestTransactionDetailView:
         assert "can_view_form" in perms
 
     def test_target_can_accept_pending_invitation(
-        self, another_user, pending_invitation,
+        self,
+        another_user,
+        pending_invitation,
     ):
         """Target user sees can_accept=True for pending invitation."""
         client = APIClient()
@@ -341,7 +397,9 @@ class TestTransactionDetailView:
         assert perms["can_cancel"] is False  # not initiator
 
     def test_initiator_can_cancel_not_accept(
-        self, authenticated_client, pending_invitation,
+        self,
+        authenticated_client,
+        pending_invitation,
     ):
         """Initiator sees can_cancel=True but can_accept=False."""
         response = authenticated_client.get(
@@ -356,12 +414,18 @@ class TestTransactionDetailView:
 # CREATE INVITATION VIEW
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestCreateInvitationView:
 
     def test_happy_path(
-        self, authenticated_client, user, business,
-        owner_with_invite_perm, another_user, base_member_role,
+        self,
+        authenticated_client,
+        user,
+        business,
+        owner_with_invite_perm,
+        another_user,
+        base_member_role,
         transaction_invitation_url,
     ):
         response = authenticated_client.post(
@@ -379,7 +443,10 @@ class TestCreateInvitationView:
         assert response.data["status"] == "pending"
 
     def test_non_member_returns_403(
-        self, another_user, business, transaction_invitation_url,
+        self,
+        another_user,
+        business,
+        transaction_invitation_url,
     ):
         client = APIClient()
         client.force_authenticate(user=another_user)
@@ -396,7 +463,9 @@ class TestCreateInvitationView:
         assert response.status_code == 403
 
     def test_invalid_data_returns_400(
-        self, authenticated_client, transaction_invitation_url,
+        self,
+        authenticated_client,
+        transaction_invitation_url,
     ):
         response = authenticated_client.post(
             transaction_invitation_url,
@@ -410,11 +479,15 @@ class TestCreateInvitationView:
 # CREATE REQUEST VIEW
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestCreateRequestView:
 
     def test_happy_path_account_targeted(
-        self, another_user, business, transaction_request_url,
+        self,
+        another_user,
+        business,
+        transaction_request_url,
     ):
         client = APIClient()
         client.force_authenticate(user=another_user)
@@ -430,7 +503,10 @@ class TestCreateRequestView:
         assert response.data["status"] == "pending"
 
     def test_happy_path_user_targeted(
-        self, user, another_user, transaction_request_url,
+        self,
+        user,
+        another_user,
+        transaction_request_url,
     ):
         client = APIClient()
         client.force_authenticate(user=user)
@@ -446,7 +522,9 @@ class TestCreateRequestView:
         assert response.data["status"] == "pending"
 
     def test_missing_both_targets_returns_400(
-        self, authenticated_client, transaction_request_url,
+        self,
+        authenticated_client,
+        transaction_request_url,
     ):
         response = authenticated_client.post(
             transaction_request_url,
@@ -460,11 +538,15 @@ class TestCreateRequestView:
 # ACCEPT VIEW
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestAcceptTransactionView:
 
     def test_target_acceptance_happy_path(
-        self, pending_invitation, another_user, base_member_role,
+        self,
+        pending_invitation,
+        another_user,
+        base_member_role,
     ):
         client = APIClient()
         client.force_authenticate(user=another_user)
@@ -475,7 +557,10 @@ class TestAcceptTransactionView:
         assert response.data["status"] == "accepted"
 
     def test_accept_with_empty_body(
-        self, pending_invitation, another_user, base_member_role,
+        self,
+        pending_invitation,
+        another_user,
+        base_member_role,
     ):
         """Accept with empty body works (backward-compatible)."""
         client = APIClient()
@@ -489,11 +574,17 @@ class TestAcceptTransactionView:
         assert response.data["status"] == "accepted"
 
     def test_accept_with_role_id_in_body(
-        self, pending_request, user, owner_membership, owner_role,
-        can_approve_membership_perm, base_member_role,
+        self,
+        pending_request,
+        user,
+        owner_membership,
+        owner_role,
+        can_approve_membership_perm,
+        base_member_role,
     ):
         """Accept with role_id in body passes it to the service."""
         from apps.rbac.models import RolePermission
+
         RolePermission.objects.get_or_create(
             role=owner_role,
             permission=can_approve_membership_perm,
@@ -510,7 +601,9 @@ class TestAcceptTransactionView:
         assert response.data["status"] == "accepted"
 
     def test_wrong_user_returns_403(
-        self, pending_invitation, third_user,
+        self,
+        pending_invitation,
+        third_user,
     ):
         client = APIClient()
         client.force_authenticate(user=third_user)
@@ -524,11 +617,14 @@ class TestAcceptTransactionView:
 # DENY VIEW
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestDenyTransactionView:
 
     def test_happy_path_with_reason(
-        self, pending_invitation, another_user,
+        self,
+        pending_invitation,
+        another_user,
     ):
         client = APIClient()
         client.force_authenticate(user=another_user)
@@ -541,7 +637,9 @@ class TestDenyTransactionView:
         assert response.data["status"] == "denied"
 
     def test_happy_path_without_reason(
-        self, pending_invitation, another_user,
+        self,
+        pending_invitation,
+        another_user,
     ):
         client = APIClient()
         client.force_authenticate(user=another_user)
@@ -558,11 +656,14 @@ class TestDenyTransactionView:
 # CANCEL VIEW
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestCancelTransactionView:
 
     def test_initiator_can_cancel(
-        self, pending_invitation, authenticated_client,
+        self,
+        pending_invitation,
+        authenticated_client,
     ):
         response = authenticated_client.post(
             transaction_cancel_url(pending_invitation.id),
@@ -571,7 +672,9 @@ class TestCancelTransactionView:
         assert response.data["status"] == "cancelled"
 
     def test_non_initiator_returns_403(
-        self, pending_invitation, another_user,
+        self,
+        pending_invitation,
+        another_user,
     ):
         client = APIClient()
         client.force_authenticate(user=another_user)
@@ -585,11 +688,15 @@ class TestCancelTransactionView:
 # DISMISS VIEW
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestDismissTransactionView:
 
     def test_happy_path(
-        self, pending_request, another_user, member_with_approve_perm,
+        self,
+        pending_request,
+        another_user,
+        member_with_approve_perm,
     ):
         # Dismiss only works on ACCEPTED/DENIED requests
         pending_request.status = TransactionStatus.ACCEPTED
@@ -604,7 +711,9 @@ class TestDismissTransactionView:
         assert response.data["status"] == "dismissed"
 
     def test_non_request_returns_400(
-        self, pending_invitation, another_user,
+        self,
+        pending_invitation,
+        another_user,
     ):
         client = APIClient()
         client.force_authenticate(user=another_user)
@@ -619,6 +728,7 @@ class TestDismissTransactionView:
 # =========================================================================
 # TRANSACTION TYPE LIST VIEW
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestTransactionTypeListView:
@@ -652,14 +762,20 @@ class TestTransactionTypeListView:
 # FORM MAPPING VIEWS
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestTransactionFormMappingListCreateView:
 
     def test_list_returns_mappings_for_account(
-        self, authenticated_client, user, business, owner_with_configure_perm,
+        self,
+        authenticated_client,
+        user,
+        business,
+        owner_with_configure_perm,
     ):
         from apps.forms.tests.factories import FormTemplateFactory
         from apps.transaction.models import TransactionFormMapping
+
         template = FormTemplateFactory()
         TransactionFormMapping.objects.create(
             account_type="business",
@@ -681,7 +797,11 @@ class TestTransactionFormMappingListCreateView:
         assert response.status_code == 400
 
     def test_list_requires_configure_permission(
-        self, authenticated_client, user, business, member_membership,
+        self,
+        authenticated_client,
+        user,
+        business,
+        member_membership,
     ):
         """Member without can_configure_transactions gets 403 on GET."""
         client = APIClient()
@@ -703,10 +823,15 @@ class TestTransactionFormMappingListCreateView:
         assert response.status_code == 403
 
     def test_create_requires_permission(
-        self, authenticated_client, user, business, member_membership,
+        self,
+        authenticated_client,
+        user,
+        business,
+        member_membership,
     ):
         """Member without can_configure_transactions gets 403."""
         from apps.forms.tests.factories import FormTemplateFactory
+
         template = FormTemplateFactory()
         client = APIClient()
         member_user = member_membership.user
@@ -737,13 +862,18 @@ class TestTransactionFormMappingDeleteView:
 # PLATFORM TRANSACTION VIEWS
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestPlatformTransactionViews:
     """Tests for transaction endpoints operating in platform context."""
 
     def test_create_platform_invitation_via_api(
-        self, platform_authenticated_client, platform_owner_with_invite_perm,
-        user, platform, platform_base_member_role,
+        self,
+        platform_authenticated_client,
+        platform_owner_with_invite_perm,
+        user,
+        platform,
+        platform_base_member_role,
     ):
         response = platform_authenticated_client.post(
             "/api/v1/transactions/invitation/",
@@ -761,7 +891,9 @@ class TestPlatformTransactionViews:
         assert response.data["context_type"] == "platform"
 
     def test_create_platform_request_via_api(
-        self, authenticated_client, platform,
+        self,
+        authenticated_client,
+        platform,
     ):
         response = authenticated_client.post(
             "/api/v1/transactions/request/",
@@ -776,7 +908,10 @@ class TestPlatformTransactionViews:
         assert response.data["transaction_type"] == "platform_membership_request"
 
     def test_list_platform_transactions(
-        self, platform_authenticated_client, platform_pending_invitation, platform,
+        self,
+        platform_authenticated_client,
+        platform_pending_invitation,
+        platform,
     ):
         response = platform_authenticated_client.get(
             f"/api/v1/transactions/?context_type=platform&context_id={platform.id}",
@@ -787,7 +922,9 @@ class TestPlatformTransactionViews:
         assert all(r["context_type"] == "platform" for r in results)
 
     def test_platform_transaction_detail(
-        self, platform_authenticated_client, platform_pending_invitation,
+        self,
+        platform_authenticated_client,
+        platform_pending_invitation,
     ):
         url = transaction_detail_url(platform_pending_invitation.id)
         response = platform_authenticated_client.get(url)
@@ -795,7 +932,9 @@ class TestPlatformTransactionViews:
         assert response.data["id"] == str(platform_pending_invitation.id)
 
     def test_platform_transaction_detail_permissions(
-        self, platform_authenticated_client, platform_pending_request,
+        self,
+        platform_authenticated_client,
+        platform_pending_request,
         platform_owner_with_approve_perm,
     ):
         """GET detail includes _permissions for platform authority."""
@@ -808,7 +947,9 @@ class TestPlatformTransactionViews:
         assert "can_deny" in perms
 
     def test_accept_platform_transaction_via_api(
-        self, authenticated_client, platform_pending_invitation,
+        self,
+        authenticated_client,
+        platform_pending_invitation,
         platform_base_member_role,
     ):
         """Target user (user) accepts platform invitation."""
@@ -818,19 +959,26 @@ class TestPlatformTransactionViews:
         assert response.data["status"] == "accepted"
 
     def test_deny_platform_transaction_via_api(
-        self, platform_authenticated_client, platform_pending_request,
-        platform_owner_with_approve_perm, platform_base_member_role,
+        self,
+        platform_authenticated_client,
+        platform_pending_request,
+        platform_owner_with_approve_perm,
+        platform_base_member_role,
     ):
         """Platform owner denies request."""
         url = transaction_deny_url(platform_pending_request.id)
         response = platform_authenticated_client.post(
-            url, {"reason": "Not suitable"}, format="json",
+            url,
+            {"reason": "Not suitable"},
+            format="json",
         )
         assert response.status_code == 200
         assert response.data["status"] == "denied"
 
     def test_cancel_platform_transaction_via_api(
-        self, authenticated_client, platform_pending_request,
+        self,
+        authenticated_client,
+        platform_pending_request,
     ):
         """Requester (user) cancels their own request."""
         url = transaction_cancel_url(platform_pending_request.id)
@@ -851,7 +999,10 @@ class TestPlatformTransactionViews:
         assert len(results) == 0
 
     def test_platform_list_filter_by_status(
-        self, platform_authenticated_client, platform_pending_invitation, platform,
+        self,
+        platform_authenticated_client,
+        platform_pending_invitation,
+        platform,
     ):
         response = platform_authenticated_client.get(
             f"/api/v1/transactions/?context_type=platform&context_id={platform.id}&status=pending",
@@ -862,7 +1013,10 @@ class TestPlatformTransactionViews:
             assert r["status"] == "pending"
 
     def test_platform_list_filter_by_type(
-        self, platform_authenticated_client, platform_pending_invitation, platform,
+        self,
+        platform_authenticated_client,
+        platform_pending_invitation,
+        platform,
     ):
         response = platform_authenticated_client.get(
             f"/api/v1/transactions/?context_type=platform&context_id={platform.id}"
@@ -878,14 +1032,19 @@ class TestPlatformTransactionViews:
 # PLATFORM FORM MAPPING VIEWS
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestPlatformFormMappingViews:
 
     def test_create_mapping_for_platform_transaction_type(
-        self, platform_authenticated_client, platform_owner_with_configure_perm,
-        platform, third_user,
+        self,
+        platform_authenticated_client,
+        platform_owner_with_configure_perm,
+        platform,
+        third_user,
     ):
         from apps.forms.tests.factories import FormTemplateFactory
+
         template = FormTemplateFactory()
         response = platform_authenticated_client.post(
             "/api/v1/transactions/form-mappings/",
@@ -902,11 +1061,15 @@ class TestPlatformFormMappingViews:
         assert response.data["transaction_type"] == "platform_membership_request"
 
     def test_list_mappings_platform_context(
-        self, platform_authenticated_client, platform_owner_with_configure_perm,
-        platform, third_user,
+        self,
+        platform_authenticated_client,
+        platform_owner_with_configure_perm,
+        platform,
+        third_user,
     ):
         from apps.forms.tests.factories import FormTemplateFactory
         from apps.transaction.models import TransactionFormMapping
+
         template = FormTemplateFactory()
         TransactionFormMapping.objects.create(
             account_type="platform",
@@ -930,3 +1093,117 @@ class TestPlatformFormMappingViews:
             f"/api/v1/transactions/form-mappings/?account_type=platform&account_id={platform.id}",
         )
         assert response.status_code == 403
+
+
+# ==========================================================================
+# TransactionListView — Permission-Gated Visibility
+# ==========================================================================
+
+
+@pytest.mark.django_db
+class TestTransactionListPermissionFiltering:
+    """Tests for apply_permission_filters on the list endpoint.
+
+    Verifies that permission-gated transaction types (those with
+    approval_permission) are hidden from platform members who lack
+    that permission.
+    """
+
+    def test_member_without_approval_perm_cannot_see_business_creation_requests(
+        self,
+        api_client,
+        platform,
+        platform_base_membership,
+        another_user,
+        transaction_list_url,
+    ):
+        """Platform base member without can_approve_business_creation should
+        NOT see business_creation_permission_request in the list."""
+        user_ctx = ActorContext.for_user_context(another_user, request=None)
+        TransactionFactory(
+            transaction_type="business_creation_permission_request",
+            mode="request",
+            initiator_type=PartyType.USER,
+            initiator_id=another_user.id,
+            initiator_context=user_ctx.to_dict(),
+            target_type=PartyType.ACCOUNT,
+            target_id=platform.id,
+            context_type=ContextType.PLATFORM,
+            context_id=platform.id,
+            status=TransactionStatus.PENDING,
+        )
+
+        # Authenticate as the base member (who lacks can_approve_business_creation)
+        base_user = platform_base_membership.user
+        api_client.force_authenticate(user=base_user)
+
+        response = api_client.get(
+            f"{transaction_list_url}?context_type=platform&context_id={platform.id}",
+        )
+        assert response.status_code == 200
+
+        type_ids = [r["transaction_type"] for r in response.data["results"]]
+        assert "business_creation_permission_request" not in type_ids
+
+    def test_platform_admin_with_approval_perm_can_see_business_creation_requests(
+        self,
+        platform_authenticated_client,
+        platform,
+        platform_owner_with_all_perms,
+        another_user,
+        transaction_list_url,
+    ):
+        """Platform owner (who has all permissions) should see all transaction types."""
+        user_ctx = ActorContext.for_user_context(another_user, request=None)
+        TransactionFactory(
+            transaction_type="business_creation_permission_request",
+            mode="request",
+            initiator_type=PartyType.USER,
+            initiator_id=another_user.id,
+            initiator_context=user_ctx.to_dict(),
+            target_type=PartyType.ACCOUNT,
+            target_id=platform.id,
+            context_type=ContextType.PLATFORM,
+            context_id=platform.id,
+            status=TransactionStatus.PENDING,
+        )
+
+        response = platform_authenticated_client.get(
+            f"{transaction_list_url}?context_type=platform&context_id={platform.id}",
+        )
+        assert response.status_code == 200
+
+        type_ids = [r["transaction_type"] for r in response.data["results"]]
+        assert "business_creation_permission_request" in type_ids
+
+    def test_business_context_not_affected_by_platform_permission_filter(
+        self,
+        authenticated_client,
+        business,
+        owner_with_approve_perm,
+        another_user,
+        transaction_list_url,
+    ):
+        """Business context transactions should not be filtered by platform-level
+        approval permissions (those are only relevant in platform context)."""
+        user_ctx = ActorContext.for_user_context(another_user, request=None)
+        TransactionFactory(
+            transaction_type="business_membership_request",
+            mode="request",
+            initiator_type=PartyType.USER,
+            initiator_id=another_user.id,
+            initiator_context=user_ctx.to_dict(),
+            target_type=PartyType.ACCOUNT,
+            target_id=business.id,
+            context_type=ContextType.BUSINESS,
+            context_id=business.id,
+            status=TransactionStatus.PENDING,
+        )
+
+        response = authenticated_client.get(
+            f"{transaction_list_url}?context_type=business&context_id={business.id}",
+        )
+        assert response.status_code == 200
+
+        type_ids = [r["transaction_type"] for r in response.data["results"]]
+        assert "business_membership_request" in type_ids

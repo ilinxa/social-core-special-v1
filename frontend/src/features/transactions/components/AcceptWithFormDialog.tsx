@@ -17,6 +17,7 @@ import {
   fetchRequiredFormApi,
   submitRequiredFormApi,
 } from "@/features/transactions/api/transactions-api";
+import { queryKeys } from "@/lib/query-keys";
 import {
   TransactionFormFieldInput,
   uploadFilesInFormData,
@@ -40,7 +41,7 @@ export function AcceptWithFormDialog({
   isAccepting,
 }: AcceptWithFormDialogProps) {
   const { data, isLoading: templateLoading } = useQuery({
-    queryKey: ["transactions", "required-form", transactionId],
+    queryKey: queryKeys.transactions.requiredForm(transactionId),
     queryFn: () => fetchRequiredFormApi(transactionId),
     enabled: open && !!transactionId,
   });

@@ -4,13 +4,13 @@ Notification Selectors
 Read-only queries for notifications.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 from uuid import UUID
 
 from django.db.models import QuerySet
 
 from apps.notifications.models import NotificationLog, NotificationPreference
-from apps.notifications.types import get_notification_type, get_all_types
+from apps.notifications.types import get_all_types, get_notification_type
 
 
 class NotificationLogSelector:
@@ -19,7 +19,7 @@ class NotificationLogSelector:
     """
 
     @staticmethod
-    def get_by_id(log_id: UUID) -> Optional[NotificationLog]:
+    def get_by_id(log_id: UUID) -> NotificationLog | None:
         """Get notification log by ID."""
         return NotificationLog.objects.filter(id=log_id).first()
 
@@ -27,9 +27,9 @@ class NotificationLogSelector:
     def get_user_history(
         *,
         user,
-        notification_type: Optional[str] = None,
-        status: Optional[str] = None,
-        limit: int = 50
+        notification_type: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
     ) -> QuerySet[NotificationLog]:
         """
         Get notification history for a user.
@@ -51,14 +51,13 @@ class NotificationLogSelector:
         if status:
             qs = qs.filter(status=status)
 
-        return qs.order_by('-created_at')[:limit]
+        return qs.order_by("-created_at")[:limit]
 
     @staticmethod
     def get_pending_count(*, user) -> int:
         """Get count of pending notifications for a user."""
         return NotificationLog.objects.filter(
-            user=user,
-            status=NotificationLog.Status.PENDING
+            user=user, status=NotificationLog.Status.PENDING
         ).count()
 
     @staticmethod
@@ -66,14 +65,14 @@ class NotificationLogSelector:
         """Get recent failed notification logs for monitoring."""
         return NotificationLog.objects.filter(
             status=NotificationLog.Status.FAILED
-        ).order_by('-created_at')[:limit]
+        ).order_by("-created_at")[:limit]
 
     @staticmethod
     def get_partial_logs(*, limit: int = 100) -> QuerySet[NotificationLog]:
         """Get partial notification logs needing retry."""
         return NotificationLog.objects.filter(
             status=NotificationLog.Status.PARTIAL
-        ).order_by('-created_at')[:limit]
+        ).order_by("-created_at")[:limit]
 
 
 class NotificationPreferenceSelector:
@@ -103,23 +102,19 @@ class NotificationPreferenceSelector:
                 channels = [c.value for c in type_config.default_channels]
 
             result[type_config.name] = {
-                'display_name': type_config.display_name,
-                'description': type_config.description,
-                'category': type_config.category.value,
-                'user_configurable': type_config.user_configurable,
-                'email_enabled': 'email' in channels,
-                'push_enabled': 'push' in channels,
-                'sms_enabled': 'sms' in channels,
+                "display_name": type_config.display_name,
+                "description": type_config.description,
+                "category": type_config.category.value,
+                "user_configurable": type_config.user_configurable,
+                "email_enabled": "email" in channels,
+                "push_enabled": "push" in channels,
+                "sms_enabled": "sms" in channels,
             }
 
         return result
 
     @staticmethod
-    def get_users_with_channel_enabled(
-        *,
-        notification_type: str,
-        channel: str
-    ) -> List:
+    def get_users_with_channel_enabled(*, notification_type: str, channel: str) -> List:
         """
         Get users who have a specific channel enabled for a notification type.
 
@@ -130,46 +125,42 @@ class NotificationPreferenceSelector:
             return []
 
         # Get users with explicit preferences
-        if channel == 'email':
+        if channel == "email":
             disabled_users = NotificationPreference.objects.filter(
-                notification_type=notification_type,
-                email_enabled=False
-            ).values_list('user_id', flat=True)
-        elif channel == 'push':
+                notification_type=notification_type, email_enabled=False
+            ).values_list("user_id", flat=True)
+        elif channel == "push":
             disabled_users = NotificationPreference.objects.filter(
-                notification_type=notification_type,
-                push_enabled=False
-            ).values_list('user_id', flat=True)
-        elif channel == 'sms':
+                notification_type=notification_type, push_enabled=False
+            ).values_list("user_id", flat=True)
+        elif channel == "sms":
             disabled_users = NotificationPreference.objects.filter(
-                notification_type=notification_type,
-                sms_enabled=False
-            ).values_list('user_id', flat=True)
+                notification_type=notification_type, sms_enabled=False
+            ).values_list("user_id", flat=True)
         else:
             return []
 
         # Check if channel is in defaults
         from apps.notifications.types import Channel
+
         channel_enum = Channel(channel)
         is_default_enabled = channel_enum in type_config.default_channels
 
         if is_default_enabled:
             # Return all users except those who explicitly disabled
             from django.contrib.auth import get_user_model
+
             User = get_user_model()
             return list(
-                User.objects.filter(is_active=True)
-                .exclude(id__in=disabled_users)
+                User.objects.filter(is_active=True).exclude(id__in=disabled_users)
             )
         else:
             # Return only users who explicitly enabled
             enabled_users = NotificationPreference.objects.filter(
-                notification_type=notification_type,
-                **{f'{channel}_enabled': True}
-            ).values_list('user_id', flat=True)
+                notification_type=notification_type, **{f"{channel}_enabled": True}
+            ).values_list("user_id", flat=True)
 
             from django.contrib.auth import get_user_model
+
             User = get_user_model()
-            return list(
-                User.objects.filter(id__in=enabled_users, is_active=True)
-            )
+            return list(User.objects.filter(id__in=enabled_users, is_active=True))

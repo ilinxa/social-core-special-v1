@@ -1,10 +1,10 @@
 # apps/auth/tests/test_blacklist.py
 """
-Tests for JTIBlacklist — Redis-based JWT ID blacklist with Django cache fallback.
+Tests for JTIBlacklist — Redis-based JWT ID blacklist with fail-closed behavior.
 
 Covers:
-    - TestJTIBlacklistWithFallback: Cache fallback path (blacklist, check, remove, TTL)
-    - TestJTIBlacklistWithMockedRedis: Redis path (setex, exists, delete, error fallback)
+    - TestJTIBlacklistWithFallback: Cache fallback path (blacklist write works, read fails closed)
+    - TestJTIBlacklistWithMockedRedis: Redis path (setex, exists, delete, error handling)
     - TestBlacklistUserTokens: Bulk blacklisting of active user tokens
 """
 
@@ -21,14 +21,14 @@ from apps.auth.tests.factories import (
     RefreshTokenFactory,
     RevokedRefreshTokenFactory,
 )
+from apps.core.exceptions import ServiceUnavailable
 from apps.users.tests.factories import UserFactory
-
 
 # Use LocMemCache so cache.set/get actually stores values in tests.
 CACHES_LOCMEM = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'blacklist-test',
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "blacklist-test",
     }
 }
 
@@ -55,39 +55,49 @@ def clear_cache():
 
 
 class TestJTIBlacklistWithFallback:
-    """Tests for JTIBlacklist when Redis is unavailable and falls back to Django cache."""
+    """Tests for JTIBlacklist when Redis is unavailable.
+
+    The blacklist WRITE path falls back to Django cache (best-effort).
+    The blacklist READ path (is_blacklisted) fails closed — raises ServiceUnavailable.
+    """
 
     @pytest.fixture(autouse=True)
     def _force_fallback(self, settings, clear_cache):
         """Force the fallback path by setting _redis to 'fallback' and using LocMemCache."""
         settings.CACHES = CACHES_LOCMEM
-        JTIBlacklist._redis = 'fallback'
+        JTIBlacklist._redis = "fallback"
 
-    def test_blacklist_and_is_blacklisted(self):
-        """Blacklisted JTI is detected by is_blacklisted."""
+    def test_blacklist_write_succeeds_via_cache_fallback(self):
+        """blacklist() writes to Django cache when Redis is unavailable."""
         jti = str(uuid.uuid4())
 
         JTIBlacklist.blacklist(jti)
 
-        assert JTIBlacklist.is_blacklisted(jti) is True
+        expected_key = f"{JTIBlacklist.KEY_PREFIX}{jti}"
+        assert cache.get(expected_key) is not None
 
-    def test_is_blacklisted_returns_false_for_unknown_jti(self):
-        """is_blacklisted returns False for a JTI that was never blacklisted."""
+    def test_is_blacklisted_raises_service_unavailable(self):
+        """is_blacklisted() raises ServiceUnavailable when Redis is unavailable (fail-closed)."""
         jti = str(uuid.uuid4())
 
-        assert JTIBlacklist.is_blacklisted(jti) is False
+        with pytest.raises(ServiceUnavailable) as exc_info:
+            JTIBlacklist.is_blacklisted(jti)
 
-    def test_remove_deletes_from_blacklist(self):
-        """remove() removes a JTI so is_blacklisted returns False afterwards."""
+        assert exc_info.value.code == "service_unavailable"
+        assert "blacklist" in exc_info.value.details.get("service", "")
+
+    def test_remove_works_via_cache_fallback(self):
+        """remove() deletes from Django cache when Redis is unavailable."""
         jti = str(uuid.uuid4())
 
         JTIBlacklist.blacklist(jti)
-        assert JTIBlacklist.is_blacklisted(jti) is True
+        expected_key = f"{JTIBlacklist.KEY_PREFIX}{jti}"
+        assert cache.get(expected_key) is not None
 
         result = JTIBlacklist.remove(jti)
 
         assert result is True
-        assert JTIBlacklist.is_blacklisted(jti) is False
+        assert cache.get(expected_key) is None
 
     def test_blacklist_uses_correct_key_prefix(self):
         """Blacklisted entry is stored under KEY_PREFIX + jti in the cache."""
@@ -105,7 +115,8 @@ class TestJTIBlacklistWithFallback:
         # Should not raise; the TTL is passed to cache.set.
         JTIBlacklist.blacklist(jti, ttl_seconds=60)
 
-        assert JTIBlacklist.is_blacklisted(jti) is True
+        expected_key = f"{JTIBlacklist.KEY_PREFIX}{jti}"
+        assert cache.get(expected_key) is not None
 
 
 # =============================================================================
@@ -130,17 +141,17 @@ class TestJTIBlacklistWithMockedRedis:
         JTIBlacklist.blacklist(jti, ttl_seconds=ttl)
 
         expected_key = f"{JTIBlacklist.KEY_PREFIX}{jti}"
-        self.mock_redis.setex.assert_called_once_with(expected_key, ttl, '1')
+        self.mock_redis.setex.assert_called_once_with(expected_key, ttl, "1")
 
     def test_blacklist_uses_default_ttl_from_settings(self):
         """blacklist() uses JWT_AUTH.ACCESS_TOKEN_LIFETIME when ttl_seconds is None."""
         jti = str(uuid.uuid4())
 
-        with override_settings(JWT_AUTH={'ACCESS_TOKEN_LIFETIME': 1200}):
+        with override_settings(JWT_AUTH={"ACCESS_TOKEN_LIFETIME": 1200}):
             JTIBlacklist.blacklist(jti)
 
         expected_key = f"{JTIBlacklist.KEY_PREFIX}{jti}"
-        self.mock_redis.setex.assert_called_once_with(expected_key, 1200, '1')
+        self.mock_redis.setex.assert_called_once_with(expected_key, 1200, "1")
 
     def test_is_blacklisted_calls_exists(self):
         """is_blacklisted() calls redis.exists and interprets the result."""
@@ -166,7 +177,7 @@ class TestJTIBlacklistWithMockedRedis:
         self.mock_redis.delete.assert_called_once_with(expected_key)
         assert result is True
 
-    def test_redis_error_falls_back_to_cache(self, settings, clear_cache):
+    def test_redis_error_falls_back_to_cache_on_write(self, settings, clear_cache):
         """When Redis raises an exception, blacklist() falls back to Django cache."""
         settings.CACHES = CACHES_LOCMEM
         jti = str(uuid.uuid4())
@@ -177,6 +188,14 @@ class TestJTIBlacklistWithMockedRedis:
         # The value should be in Django cache via fallback.
         expected_key = f"{JTIBlacklist.KEY_PREFIX}{jti}"
         assert cache.get(expected_key) is not None
+
+    def test_redis_error_raises_service_unavailable_on_read(self):
+        """When Redis raises an exception, is_blacklisted() raises ServiceUnavailable."""
+        jti = str(uuid.uuid4())
+        self.mock_redis.exists.side_effect = ConnectionError("Redis down")
+
+        with pytest.raises(ServiceUnavailable):
+            JTIBlacklist.is_blacklisted(jti)
 
 
 # =============================================================================
@@ -189,10 +208,20 @@ class TestBlacklistUserTokens:
     """Tests for JTIBlacklist.blacklist_user_tokens()."""
 
     @pytest.fixture(autouse=True)
-    def _force_fallback(self, settings, clear_cache):
-        """Force the fallback path so blacklist() uses Django cache."""
-        settings.CACHES = CACHES_LOCMEM
-        JTIBlacklist._redis = 'fallback'
+    def _setup_mock_redis(self):
+        """Use mocked Redis so both blacklist() and is_blacklisted() work."""
+        self.mock_redis = MagicMock()
+        self._store = {}
+        JTIBlacklist._redis = self.mock_redis
+
+        def mock_setex(key, ttl, value):
+            self._store[key] = value
+
+        def mock_exists(key):
+            return 1 if key in self._store else 0
+
+        self.mock_redis.setex.side_effect = mock_setex
+        self.mock_redis.exists.side_effect = mock_exists
 
     def test_blacklists_all_active_tokens(self):
         """blacklist_user_tokens blacklists the JTI of every active token for the user."""

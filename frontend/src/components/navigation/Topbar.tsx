@@ -46,7 +46,7 @@ export function Topbar({ variant }: TopbarProps) {
       </Link>
 
       {/* Desktop nav links */}
-      <nav className="ml-8 hidden items-center  gap-6 md:flex">
+      <nav aria-label="Main navigation" className="ml-8 hidden items-center  gap-6 md:flex">
         {PUBLIC_NAV_LINKS.map((link) => (
           <Link
             key={link.href}
@@ -83,7 +83,7 @@ export function Topbar({ variant }: TopbarProps) {
           {/* Mobile hamburger */}
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
+              <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open navigation menu">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>

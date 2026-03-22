@@ -9,10 +9,10 @@ Depends on Phase 01 (users).
 
 import pytest
 
-
 # =============================================================================
 # N01–N08: NOTIFICATION PREFERENCES & HISTORY
 # =============================================================================
+
 
 class TestNotificationPreferences:
     """Test notification preference management."""
@@ -56,9 +56,12 @@ class TestNotificationPreferences:
             pytest.skip("No notification types available")
 
         api.set_token(state.get_token("alice"))
-        r = api.patch(f"notifications/preferences/{ntype}/", json={
-            "email_enabled": False,
-        })
+        r = api.patch(
+            f"notifications/preferences/{ntype}/",
+            json={
+                "email_enabled": False,
+            },
+        )
         assert r.status_code == 200
 
     def test_n05_restore_preference(self, api, state):
@@ -68,9 +71,12 @@ class TestNotificationPreferences:
             pytest.skip("No notification types")
 
         api.set_token(state.get_token("alice"))
-        r = api.patch(f"notifications/preferences/{ntype}/", json={
-            "email_enabled": True,
-        })
+        r = api.patch(
+            f"notifications/preferences/{ntype}/",
+            json={
+                "email_enabled": True,
+            },
+        )
         assert r.status_code == 200
 
     def test_n06_get_history(self, api, state):
@@ -88,9 +94,12 @@ class TestNotificationPreferences:
     def test_n08_batch_update_preferences(self, api, state):
         """PATCH /notifications/preferences/ updates multiple preferences."""
         api.set_token(state.get_token("alice"))
-        r = api.patch("notifications/preferences/", json={
-            "push_enabled": True,
-        })
+        r = api.patch(
+            "notifications/preferences/",
+            json={
+                "push_enabled": True,
+            },
+        )
         # May be 200 or 400 depending on whether batch update is supported
         assert r.status_code in (200, 400, 405)
 
@@ -98,6 +107,7 @@ class TestNotificationPreferences:
 # =============================================================================
 # E01–E03: SES WEBHOOK
 # =============================================================================
+
 
 class TestEmailWebhook:
     """Test SES webhook endpoint for email event processing.
@@ -110,10 +120,13 @@ class TestEmailWebhook:
     def test_e01_ses_delivery(self, api):
         """POST /email/webhooks/ses/ with delivery notification."""
         api.clear_token()  # Webhook is public (no Bearer auth)
-        r = api.post("email/webhooks/ses/", json={
-            "Type": "Notification",
-            "Message": '{"notificationType":"Delivery","delivery":{"recipients":["alice@test.com"],"timestamp":"2026-01-01T00:00:00Z","processingTimeMillis":100,"reportingMTA":"mta.example.com","smtpResponse":"250 OK"}}',
-        })
+        r = api.post(
+            "email/webhooks/ses/",
+            json={
+                "Type": "Notification",
+                "Message": '{"notificationType":"Delivery","delivery":{"recipients":["alice@test.com"],"timestamp":"2026-01-01T00:00:00Z","processingTimeMillis":100,"reportingMTA":"mta.example.com","smtpResponse":"250 OK"}}',
+            },
+        )
         # 403 = SNS signature validation failure (expected without valid AWS signatures)
         # 200 = processed, 400 = malformed
         assert r.status_code in (200, 400, 403)
@@ -121,17 +134,23 @@ class TestEmailWebhook:
     def test_e02_ses_bounce(self, api):
         """POST /email/webhooks/ses/ with bounce notification."""
         api.clear_token()
-        r = api.post("email/webhooks/ses/", json={
-            "Type": "Notification",
-            "Message": '{"notificationType":"Bounce","bounce":{"bounceType":"Permanent","bouncedRecipients":[{"emailAddress":"bounced@test.com"}],"timestamp":"2026-01-01T00:00:00Z"}}',
-        })
+        r = api.post(
+            "email/webhooks/ses/",
+            json={
+                "Type": "Notification",
+                "Message": '{"notificationType":"Bounce","bounce":{"bounceType":"Permanent","bouncedRecipients":[{"emailAddress":"bounced@test.com"}],"timestamp":"2026-01-01T00:00:00Z"}}',
+            },
+        )
         assert r.status_code in (200, 400, 403)
 
     def test_e03_ses_complaint(self, api):
         """POST /email/webhooks/ses/ with complaint notification."""
         api.clear_token()
-        r = api.post("email/webhooks/ses/", json={
-            "Type": "Notification",
-            "Message": '{"notificationType":"Complaint","complaint":{"complainedRecipients":[{"emailAddress":"complaint@test.com"}],"timestamp":"2026-01-01T00:00:00Z","complaintFeedbackType":"abuse"}}',
-        })
+        r = api.post(
+            "email/webhooks/ses/",
+            json={
+                "Type": "Notification",
+                "Message": '{"notificationType":"Complaint","complaint":{"complainedRecipients":[{"emailAddress":"complaint@test.com"}],"timestamp":"2026-01-01T00:00:00Z","complaintFeedbackType":"abuse"}}',
+            },
+        )
         assert r.status_code in (200, 400, 403)

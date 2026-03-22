@@ -16,7 +16,7 @@ export default function PublicLayout({
     return (
       <div className="min-h-screen">
         <Topbar variant="public" />
-        <main>{children}</main>
+        <main id="main">{children}</main>
       </div>
     );
   }
@@ -28,7 +28,7 @@ export default function PublicLayout({
         <Topbar variant="authenticated" />
         <div className="flex min-h-0 flex-1">
           <Sidebar />
-          <main className="flex-1 overflow-y-auto p-6 pb-20 md:pb-6">
+          <main id="main" className="flex-1 overflow-y-auto p-6 pb-20 md:pb-6">
             {children}
           </main>
         </div>

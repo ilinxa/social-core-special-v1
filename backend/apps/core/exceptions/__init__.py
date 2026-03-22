@@ -18,7 +18,8 @@ Exception Hierarchy:
     │   ├── TokenInvalid
     │   │   └── TokenAlreadyUsed
     │   ├── AccountNotVerified
-    │   └── AccountInactive
+    │   ├── AccountInactive
+    │   └── AccountLocked
     ├── BusinessRuleViolation (400)
     │   └── SessionLimitExceeded
     ├── RateLimitExceeded (429)
@@ -26,35 +27,27 @@ Exception Hierarchy:
     └── OAuthError (400)
 """
 
-from apps.core.exceptions.domain import (
-    # Base exception
-    DomainException,
-    # Resource exceptions
-    NotFound,
-    PermissionDenied,
-    ValidationError,
-    ConflictError,
-    # Authentication exceptions
-    AuthenticationError,
-    InvalidCredentials,
-    TokenExpired,
-    TokenInvalid,
-    TokenAlreadyUsed,
-    AccountNotVerified,
+from apps.core.exceptions.domain import (  # Base exception; Resource exceptions; Authentication exceptions; Business logic exceptions; OAuth exceptions
     AccountInactive,
-    # Business logic exceptions
+    AccountLocked,
+    AccountNotVerified,
+    AuthenticationError,
     BusinessRuleViolation,
-    SessionLimitExceeded,
+    ConflictError,
+    DomainException,
+    InvalidCredentials,
+    NotFound,
+    OAuthError,
+    PermissionDenied,
     RateLimitExceeded,
     ServiceUnavailable,
-    # OAuth exceptions
-    OAuthError,
+    SessionLimitExceeded,
+    TokenAlreadyUsed,
+    TokenExpired,
+    TokenInvalid,
+    ValidationError,
 )
-
-from apps.core.exceptions.handler import (
-    exception_handler,
-    get_status_code,
-)
+from apps.core.exceptions.handler import exception_handler, get_status_code
 
 __all__ = [
     # Base exception
@@ -72,6 +65,7 @@ __all__ = [
     "TokenAlreadyUsed",
     "AccountNotVerified",
     "AccountInactive",
+    "AccountLocked",
     # Business logic exceptions
     "BusinessRuleViolation",
     "SessionLimitExceeded",

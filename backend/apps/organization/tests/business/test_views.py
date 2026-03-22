@@ -148,7 +148,9 @@ class TestBusinessDetailView:
 
         assert response.status_code == 404
 
-    def test_update_business_as_owner(self, authenticated_client, business_with_profile):
+    def test_update_business_as_owner(
+        self, authenticated_client, business_with_profile
+    ):
         """Test updating business as owner."""
         response = authenticated_client.patch(
             f"/api/v1/business/{business_with_profile.slug}/",
@@ -171,7 +173,9 @@ class TestBusinessDetailView:
 
         assert response.status_code == 403
 
-    def test_delete_business_as_owner(self, authenticated_client, business_with_profile):
+    def test_delete_business_as_owner(
+        self, authenticated_client, business_with_profile
+    ):
         """Test soft deleting business as owner."""
         response = authenticated_client.delete(
             f"/api/v1/business/{business_with_profile.slug}/"
@@ -195,7 +199,9 @@ class TestBusinessDetailViewPermissions:
     """Tests for _permissions injection in business detail GET responses."""
 
     def test_get_response_includes_permissions(
-        self, authenticated_client, business_with_profile,
+        self,
+        authenticated_client,
+        business_with_profile,
     ):
         """GET detail response includes _permissions dict."""
         response = authenticated_client.get(
@@ -207,7 +213,9 @@ class TestBusinessDetailViewPermissions:
         assert isinstance(response.data["_permissions"], dict)
 
     def test_owner_gets_full_permissions(
-        self, authenticated_client, business_with_profile,
+        self,
+        authenticated_client,
+        business_with_profile,
     ):
         """Owner sees all permissions as True."""
         response = authenticated_client.get(
@@ -223,7 +231,9 @@ class TestBusinessDetailViewPermissions:
         assert perms["can_archive"] is True
 
     def test_non_owner_gets_limited_permissions(
-        self, authenticated_client, another_business,
+        self,
+        authenticated_client,
+        another_business,
     ):
         """Non-owner sees limited permissions."""
         response = authenticated_client.get(
@@ -236,7 +246,9 @@ class TestBusinessDetailViewPermissions:
         assert perms["can_delete"] is False
 
     def test_patch_response_excludes_permissions(
-        self, authenticated_client, business_with_profile,
+        self,
+        authenticated_client,
+        business_with_profile,
     ):
         """PATCH response does NOT include _permissions."""
         response = authenticated_client.patch(
@@ -249,7 +261,9 @@ class TestBusinessDetailViewPermissions:
         assert "_permissions" not in response.data
 
     def test_get_by_id_includes_permissions(
-        self, authenticated_client, business_with_profile,
+        self,
+        authenticated_client,
+        business_with_profile,
     ):
         """GET by UUID also includes _permissions."""
         response = authenticated_client.get(
@@ -260,7 +274,9 @@ class TestBusinessDetailViewPermissions:
         assert "_permissions" in response.data
 
     def test_list_response_excludes_permissions(
-        self, authenticated_client, business_with_profile,
+        self,
+        authenticated_client,
+        business_with_profile,
     ):
         """GET list does NOT include _permissions (no opt-in on list views)."""
         response = authenticated_client.get("/api/v1/business/")
@@ -269,7 +285,9 @@ class TestBusinessDetailViewPermissions:
         assert "_permissions" not in response.data
 
     def test_profile_get_includes_permissions(
-        self, authenticated_client, business_with_profile,
+        self,
+        authenticated_client,
+        business_with_profile,
     ):
         """GET profile also includes _permissions."""
         response = authenticated_client.get(
@@ -280,7 +298,9 @@ class TestBusinessDetailViewPermissions:
         assert "_permissions" in response.data
 
     def test_profile_patch_excludes_permissions(
-        self, authenticated_client, business_with_profile,
+        self,
+        authenticated_client,
+        business_with_profile,
     ):
         """PATCH profile does NOT include _permissions."""
         response = authenticated_client.patch(
@@ -298,7 +318,9 @@ class TestBusinessDetailViewRelationship:
     """Tests for _relationship injection in business detail GET responses."""
 
     def test_authenticated_get_includes_relationship(
-        self, authenticated_client, business_with_profile,
+        self,
+        authenticated_client,
+        business_with_profile,
     ):
         """Authenticated GET detail response includes _relationship dict."""
         response = authenticated_client.get(
@@ -313,13 +335,16 @@ class TestBusinessDetailViewRelationship:
     def test_anonymous_get_excludes_relationship(self, api_client, db):
         """Anonymous GET does NOT include _relationship."""
         from apps.organization.tests.factories import BusinessAccountWithProfileFactory
+
         business = BusinessAccountWithProfileFactory()
         response = api_client.get(f"/api/v1/business/{business.slug}/")
         assert response.status_code == 200
         assert "_relationship" not in response.data
 
     def test_owner_shows_active_membership(
-        self, authenticated_client, business_with_profile,
+        self,
+        authenticated_client,
+        business_with_profile,
     ):
         """Owner's _relationship shows active membership_status."""
         response = authenticated_client.get(
@@ -329,7 +354,9 @@ class TestBusinessDetailViewRelationship:
         assert rel["membership_status"] == "active"
 
     def test_non_member_shows_null_membership(
-        self, authenticated_client, another_business,
+        self,
+        authenticated_client,
+        another_business,
     ):
         """Non-member sees null membership_status and null active_transaction."""
         response = authenticated_client.get(
@@ -340,12 +367,15 @@ class TestBusinessDetailViewRelationship:
         assert rel["active_transaction"] is None
 
     def test_pending_request_shows_active_transaction(
-        self, authenticated_client, user, another_business,
+        self,
+        authenticated_client,
+        user,
+        another_business,
     ):
         """User with a pending request sees it in active_transaction."""
-        from apps.transaction.tests.factories import TransactionFactory
-        from apps.transaction.constants import TransactionStatus, PartyType
         from apps.core.constants import ContextType
+        from apps.transaction.constants import PartyType, TransactionStatus
+        from apps.transaction.tests.factories import TransactionFactory
 
         TransactionFactory(
             transaction_type="business_membership_request",
@@ -368,12 +398,15 @@ class TestBusinessDetailViewRelationship:
         assert rel["active_transaction"]["mode"] == "request"
 
     def test_pending_invitation_shows_active_transaction(
-        self, authenticated_client, user, another_business,
+        self,
+        authenticated_client,
+        user,
+        another_business,
     ):
         """User with a pending invitation sees it in active_transaction."""
-        from apps.transaction.tests.factories import TransactionFactory
-        from apps.transaction.constants import TransactionStatus, PartyType
         from apps.core.constants import ContextType
+        from apps.transaction.constants import PartyType, TransactionStatus
+        from apps.transaction.tests.factories import TransactionFactory
 
         TransactionFactory(
             transaction_type="business_membership_invitation",
@@ -395,7 +428,9 @@ class TestBusinessDetailViewRelationship:
         assert rel["active_transaction"]["mode"] == "invitation"
 
     def test_patch_response_excludes_relationship(
-        self, authenticated_client, business_with_profile,
+        self,
+        authenticated_client,
+        business_with_profile,
     ):
         """PATCH response does NOT include _relationship."""
         response = authenticated_client.patch(
@@ -407,7 +442,9 @@ class TestBusinessDetailViewRelationship:
         assert "_relationship" not in response.data
 
     def test_get_by_id_includes_relationship(
-        self, authenticated_client, business_with_profile,
+        self,
+        authenticated_client,
+        business_with_profile,
     ):
         """GET by UUID also includes _relationship."""
         response = authenticated_client.get(
@@ -417,12 +454,15 @@ class TestBusinessDetailViewRelationship:
         assert "_relationship" in response.data
 
     def test_pending_request_includes_viewer_role_initiator(
-        self, authenticated_client, user, another_business,
+        self,
+        authenticated_client,
+        user,
+        another_business,
     ):
         """User who created a request sees viewer_role='initiator'."""
-        from apps.transaction.tests.factories import TransactionFactory
-        from apps.transaction.constants import TransactionStatus, PartyType
         from apps.core.constants import ContextType
+        from apps.transaction.constants import PartyType, TransactionStatus
+        from apps.transaction.tests.factories import TransactionFactory
 
         TransactionFactory(
             transaction_type="business_membership_request",
@@ -443,12 +483,15 @@ class TestBusinessDetailViewRelationship:
         assert rel["active_transaction"]["viewer_role"] == "initiator"
 
     def test_pending_invitation_includes_viewer_role_target(
-        self, authenticated_client, user, another_business,
+        self,
+        authenticated_client,
+        user,
+        another_business,
     ):
         """User who is target of an invitation sees viewer_role='target'."""
-        from apps.transaction.tests.factories import TransactionFactory
-        from apps.transaction.constants import TransactionStatus, PartyType
         from apps.core.constants import ContextType
+        from apps.transaction.constants import PartyType, TransactionStatus
+        from apps.transaction.tests.factories import TransactionFactory
 
         TransactionFactory(
             transaction_type="business_membership_invitation",
@@ -468,7 +511,10 @@ class TestBusinessDetailViewRelationship:
         assert rel["active_transaction"]["viewer_role"] == "target"
 
     def test_active_follow_shows_follow_id(
-        self, authenticated_client, user, another_business,
+        self,
+        authenticated_client,
+        user,
+        another_business,
     ):
         """Following a business populates follow_id in _relationship."""
         from apps.network.tests.factories import FollowFactory
@@ -660,8 +706,8 @@ class TestBusinessDetailViewAnonymous:
     def test_anonymous_get_suspended_business_returns_403(self, api_client, db):
         """Anonymous GET returns 403 for suspended business even with public profile."""
         from apps.organization.tests.factories import (
-            SuspendedBusinessFactory,
             BusinessProfileFactory,
+            SuspendedBusinessFactory,
         )
 
         business = SuspendedBusinessFactory()
@@ -766,9 +812,7 @@ class TestBusinessVisibilityFiltering:
         assert "registration_number" not in response.data
         assert "settings" not in response.data
 
-    def test_non_member_authenticated_public_sees_t1_t2_not_t3(
-        self, api_client, db
-    ):
+    def test_non_member_authenticated_public_sees_t1_t2_not_t3(self, api_client, db):
         """Authenticated non-member viewing public business: T1+T2 visible, T3 hidden."""
         from apps.organization.tests.factories import (
             BusinessAccountFactory,
@@ -797,14 +841,14 @@ class TestBusinessVisibilityFiltering:
 
     def test_member_sees_t3_fields(self, api_client, db):
         """Member with can_view_legal_info sees T3 registration_number."""
+        from apps.core.constants import AccountType
         from apps.organization.tests.factories import (
             BusinessAccountFactory,
             BusinessProfileFactory,
             UserFactory,
         )
-        from apps.rbac.services import RBACService
         from apps.rbac.selectors import RoleSelector
-        from apps.core.constants import AccountType
+        from apps.rbac.services import RBACService
 
         owner = UserFactory()
         business = BusinessAccountFactory(
@@ -814,7 +858,8 @@ class TestBusinessVisibilityFiltering:
         )
         BusinessProfileFactory(business=business)
         RBACService.initialize_business_account(
-            business_id=business.id, owner=owner,
+            business_id=business.id,
+            owner=owner,
         )
 
         api_client.force_authenticate(user=owner)
@@ -828,6 +873,7 @@ class TestBusinessVisibilityFiltering:
     def test_is_limited_flag_on_private_non_member(self, api_client, db):
         """Non-member viewing private business gets is_limited=True."""
         from unittest.mock import patch
+
         from apps.organization.tests.factories import (
             BusinessAccountFactory,
             BusinessProfileFactory,
@@ -899,6 +945,7 @@ class TestBusinessVisibilityFiltering:
     def test_follower_can_view_private_profile(self, api_client, db):
         """Follower can view a private business profile (not 403)."""
         from unittest.mock import patch
+
         from apps.organization.tests.factories import (
             BusinessAccountFactory,
             BusinessProfileFactory,
@@ -915,9 +962,7 @@ class TestBusinessVisibilityFiltering:
             "apps.network.selectors.FollowSelector.is_following",
             return_value=True,
         ):
-            response = api_client.get(
-                f"/api/v1/business/{business.slug}/profile/"
-            )
+            response = api_client.get(f"/api/v1/business/{business.slug}/profile/")
 
         assert response.status_code == 200
         assert "display_name" in response.data
@@ -937,9 +982,7 @@ class TestBusinessProfileVisibilityView:
 
     def test_get_returns_t2_fields(self, authenticated_client, business_with_profile):
         """GET returns list of T2 fields with current levels and choices."""
-        response = authenticated_client.get(
-            self._url(business_with_profile.slug)
-        )
+        response = authenticated_client.get(self._url(business_with_profile.slug))
 
         assert response.status_code == 200
         data = response.data
@@ -960,9 +1003,7 @@ class TestBusinessProfileVisibilityView:
 
     def test_get_default_levels(self, authenticated_client, business_with_profile):
         """GET returns correct default levels (FOLLOWERS=2 for contact fields)."""
-        response = authenticated_client.get(
-            self._url(business_with_profile.slug)
-        )
+        response = authenticated_client.get(self._url(business_with_profile.slug))
 
         for item in response.data:
             assert item["default_level"] == 2  # BusinessVisibility.FOLLOWERS
@@ -990,7 +1031,9 @@ class TestBusinessProfileVisibilityView:
             "contact_email": 3,
         }
 
-    def test_patch_invalid_field_name(self, authenticated_client, business_with_profile):
+    def test_patch_invalid_field_name(
+        self, authenticated_client, business_with_profile
+    ):
         """PATCH rejects non-T2 field names."""
         response = authenticated_client.patch(
             self._url(business_with_profile.slug),
@@ -1010,7 +1053,9 @@ class TestBusinessProfileVisibilityView:
 
         assert response.status_code == 400
 
-    def test_non_member_cannot_access(self, api_client, business_with_profile, non_member_user):
+    def test_non_member_cannot_access(
+        self, api_client, business_with_profile, non_member_user
+    ):
         """Non-members cannot view or update visibility settings."""
         api_client.force_authenticate(user=non_member_user)
 

@@ -8,15 +8,15 @@ PostgreSQL-specific: Uses SearchVector, SearchQuery, SearchRank,
 TrigramSimilarity. These will NOT work on SQLite.
 """
 
+import operator
+from functools import reduce
+
 from django.contrib.postgres.search import (
     SearchQuery,
     SearchRank,
     SearchVector,
     TrigramSimilarity,
 )
-import operator
-from functools import reduce
-
 from django.db.models import FloatField, Q, QuerySet, Value
 from django.db.models.functions import Coalesce, Greatest
 
@@ -58,14 +58,10 @@ class ExploreSelector:
         profiles are returned; set include_private=True for authenticated
         users to discover private businesses too.
         """
-        qs = (
-            BusinessAccount.objects
-            .filter(
-                status=BusinessStatus.ACTIVE,
-                is_deleted=False,
-            )
-            .select_related("profile")
-        )
+        qs = BusinessAccount.objects.filter(
+            status=BusinessStatus.ACTIVE,
+            is_deleted=False,
+        ).select_related("profile")
         if not include_private:
             qs = qs.filter(profile__is_public=True)
 
@@ -124,7 +120,9 @@ class ExploreSelector:
         if is_platform_branch is not None:
             qs = qs.filter(is_platform_branch=is_platform_branch)
         if tags:
-            tag_q = reduce(operator.or_, [Q(profile__tags__contains=tag) for tag in tags])
+            tag_q = reduce(
+                operator.or_, [Q(profile__tags__contains=tag) for tag in tags]
+            )
             qs = qs.filter(tag_q)
         if founded_year_min is not None:
             qs = qs.filter(profile__founded_year__gte=founded_year_min)
@@ -165,11 +163,7 @@ class ExploreSelector:
         Returns active users with profiles. Both public and private users
         are included; the view layer applies visibility filtering.
         """
-        qs = (
-            User.objects
-            .filter(is_active=True)
-            .select_related("profile")
-        )
+        qs = User.objects.filter(is_active=True).select_related("profile")
 
         # --- Text search ---
         if query and query.strip():
@@ -209,9 +203,7 @@ class ExploreSelector:
 
             qs = qs.annotate(
                 search_rank=search_rank,
-            ).filter(
-                Q(search_rank__gt=0.01)
-            )
+            ).filter(Q(search_rank__gt=0.01))
         else:
             qs = qs.annotate(
                 search_rank=Value(0.0, output_field=FloatField()),
@@ -227,7 +219,9 @@ class ExploreSelector:
         if verified is True:
             qs = qs.filter(is_verified=True)
         if tags:
-            tag_q = reduce(operator.or_, [Q(profile__tags__contains=tag) for tag in tags])
+            tag_q = reduce(
+                operator.or_, [Q(profile__tags__contains=tag) for tag in tags]
+            )
             qs = qs.filter(tag_q)
 
         # --- Ordering ---
@@ -265,11 +259,15 @@ class ExploreSelector:
 
         if query and query.strip():
             q = query.strip()
-            qs = qs.annotate(
-                similarity=TrigramSimilarity("name", q),
-            ).filter(
-                similarity__gt=0.1,
-            ).order_by("-similarity", "-usage_count")
+            qs = (
+                qs.annotate(
+                    similarity=TrigramSimilarity("name", q),
+                )
+                .filter(
+                    similarity__gt=0.1,
+                )
+                .order_by("-similarity", "-usage_count")
+            )
         else:
             qs = qs.order_by("-usage_count", "name")
 

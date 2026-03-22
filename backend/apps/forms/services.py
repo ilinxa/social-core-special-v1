@@ -1,22 +1,55 @@
-from typing import Optional, List, Dict, Any
+"""
+Form Builder Service — template management and response lifecycle.
+
+Provides two service classes:
+    FormBuilderService — template CRUD, versioning, field management, publishing
+    FormResponseService — response creation, submission, processing, voiding
+
+Key template operations:
+    create_form_template — create a new form template with owner context
+    update_form_template — update template metadata (draft only)
+    publish_form — transition draft/edit-draft to published
+    archive_form / unarchive_form — lifecycle management
+    create_edit_draft — create a new draft version from published template
+    fork_template — clone a template for a different owner
+    add_field / update_field / delete_field / reorder_fields — field management
+
+Key response operations:
+    create_response — create a draft response for a published template
+    submit_response — validate and submit a draft response
+    process_response / void_response — admin lifecycle actions
+    create_and_submit — atomic create + validate + submit in one call
+    link_to_transaction — associate a response with a transaction
+    mark_info_requested / update_after_info_request — info-request workflow
+
+All methods use @staticmethod + @transaction.atomic with keyword-only args.
+Field values are validated against template schema and indexed for typed queries.
+"""
+from typing import Any, Dict, List
 from uuid import UUID
+
 from django.db import transaction
 from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.text import slugify
 
-from apps.core.observability import get_logger, AuditService, AuditLog
+from apps.core.constants import FormStatus, OwnerType, ResponseStatus
 from apps.core.exceptions import (
-    ValidationError, ConflictError, PermissionDenied, BusinessRuleViolation,
+    BusinessRuleViolation,
+    ConflictError,
+    PermissionDenied,
+    ValidationError,
 )
-from apps.core.constants import FormStatus, ResponseStatus, OwnerType
+from apps.core.observability import AuditLog, AuditService, get_logger
 from apps.core.types import ActorContext
-from apps.forms.models import FormTemplate, FormField, FormResponse
-from apps.forms.selectors import FormTemplateSelector, FormResponseSelector
-from apps.forms.indexing import IndexService
 from apps.forms.constants import (
-    FIELD_STORAGE_MAP, INDEXABLE_STORAGE_TYPES, MAX_INDEXED_FIELDS,
+    FIELD_STORAGE_MAP,
+    INDEXABLE_STORAGE_TYPES,
+    MAX_INDEXED_FIELDS,
 )
+from apps.forms.indexing import IndexService
+from apps.forms.models import FormField, FormResponse, FormTemplate
+from apps.forms.selectors import FormResponseSelector, FormTemplateSelector
 from apps.forms.validators import validate_field_values
 
 logger = get_logger(__name__)
@@ -31,14 +64,14 @@ class FormBuilderService:
         *,
         actor_context: "ActorContext",
         actor,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
         name: str,
-        slug: Optional[str] = None,
+        slug: str | None = None,
         description: str = "",
         owner_type: str,
-        owner_id: Optional[UUID] = None,
+        owner_id: UUID | None = None,
         scope: str,
-        settings: Optional[Dict] = None,
+        settings: Dict | None = None,
     ) -> FormTemplate:
         if owner_type == OwnerType.SYSTEM:
             raise ValidationError(
@@ -99,11 +132,10 @@ class FormBuilderService:
         *,
         form_template: FormTemplate,
         updated_by,
-        request: Optional[HttpRequest] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        settings: Optional[Dict] = None,
-        **kwargs,
+        request: HttpRequest | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        settings: Dict | None = None,
     ) -> FormTemplate:
         if not form_template.is_editable:
             raise BusinessRuleViolation(
@@ -127,7 +159,10 @@ class FormBuilderService:
             form_template.name = name
 
         if description is not None and form_template.description != description:
-            changes["description"] = {"old": form_template.description, "new": description}
+            changes["description"] = {
+                "old": form_template.description,
+                "new": description,
+            }
             form_template.description = description
 
         if settings is not None:
@@ -162,10 +197,10 @@ class FormBuilderService:
         *,
         form_template: FormTemplate,
         updated_by,
-        request: Optional[HttpRequest] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        settings: Optional[Dict] = None,
+        request: HttpRequest | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        settings: Dict | None = None,
     ) -> FormTemplate:
         form_template.is_current = False
         form_template.updated_by = updated_by
@@ -174,7 +209,9 @@ class FormBuilderService:
         new_version = FormTemplate.objects.create(
             name=name if name is not None else form_template.name,
             slug=form_template.slug,
-            description=description if description is not None else form_template.description,
+            description=(
+                description if description is not None else form_template.description
+            ),
             owner_type=form_template.owner_type,
             owner_id=form_template.owner_id,
             scope=form_template.scope,
@@ -237,7 +274,7 @@ class FormBuilderService:
         *,
         form_template: FormTemplate,
         published_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> FormTemplate:
         if form_template.status != FormStatus.DRAFT:
             raise BusinessRuleViolation(
@@ -266,7 +303,7 @@ class FormBuilderService:
         *,
         form_template: FormTemplate,
         archived_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> FormTemplate:
         if form_template.status != FormStatus.ACTIVE:
             raise BusinessRuleViolation(
@@ -302,7 +339,7 @@ class FormBuilderService:
         *,
         form_template: FormTemplate,
         unarchived_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> FormTemplate:
         if form_template.status != FormStatus.ARCHIVED:
             raise BusinessRuleViolation(
@@ -339,7 +376,7 @@ class FormBuilderService:
         *,
         form_template: FormTemplate,
         created_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> FormTemplate:
         """Create a new DRAFT version from an active form for editing."""
         if form_template.status != FormStatus.ACTIVE:
@@ -390,7 +427,9 @@ class FormBuilderService:
                 step_tag=field.step_tag,
                 section_tag=field.section_tag,
                 options=field.options.copy() if field.options else [],
-                validation_rules=field.validation_rules.copy() if field.validation_rules else {},
+                validation_rules=(
+                    field.validation_rules.copy() if field.validation_rules else {}
+                ),
                 ui_config=field.ui_config.copy() if field.ui_config else {},
                 default_value=field.default_value,
                 is_required=field.is_required,
@@ -427,7 +466,7 @@ class FormBuilderService:
         *,
         form_template: FormTemplate,
         deleted_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> FormTemplate:
         if form_template.is_system_form:
             raise PermissionDenied(
@@ -458,11 +497,11 @@ class FormBuilderService:
         source_template: FormTemplate,
         actor_context: "ActorContext",
         actor,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
         new_owner_type: str,
         new_owner_id: UUID,
-        new_name: Optional[str] = None,
-        new_slug: Optional[str] = None,
+        new_name: str | None = None,
+        new_slug: str | None = None,
     ) -> FormTemplate:
         if not source_template.is_template_public:
             raise PermissionDenied(
@@ -498,7 +537,9 @@ class FormBuilderService:
             version=1,
             is_current=True,
             forked_from=source_template,
-            settings=source_template.settings.copy() if source_template.settings else {},
+            settings=(
+                source_template.settings.copy() if source_template.settings else {}
+            ),
         )
 
         for field in source_template.fields.all():
@@ -513,7 +554,9 @@ class FormBuilderService:
                 step_tag=field.step_tag,
                 section_tag=field.section_tag,
                 options=field.options.copy() if field.options else [],
-                validation_rules=field.validation_rules.copy() if field.validation_rules else {},
+                validation_rules=(
+                    field.validation_rules.copy() if field.validation_rules else {}
+                ),
                 ui_config=field.ui_config.copy() if field.ui_config else {},
                 default_value=field.default_value,
                 is_required=field.is_required,
@@ -547,7 +590,7 @@ class FormBuilderService:
         *,
         form_template: FormTemplate,
         added_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
         field_key: str,
         field_type: str,
         label: str,
@@ -556,9 +599,9 @@ class FormBuilderService:
         placeholder: str = "",
         step_tag: str = "",
         section_tag: str = "",
-        options: Optional[List] = None,
-        validation_rules: Optional[Dict] = None,
-        ui_config: Optional[Dict] = None,
+        options: List | None = None,
+        validation_rules: Dict | None = None,
+        ui_config: Dict | None = None,
         default_value: Any = None,
         is_required: bool = False,
         is_indexed: bool = False,
@@ -645,7 +688,7 @@ class FormBuilderService:
         *,
         field: FormField,
         updated_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
         data: Dict[str, Any],
     ) -> FormField:
         """Update a form field's properties.
@@ -667,9 +710,16 @@ class FormBuilderService:
             )
 
         UPDATABLE_FIELDS = {
-            "label", "help_text", "placeholder", "options",
-            "validation_rules", "is_required", "is_indexable",
-            "section_tag", "step_tag", "conditional_logic",
+            "label",
+            "help_text",
+            "placeholder",
+            "options",
+            "validation_rules",
+            "is_required",
+            "is_indexable",
+            "section_tag",
+            "step_tag",
+            "conditional_logic",
         }
 
         # Map API field names to model field names where they differ
@@ -717,7 +767,7 @@ class FormBuilderService:
         *,
         field: FormField,
         deleted_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> None:
         """Delete a form field and reorder remaining fields to close the gap.
 
@@ -776,7 +826,7 @@ class FormBuilderService:
         form_template: FormTemplate,
         field_orders: List[Dict[str, Any]],
         reordered_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> List[FormField]:
         """Bulk reorder fields within a form template.
 
@@ -853,7 +903,7 @@ class FormResponseService:
         form_template: FormTemplate,
         actor_context: "ActorContext",
         actor,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
         data: Dict[str, Any],
     ) -> FormResponse:
         if not form_template.accepts_responses:
@@ -892,7 +942,7 @@ class FormResponseService:
         *,
         response: FormResponse,
         updated_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
         data: Dict[str, Any],
     ) -> FormResponse:
         if not response.is_editable:
@@ -922,7 +972,7 @@ class FormResponseService:
         response: FormResponse,
         actor_context: "ActorContext",
         actor,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> FormResponse:
         if response.status != ResponseStatus.DRAFT:
             raise BusinessRuleViolation(
@@ -930,12 +980,15 @@ class FormResponseService:
                 rule="response_submit_from_draft",
             )
 
-        all_fields = list(FormField.objects.filter(
-            form_template=response.form_template,
-        ))
+        all_fields = list(
+            FormField.objects.filter(
+                form_template=response.form_template,
+            )
+        )
 
         required_missing = [
-            f.field_key for f in all_fields
+            f.field_key
+            for f in all_fields
             if f.is_required and not response.data.get(f.field_key)
         ]
         if required_missing:
@@ -954,9 +1007,14 @@ class FormResponseService:
         response.submitter_context = actor_context.to_dict()
         response.status = ResponseStatus.SUBMITTED
         response.submitted_at = timezone.now()
-        response.save(update_fields=[
-            "submitter_context", "status", "submitted_at", "updated_at",
-        ])
+        response.save(
+            update_fields=[
+                "submitter_context",
+                "status",
+                "submitted_at",
+                "updated_at",
+            ]
+        )
 
         IndexService.extract_and_store(response=response)
 
@@ -981,7 +1039,7 @@ class FormResponseService:
         *,
         response: FormResponse,
         processed_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
         notes: str = "",
     ) -> FormResponse:
         if response.status != ResponseStatus.SUBMITTED:
@@ -994,9 +1052,15 @@ class FormResponseService:
         response.processed_at = timezone.now()
         response.processed_by = processed_by
         response.processor_notes = notes
-        response.save(update_fields=[
-            "status", "processed_at", "processed_by", "processor_notes", "updated_at",
-        ])
+        response.save(
+            update_fields=[
+                "status",
+                "processed_at",
+                "processed_by",
+                "processor_notes",
+                "updated_at",
+            ]
+        )
 
         logger.info("forms.response.processed", response_id=str(response.id))
 
@@ -1016,7 +1080,7 @@ class FormResponseService:
         *,
         response: FormResponse,
         voided_by,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
         reason: str = "",
     ) -> FormResponse:
         if response.status not in [ResponseStatus.DRAFT, ResponseStatus.SUBMITTED]:
@@ -1055,10 +1119,10 @@ class FormResponseService:
         form_template: FormTemplate,
         data: Dict[str, Any],
         context_type: str = "",
-        context_id: Optional[UUID] = None,
+        context_id: UUID | None = None,
         actor_context: ActorContext,
         actor,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> FormResponse:
         """Create a form response and immediately submit it (for transaction-linked forms)."""
         if not form_template.accepts_responses:
@@ -1070,7 +1134,8 @@ class FormResponseService:
         all_fields = list(form_template.fields.all())
 
         required_missing = [
-            f.field_key for f in all_fields
+            f.field_key
+            for f in all_fields
             if f.is_required and not data.get(f.field_key)
         ]
         if required_missing:
@@ -1164,7 +1229,7 @@ class FormResponseService:
         data: Dict[str, Any],
         actor_context: ActorContext,
         actor,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> FormResponse:
         """Update a form response after info was requested.
 
@@ -1174,8 +1239,8 @@ class FormResponseService:
         - Required fields present
         Then: saves revision history, updates data, re-extracts indexes.
         """
-        from apps.transaction.selectors import TransactionSelector
         from apps.transaction.constants import TransactionStatus
+        from apps.transaction.selectors import TransactionSelector
 
         response = FormResponseSelector.get_by_id(response_id=response_id)
 
@@ -1204,7 +1269,8 @@ class FormResponseService:
         all_fields = list(response.form_template.fields.all())
 
         required_missing = [
-            f.field_key for f in all_fields
+            f.field_key
+            for f in all_fields
             if f.is_required and not data.get(f.field_key)
         ]
         if required_missing:
@@ -1224,7 +1290,9 @@ class FormResponseService:
         history_entry = {
             "revision": response.revision,
             "data": response.data,
-            "submitted_at": response.submitted_at.isoformat() if response.submitted_at else None,
+            "submitted_at": (
+                response.submitted_at.isoformat() if response.submitted_at else None
+            ),
             "submitted_by": str(response.submitted_by_id),
         }
         response.revision_history = response.revision_history + [history_entry]
@@ -1236,10 +1304,18 @@ class FormResponseService:
         response.submitter_context = actor_context.to_dict()
         response.info_requested_at = None
         response.updated_by = actor
-        response.save(update_fields=[
-            "data", "revision", "revision_history", "submitted_at",
-            "submitter_context", "info_requested_at", "updated_at", "updated_by",
-        ])
+        response.save(
+            update_fields=[
+                "data",
+                "revision",
+                "revision_history",
+                "submitted_at",
+                "submitter_context",
+                "info_requested_at",
+                "updated_at",
+                "updated_by",
+            ]
+        )
 
         # Re-extract indexed fields
         IndexService.clear_indexes(response=response)

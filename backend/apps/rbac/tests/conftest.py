@@ -5,12 +5,11 @@ Pytest configuration and fixtures for RBAC app tests.
 These fixtures are available to all tests in the rbac app.
 """
 
-import pytest
 from uuid import uuid4
-from rest_framework.test import APIClient
 
+import pytest
 from django.conf import settings
-
+from rest_framework.test import APIClient
 
 # =============================================================================
 # SKIP MARKERS
@@ -26,8 +25,9 @@ def is_sqlite():
 # Skip marker for tests that require PostgreSQL (e.g., JSON contains lookup)
 skip_if_sqlite = pytest.mark.skipif(
     is_sqlite(),
-    reason="Test requires PostgreSQL (JSONField contains lookup not supported on SQLite)"
+    reason="Test requires PostgreSQL (JSONField contains lookup not supported on SQLite)",
 )
+
 
 # Skip marker for tests that require a real cache backend
 def is_dummy_or_locmem_cache():
@@ -35,43 +35,37 @@ def is_dummy_or_locmem_cache():
     backend = settings.CACHES.get("default", {}).get("BACKEND", "")
     return "DummyCache" in backend or "LocMemCache" in backend
 
+
 skip_if_locmem_cache = pytest.mark.skipif(
     is_dummy_or_locmem_cache(),
-    reason="Test requires a real cache backend (Redis or Memcached)"
+    reason="Test requires a real cache backend (Redis or Memcached)",
 )
 
-from apps.core.constants import AccountType, PermissionScope, MembershipStatus
-from apps.rbac.models import Permission, Role, RolePermission, Membership
-from apps.rbac.tests.factories import (
-    # User/Account factories
-    UserFactory,
-    BusinessAccountFactory,
-    PlatformAccountFactory,
-    # Permission factories
-    PermissionFactory,
-    BusinessPermissionFactory,
-    PlatformPermissionFactory,
-    # Role factories
-    RoleFactory,
-    BusinessRoleFactory,
-    PlatformRoleFactory,
-    OwnerRoleFactory,
-    BaseMemberRoleFactory,
-    # Role Permission factories
-    RolePermissionFactory,
-    BusinessRolePermissionFactory,
-    GlobalRolePermissionFactory,
-    # Membership factories
-    MembershipFactory,
-    BusinessMembershipFactory,
-    PlatformMembershipFactory,
-    OwnerMembershipFactory,
-    SuspendedMembershipFactory,
+from apps.core.constants import AccountType, MembershipStatus, PermissionScope
+from apps.rbac.models import Membership, Permission, Role, RolePermission
+from apps.rbac.tests.factories import (  # User/Account factories; Permission factories; Role factories; Role Permission factories; Membership factories; Composite
     BannedMembershipFactory,
-    # Composite
+    BaseMemberRoleFactory,
+    BusinessAccountFactory,
+    BusinessMembershipFactory,
+    BusinessPermissionFactory,
+    BusinessRoleFactory,
+    BusinessRolePermissionFactory,
     BusinessWithOwnerFactory,
+    GlobalRolePermissionFactory,
+    MembershipFactory,
+    OwnerMembershipFactory,
+    OwnerRoleFactory,
+    PermissionFactory,
+    PlatformAccountFactory,
+    PlatformMembershipFactory,
+    PlatformPermissionFactory,
+    PlatformRoleFactory,
+    RoleFactory,
+    RolePermissionFactory,
+    SuspendedMembershipFactory,
+    UserFactory,
 )
-
 
 # =============================================================================
 # API CLIENT FIXTURES
@@ -194,7 +188,7 @@ def can_view_members_permission(db):
             "description": "View the list of account members",
             "category": "membership",
             "applicable_scopes": ["business", "platform_only", "global_only"],
-        }
+        },
     )
     return perm
 
@@ -209,7 +203,7 @@ def can_change_member_role_permission(db):
             "description": "Change the role assigned to a member",
             "category": "membership",
             "applicable_scopes": ["business", "global_only"],
-        }
+        },
     )
     return perm
 
@@ -224,7 +218,7 @@ def can_suspend_member_permission(db):
             "description": "Temporarily suspend a member's access",
             "category": "membership",
             "applicable_scopes": ["business", "global_only"],
-        }
+        },
     )
     return perm
 
@@ -239,7 +233,7 @@ def can_remove_member_permission(db):
             "description": "Remove members from the account",
             "category": "membership",
             "applicable_scopes": ["business", "global_only"],
-        }
+        },
     )
     return perm
 
@@ -254,7 +248,7 @@ def can_ban_member_permission(db):
             "description": "Permanently ban a member from the account",
             "category": "membership",
             "applicable_scopes": ["business", "global_only"],
-        }
+        },
     )
     return perm
 
@@ -268,8 +262,11 @@ def can_create_role_permission(db):
             "name": "Create Role",
             "description": "Create new custom roles for the account",
             "category": "roles",
-            "applicable_scopes": ["business", "platform_only"],  # NO global_only per registry
-        }
+            "applicable_scopes": [
+                "business",
+                "platform_only",
+            ],  # NO global_only per registry
+        },
     )
     return perm
 
@@ -283,8 +280,11 @@ def can_edit_role_permission(db):
             "name": "Edit Role",
             "description": "Modify existing custom roles",
             "category": "roles",
-            "applicable_scopes": ["business", "platform_only"],  # NO global_only per registry
-        }
+            "applicable_scopes": [
+                "business",
+                "platform_only",
+            ],  # NO global_only per registry
+        },
     )
     return perm
 
@@ -298,8 +298,11 @@ def can_delete_role_permission(db):
             "name": "Delete Role",
             "description": "Delete custom roles from the account",
             "category": "roles",
-            "applicable_scopes": ["business", "platform_only"],  # NO global_only per registry
-        }
+            "applicable_scopes": [
+                "business",
+                "platform_only",
+            ],  # NO global_only per registry
+        },
     )
     return perm
 
@@ -488,7 +491,9 @@ def membership_factory(db):
 
 
 @pytest.fixture
-def business_with_members(db, business, owner_role, base_member_role, user, another_user, third_user):
+def business_with_members(
+    db, business, owner_role, base_member_role, user, another_user, third_user
+):
     """
     Create a business with owner and two regular members.
 
@@ -559,8 +564,14 @@ def platform_base_membership(db, third_user, platform_base_member_role):
 
 @pytest.fixture
 def platform_with_members(
-    db, platform, platform_owner_role, platform_admin_role, platform_base_member_role,
-    user, another_user, third_user,
+    db,
+    platform,
+    platform_owner_role,
+    platform_admin_role,
+    platform_base_member_role,
+    user,
+    another_user,
+    third_user,
 ):
     """Create a platform with owner and two regular members.
 
@@ -606,7 +617,9 @@ def platform_with_members(
 
 
 @pytest.fixture
-def role_with_permissions(db, role, can_view_members_permission, can_change_member_role_permission):
+def role_with_permissions(
+    db, role, can_view_members_permission, can_change_member_role_permission
+):
     """
     Create a role with some permissions assigned.
 

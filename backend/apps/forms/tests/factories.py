@@ -18,19 +18,18 @@ Usage:
 import uuid
 
 import factory
-from factory.django import DjangoModelFactory
 from django.utils import timezone
+from factory.django import DjangoModelFactory
 
 from apps.core.constants import (
-    OwnerType,
+    FieldType,
     FormScope,
     FormStatus,
+    OwnerType,
     ResponseStatus,
-    FieldType,
 )
-from apps.forms.models import FormTemplate, FormField, FormResponse
+from apps.forms.models import FormField, FormResponse, FormTemplate
 from apps.users.tests.factories import UserFactory
-
 
 # =============================================================================
 # FORM TEMPLATE FACTORIES
@@ -104,9 +103,7 @@ class FormFieldFactory(DjangoModelFactory):
     form_template = factory.SubFactory(FormTemplateFactory)
     field_key = factory.Sequence(lambda n: f"field_{n}")
     field_type = FieldType.TEXT
-    label = factory.LazyAttribute(
-        lambda obj: obj.field_key.replace("_", " ").title()
-    )
+    label = factory.LazyAttribute(lambda obj: obj.field_key.replace("_", " ").title())
     description = ""
     placeholder = ""
     order = factory.Sequence(lambda n: n)

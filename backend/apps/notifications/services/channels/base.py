@@ -18,10 +18,7 @@ class BaseChannel(ABC):
     @staticmethod
     @abstractmethod
     def send(
-        *,
-        user,
-        notification_type: str,
-        context: Dict[str, Any]
+        *, user, notification_type: str, context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Send notification via this channel.

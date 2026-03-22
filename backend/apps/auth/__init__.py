@@ -40,4 +40,4 @@ Usage:
     # Protected views use JWTAuthentication automatically via settings
 """
 
-default_app_config = 'apps.auth.apps.AuthConfig'
+default_app_config = "apps.auth.apps.AuthConfig"

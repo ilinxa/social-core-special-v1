@@ -12,10 +12,10 @@ import uuid
 
 import pytest
 
-
 # =============================================================================
 # PG-J01–J08: POSTGRESQL JSONB
 # =============================================================================
+
 
 class TestPostgresJSONB:
     """Test JSONB field handling across all domains."""
@@ -25,18 +25,24 @@ class TestPostgresJSONB:
         api.set_token(state.get_token("alice"))
 
         # Set initial settings
-        r = api.patch("platform/settings/", json={
-            "settings": {"key1": "value1", "key2": "value2"},
-        })
+        r = api.patch(
+            "platform/settings/",
+            json={
+                "settings": {"key1": "value1", "key2": "value2"},
+            },
+        )
         # 403 if Alice lacks platform membership (policy requires RBAC membership)
         if r.status_code == 403:
             pytest.skip("Alice lacks platform membership for settings")
         assert r.status_code == 200
 
         # Merge new key (should preserve key1, key2)
-        r = api.patch("platform/settings/", json={
-            "settings": {"key3": "value3"},
-        })
+        r = api.patch(
+            "platform/settings/",
+            json={
+                "settings": {"key3": "value3"},
+            },
+        )
         assert r.status_code == 200
 
         # Verify all keys exist
@@ -52,9 +58,12 @@ class TestPostgresJSONB:
         if not slug:
             pytest.skip("No business")
         api.set_token(state.get_token("alice"))
-        r = api.patch(f"business/{slug}/", json={
-            "settings": {"theme": "dark", "notifications": True},
-        })
+        r = api.patch(
+            f"business/{slug}/",
+            json={
+                "settings": {"theme": "dark", "notifications": True},
+            },
+        )
         assert r.status_code == 200
 
         r = api.get(f"business/{slug}/")
@@ -80,9 +89,15 @@ class TestPostgresJSONB:
         if not site_id:
             pytest.skip("No CMS site")
 
-        r = api.patch("cms/admin/sites/main-site/", json={
-            "metadata": {"seo_title": "Test", "og_image": "https://example.com/img.png"},
-        })
+        r = api.patch(
+            "cms/admin/sites/main-site/",
+            json={
+                "metadata": {
+                    "seo_title": "Test",
+                    "og_image": "https://example.com/img.png",
+                },
+            },
+        )
         assert r.status_code == 200
 
     def test_pg_j05_notification_prefs_json(self, api, state):
@@ -98,15 +113,18 @@ class TestPostgresJSONB:
 
         api.set_token(state.get_token("alice"))
         tid = state.forms["feedback"]["template_id"]
-        r = api.post(f"forms/templates/{tid}/responses/", json={
-            "data": {
-                "nested": {"deep": {"value": 42}},
-                "array": [1, 2, 3],
-                "unicode": "Hello \u00e9\u00e0\u00fc",
-                "null_val": None,
-                "bool_val": True,
+        r = api.post(
+            f"forms/templates/{tid}/responses/",
+            json={
+                "data": {
+                    "nested": {"deep": {"value": 42}},
+                    "array": [1, 2, 3],
+                    "unicode": "Hello \u00e9\u00e0\u00fc",
+                    "null_val": None,
+                    "bool_val": True,
+                },
             },
-        })
+        )
         if r.status_code in (200, 201):
             resp_id = r.json()["id"]
             r2 = api.get(f"forms/responses/{resp_id}/")
@@ -120,12 +138,15 @@ class TestPostgresJSONB:
         slug = state.businesses.get("alice_corp", {}).get("slug")
         if not slug:
             pytest.skip("No business")
-        r = api.patch(f"business/{slug}/profile/", json={
-            "social_links": {
-                "twitter": "https://twitter.com/test",
-                "linkedin": "https://linkedin.com/test",
+        r = api.patch(
+            f"business/{slug}/profile/",
+            json={
+                "social_links": {
+                    "twitter": "https://twitter.com/test",
+                    "linkedin": "https://linkedin.com/test",
+                },
             },
-        })
+        )
         assert r.status_code == 200
 
     def test_pg_j08_block_schema_json(self, api, state):
@@ -145,6 +166,7 @@ class TestPostgresJSONB:
 # PG-F01–F05: POSTGRESQL FK INTEGRITY
 # =============================================================================
 
+
 class TestPostgresFK:
     """Test foreign key integrity with UUID references."""
 
@@ -161,12 +183,15 @@ class TestPostgresFK:
         """Invalid UUID in FK-referencing field returns 400/404."""
         api.set_token(state.get_token("alice"))
         fake_id = str(uuid.uuid4())
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "business_membership_invitation",
-            "target_user_id": fake_id,
-            "context_type": "business",
-            "context_id": fake_id,
-        })
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "business_membership_invitation",
+                "target_user_id": fake_id,
+                "context_type": "business",
+                "context_id": fake_id,
+            },
+        )
         # 403 if Alice lacks permission for the fake business context
         assert r.status_code in (400, 403, 404)
 
@@ -212,6 +237,7 @@ class TestPostgresFK:
 # PG-U01–U04: POSTGRESQL UNIQUE CONSTRAINTS
 # =============================================================================
 
+
 class TestPostgresUnique:
     """Test unique constraints, especially with soft-deleted records."""
 
@@ -220,11 +246,14 @@ class TestPostgresUnique:
         api.set_token(state.get_token("alice"))
         # Create and delete a business
         unique_slug = f"unique-test-{uuid.uuid4().hex[:6]}"
-        r = api.post("business/", json={
-            "legal_name": "Unique Test",
-            "country": "US",
-            "slug": unique_slug,
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": "Unique Test",
+                "country": "US",
+                "slug": unique_slug,
+            },
+        )
         if r.status_code != 201:
             pytest.skip("Could not create business")
 
@@ -233,11 +262,14 @@ class TestPostgresUnique:
             pytest.skip("Could not delete business")
 
         # Try to reuse the slug
-        r = api.post("business/", json={
-            "legal_name": "Unique Test Reuse",
-            "country": "US",
-            "slug": unique_slug,
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": "Unique Test Reuse",
+                "country": "US",
+                "slug": unique_slug,
+            },
+        )
         # Should succeed if unique constraint excludes soft-deleted
         assert r.status_code in (201, 400, 409)
 
@@ -251,10 +283,13 @@ class TestPostgresUnique:
         unique_name = f"TempRole-{uuid.uuid4().hex[:6]}"
 
         # Create and delete
-        r = api.post(f"business/{slug}/roles/", json={
-            "name": unique_name,
-            "level": 9,
-        })
+        r = api.post(
+            f"business/{slug}/roles/",
+            json={
+                "name": unique_name,
+                "level": 9,
+            },
+        )
         if r.status_code != 201:
             pytest.skip("Could not create role")
         role_id = r.json()["id"]
@@ -263,10 +298,13 @@ class TestPostgresUnique:
         assert r.status_code in (200, 204)
 
         # Reuse name
-        r = api.post(f"business/{slug}/roles/", json={
-            "name": unique_name,
-            "level": 9,
-        })
+        r = api.post(
+            f"business/{slug}/roles/",
+            json={
+                "name": unique_name,
+                "level": 9,
+            },
+        )
         # 500 = server bug with unique constraint on soft-deleted roles (known issue)
         assert r.status_code in (201, 400, 409, 500)
 
@@ -275,10 +313,13 @@ class TestPostgresUnique:
         api.set_token(state.get_token("alice"))
         unique_slug = f"site-{uuid.uuid4().hex[:6]}"
 
-        r = api.post("cms/admin/sites/", json={
-            "name": "Temp Site",
-            "slug": unique_slug,
-        })
+        r = api.post(
+            "cms/admin/sites/",
+            json={
+                "name": "Temp Site",
+                "slug": unique_slug,
+            },
+        )
         if r.status_code != 201:
             pytest.skip("Could not create site")
 
@@ -286,10 +327,13 @@ class TestPostgresUnique:
         if r.status_code not in (200, 204):
             pytest.skip("Could not delete site")
 
-        r = api.post("cms/admin/sites/", json={
-            "name": "Reuse Site",
-            "slug": unique_slug,
-        })
+        r = api.post(
+            "cms/admin/sites/",
+            json={
+                "name": "Reuse Site",
+                "slug": unique_slug,
+            },
+        )
         assert r.status_code in (201, 400, 409)
 
     def test_pg_u04_email_uniqueness(self, api):
@@ -303,6 +347,7 @@ class TestPostgresUnique:
 # PG-T01–T04: POSTGRESQL TRANSACTION ISOLATION
 # =============================================================================
 
+
 class TestPostgresIsolation:
     """Test concurrent operations for proper isolation."""
 
@@ -314,13 +359,17 @@ class TestPostgresIsolation:
 
         def create_business():
             from tests.api_integration.conftest import APIHelper
+
             h = APIHelper()
             h.set_token(state.get_token("alice"))
-            r = h.post("business/", json={
-                "legal_name": "Concurrent Corp",
-                "country": "US",
-                "slug": slug,
-            })
+            r = h.post(
+                "business/",
+                json={
+                    "legal_name": "Concurrent Corp",
+                    "country": "US",
+                    "slug": slug,
+                },
+            )
             results.append(r.status_code)
 
         t1 = threading.Thread(target=create_business)
@@ -351,6 +400,7 @@ class TestPostgresIsolation:
 # =============================================================================
 # RD-P01–P05: REDIS PERMISSION CACHE
 # =============================================================================
+
 
 class TestRedisPermissionCache:
     """Test Redis permission caching behavior."""
@@ -390,9 +440,12 @@ class TestRedisPermissionCache:
         # Make a role change (if possible)
         slug = state.businesses.get("alice_corp", {}).get("slug")
         if slug and "biz:editor" in state.roles:
-            api.patch(f"business/{slug}/roles/{state.roles['biz:editor']['id']}/", json={
-                "description": "Trigger cache invalidation",
-            })
+            api.patch(
+                f"business/{slug}/roles/{state.roles['biz:editor']['id']}/",
+                json={
+                    "description": "Trigger cache invalidation",
+                },
+            )
 
         # Cache state may change
         keys_after = len(redis_helper.scan_keys("dev:*"))
@@ -413,6 +466,7 @@ class TestRedisPermissionCache:
 # =============================================================================
 # RD-J01–J05: REDIS JTI BLACKLIST
 # =============================================================================
+
 
 class TestRedisJTIBlacklist:
     """Test JWT token blacklisting via Redis."""
@@ -534,6 +588,7 @@ class TestRedisJTIBlacklist:
 # RD-R01–R04: REDIS RATE LIMITING
 # =============================================================================
 
+
 class TestRedisRateLimiting:
     """Test rate limiting via Redis."""
 
@@ -548,10 +603,13 @@ class TestRedisRateLimiting:
         api.clear_token()
         statuses = []
         for i in range(25):
-            r = api.post("auth/login/", json={
-                "email": f"ratelimit{i}@test.com",
-                "password": "Wrong!",
-            })
+            r = api.post(
+                "auth/login/",
+                json={
+                    "email": f"ratelimit{i}@test.com",
+                    "password": "Wrong!",
+                },
+            )
             statuses.append(r.status_code)
             if r.status_code == 429:
                 break
@@ -562,20 +620,26 @@ class TestRedisRateLimiting:
     def test_rd_r03_per_ip_isolation(self, api):
         """Rate limiting is per-IP."""
         api.clear_token()
-        r = api.post("auth/login/", json={
-            "email": "test@test.com",
-            "password": "Wrong!",
-        })
+        r = api.post(
+            "auth/login/",
+            json={
+                "email": "test@test.com",
+                "password": "Wrong!",
+            },
+        )
         assert r.status_code in (401, 429)
 
     def test_rd_r04_rate_limit_recovery(self, api):
         """Rate limit recovers after window expires."""
         api.clear_token()
         # After rate limit tests, requests may be throttled
-        r = api.post("auth/login/", json={
-            "email": "alice@test.com",
-            "password": "TestPass123!",
-        })
+        r = api.post(
+            "auth/login/",
+            json={
+                "email": "alice@test.com",
+                "password": "TestPass123!",
+            },
+        )
         # 200 = success, 401 = wrong credentials, 429 = rate limited
         assert r.status_code in (200, 401, 429)
 
@@ -583,6 +647,7 @@ class TestRedisRateLimiting:
 # =============================================================================
 # RD-C01–C04: REDIS CELERY
 # =============================================================================
+
 
 class TestRedisCelery:
     """Test Celery task execution via Redis broker."""
@@ -617,7 +682,9 @@ class TestRedisCelery:
         db_helper.verify_user_directly("alice@test.com")
         api.post("auth/password/reset/", json={"email": "alice@test.com"})
 
-        token = db_helper.get_password_reset_token("alice@test.com", retries=10, delay=1.0)
+        token = db_helper.get_password_reset_token(
+            "alice@test.com", retries=10, delay=1.0
+        )
         # Token may be None if Celery worker isn't running
         if token:
             assert len(token) == 36  # UUID format

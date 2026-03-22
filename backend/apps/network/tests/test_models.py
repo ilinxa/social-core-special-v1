@@ -5,11 +5,17 @@ import pytest
 from django.db import IntegrityError
 
 from apps.network.models import (
-    Follow, FolloweeType, FollowStatus,
-    Connection, ConnectionType, ConnectionStatus,
+    Connection,
+    ConnectionStatus,
+    ConnectionType,
+    Follow,
+    FolloweeType,
+    FollowStatus,
 )
 from apps.network.tests.factories import (
-    FollowFactory, UserConnectionFactory, AccountConnectionFactory,
+    AccountConnectionFactory,
+    FollowFactory,
+    UserConnectionFactory,
 )
 from apps.users.tests.factories import UserFactory
 
@@ -40,18 +46,24 @@ class TestFollowModel:
         followee_id = uuid.uuid4()
         FollowFactory(follower=user, followee_type="business", followee_id=followee_id)
         with pytest.raises(IntegrityError):
-            FollowFactory(follower=user, followee_type="business", followee_id=followee_id)
+            FollowFactory(
+                follower=user, followee_type="business", followee_id=followee_id
+            )
 
     def test_unique_active_follow_allows_removed(self):
         user = UserFactory()
         followee_id = uuid.uuid4()
         FollowFactory(
-            follower=user, followee_type="business", followee_id=followee_id,
+            follower=user,
+            followee_type="business",
+            followee_id=followee_id,
             status=FollowStatus.REMOVED,
         )
         # Should not raise — unique constraint only applies to active
         follow2 = FollowFactory(
-            follower=user, followee_type="business", followee_id=followee_id,
+            follower=user,
+            followee_type="business",
+            followee_id=followee_id,
         )
         assert follow2.status == FollowStatus.ACTIVE
 
@@ -106,7 +118,8 @@ class TestConnectionModel:
         user_a = UserFactory()
         user_b = UserFactory()
         UserConnectionFactory(
-            user_a=user_a, user_b=user_b,
+            user_a=user_a,
+            user_b=user_b,
             status=ConnectionStatus.DISCONNECTED,
         )
         conn2 = UserConnectionFactory(user_a=user_a, user_b=user_b)

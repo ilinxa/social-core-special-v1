@@ -8,13 +8,14 @@ Custom managers for CMS models. Follows the same pattern as Form Builder:
 """
 
 from django.db import models
-from apps.core.models import SoftDeleteManager
-from apps.cms.constants import PageStatus, BlockPlacementStatus
 
+from apps.cms.constants import PageStatus
+from apps.core.models import SoftDeleteManager
 
 # ---------------------------------------------------------------------------
 # Site
 # ---------------------------------------------------------------------------
+
 
 class SiteQuerySet(models.QuerySet):
     """Chainable query helpers for Site."""
@@ -42,6 +43,7 @@ class SiteManager(SoftDeleteManager):
 # ---------------------------------------------------------------------------
 # Page
 # ---------------------------------------------------------------------------
+
 
 class PageQuerySet(models.QuerySet):
     """Chainable query helpers for Page."""
@@ -82,6 +84,7 @@ class PageManager(SoftDeleteManager):
 # SectionTemplate
 # ---------------------------------------------------------------------------
 
+
 class SectionTemplateQuerySet(models.QuerySet):
     """Chainable query helpers for SectionTemplate."""
 
@@ -93,7 +96,9 @@ class SectionTemplateManager(SoftDeleteManager):
     """Manager for SectionTemplate with soft-delete support."""
 
     def get_queryset(self):
-        return SectionTemplateQuerySet(self.model, using=self._db).filter(is_deleted=False)
+        return SectionTemplateQuerySet(self.model, using=self._db).filter(
+            is_deleted=False
+        )
 
     def by_type(self, **kwargs):
         return self.get_queryset().by_type(**kwargs)
@@ -102,6 +107,7 @@ class SectionTemplateManager(SoftDeleteManager):
 # ---------------------------------------------------------------------------
 # BlockTemplate
 # ---------------------------------------------------------------------------
+
 
 class BlockTemplateQuerySet(models.QuerySet):
     """Chainable query helpers for BlockTemplate."""
@@ -114,7 +120,9 @@ class BlockTemplateManager(SoftDeleteManager):
     """Manager for BlockTemplate with soft-delete support."""
 
     def get_queryset(self):
-        return BlockTemplateQuerySet(self.model, using=self._db).filter(is_deleted=False)
+        return BlockTemplateQuerySet(self.model, using=self._db).filter(
+            is_deleted=False
+        )
 
     def by_type(self, **kwargs):
         return self.get_queryset().by_type(**kwargs)
@@ -123,6 +131,7 @@ class BlockTemplateManager(SoftDeleteManager):
 # ---------------------------------------------------------------------------
 # MediaFolder
 # ---------------------------------------------------------------------------
+
 
 class MediaFolderQuerySet(models.QuerySet):
     """Chainable query helpers for MediaFolder."""
@@ -147,6 +156,7 @@ class MediaFolderManager(SoftDeleteManager):
 # ---------------------------------------------------------------------------
 # MediaFile
 # ---------------------------------------------------------------------------
+
 
 class MediaFileQuerySet(models.QuerySet):
     """Chainable query helpers for MediaFile."""
@@ -183,6 +193,7 @@ class MediaFileManager(SoftDeleteManager):
 # ---------------------------------------------------------------------------
 # CMSApiKey
 # ---------------------------------------------------------------------------
+
 
 class CMSApiKeyQuerySet(models.QuerySet):
     """Chainable query helpers for CMSApiKey."""

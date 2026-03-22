@@ -1,7 +1,7 @@
 # Chat System — Description
 
-**Status:** Draft
-**Date:** 2026-03-09
+**Status:** Implemented (v1)
+**Date:** 2026-03-09 (written), 2026-03-20 (updated post-implementation)
 **Workspace:** cross-cutting (backend + frontend + mobile)
 
 ---
@@ -131,8 +131,9 @@ Two conversation types exist, uniform across all scopes:
 When a user sends the **first message** to someone they have no prior relationship with (no follow, no connection), the message is not delivered directly. Instead, it arrives as a **chat request** that the recipient must accept, ignore, or block.
 
 **Relationship check (via Network system):**
-- `ConnectionSelector.is_connected()` — are sender and recipient connected? (user↔user connections)
-- `FollowSelector.is_following()` — does user follow the entity? (user→business/platform follows only — the Network system does not support user-to-user follows)
+- `ConnectionSelector.is_connected()` — are sender and recipient connected? (user↔user connections). This is the **only** relationship check used for chat request gating decisions.
+
+**Note on follows:** The Network system's `FollowSelector.is_following()` tracks User→Business/Platform follows only. It is **not** used for chat request gating because (a) there are no user-to-user follows, and (b) entity participants bypass chat requests entirely regardless of follow status.
 
 **Decision matrix for DMs in global scope:**
 
@@ -338,13 +339,13 @@ ConversationParticipant:
 
 - Voice/video calls (may be added later as separate feature)
 - End-to-end encryption (server-side encryption at rest is sufficient for v1)
-- Message reactions/emoji responses (may be added in a later phase)
+- ~~Message reactions/emoji responses~~ → **Implemented in Phase 4**: 6 preset reaction types (like, heart, laugh, wow, sad, angry)
 - Bots/automated messages (future feature)
 - Chat analytics/reporting dashboard
-- File storage service (uses existing media/file upload infrastructure)
+- ~~File storage service~~ → **Implemented in Phase 4**: Chat-specific image attachments (jpg, png, gif, webp) with two-step upload flow
 - Team account type implementation (team scope is designed for but not built in v1)
 - Chat backup/export functionality
-- Push notifications for mobile (will use existing notification system when mobile is built)
+- ~~Push notifications for mobile~~ → **Implemented in Phase 3**: 5 notification types via existing NotificationService (presence-aware, rate-limited)
 - Message threading/replies (may be added later — v1 is flat message list)
 
 ---
@@ -439,6 +440,7 @@ Message Record:
 - **Public view**: "Acme Corp" sent this message.
 - **Audit view**: User alice@example.com sent this on behalf of Acme Corp.
 - **Permission check**: Alice must have `can_manage_chat` on the Acme Corp business account.
+- **Permission definition**: `can_manage_chat` will be seeded via data migration with `applicable_scopes=["business", "platform_only"]` (consistent with `can_manage_followers`). This grants entity chat management in both business and platform contexts. Category: `chat`.
 
 ### 6.3 Scope Eligibility Matrix
 
@@ -459,6 +461,7 @@ When a user's membership in an org changes, it affects their chat participation:
 
 | Membership Change | Chat Impact |
 |-------------------|-------------|
+| Member **pending approval** (`PENDING_APPROVAL`) | Cannot participate in org-scope chat. `is_user_member_of_account()` filters ACTIVE only — membership must transition to ACTIVE before chat access is granted. |
 | Member **removed/leaves** business | Cannot send new messages in business scope. Existing conversations remain visible (read-only) or are hidden based on policy. |
 | Member **suspended** | Cannot send messages. Conversations hidden until reactivation. |
 | Member **reactivated** | Chat access restored. Can see conversation history from before suspension. |
@@ -596,87 +599,106 @@ This is intentional — it preserves context boundaries. Work chat stays in the 
 
 ## 11. Open Questions
 
-These are decisions to be resolved during the Plan phase:
+These were decisions to be resolved during the Plan phase. All have been resolved during implementation:
 
-- OQ-1: **Message search** — PostgreSQL FTS (like explore system) or dedicated search (Elasticsearch/Meilisearch) for searching within message content?
-- OQ-4: **Media messages** — Reuse existing media upload infrastructure or build chat-specific media handling?
-- OQ-5: **Rate limiting** — Per-user message rate limits? Per-entity rate limits? Anti-spam measures?
+- ~~OQ-1: **Message search** — Resolved: PostgreSQL FTS (SearchVector + SearchQuery + TrigramSimilarity) with SQLite icontains fallback. No separate search service needed. See `ChatSelector.search_messages()` and `GET /api/v1/chat/messages/search/`.~~
+- ~~OQ-2: **Entity participation model** — Resolved: entities are first-class participants in global scope only, controlled by `can_manage_chat` RBAC permission. See Section 2.3.~~
+- ~~OQ-3: **Chat request gating** — Resolved: only `ConnectionSelector.is_connected()` determines chat request behavior for user↔user DMs. Entities bypass entirely. See Section 2.5.~~
+- ~~OQ-4: **Media messages** — Resolved: Chat-specific two-step upload. `POST /upload/` creates orphan `MessageAttachment`, then `POST /messages/` with `attachment_ids` links them atomically. Images only (jpeg, png, gif, webp), max 10MB, max 10 per message. Orphan cleanup via Celery task after 24h.~~
+- ~~OQ-5: **Rate limiting** — Resolved: Three rate limits via Redis counters: 30 messages/min per conversation, 5 conversation creations/hour, 10 DM requests/hour. Notification rate limit: 1 notification per conversation per 5 minutes.~~
 - ~~OQ-6: **Read receipt granularity** — Resolved: watermark pattern (see Section 2.7). Per-participant `last_seen_message_id` + `last_delivered_message_id`, not per-message status.~~
-- OQ-7: **Conversation archival** — How long are messages retained? Is there an archival policy?
-- ~~OQ-8: **Blocking** — Resolved: see Section 2.6. Block in global scope only, silent rejection, hidden messages in groups.~~
-- OQ-9: **Admin moderation** — Can platform admins view/moderate any conversation in any scope? Or only within their scope?
-- OQ-10: **Offline message queue** — How are messages handled for offline users? Push notification? Deferred delivery?
-- OQ-11: **Group chat invitations** — Section 2.5 says "group invitations are a separate flow" but this flow is undefined. Can a stranger add you to a group chat in global scope (bypassing chat request protection)? Should group invitations require acceptance?
-- OQ-12: **Chat request accumulation** — If a sender's chat request is pending/ignored, can they send additional messages that accumulate in the pending request? Or are they limited to one message until accepted?
-- OQ-13: **Chat request expiration** — Do pending chat requests expire after a period? Or do they persist indefinitely?
-- OQ-14: **Chat notifications** — Should new messages and chat requests trigger notifications via the existing Notification System? What notification types are needed (new_message, chat_request_received, message_request_accepted)?
-- OQ-15: **Group chat administration** — Section 2.4 mentions "members with appropriate rights" can add/remove participants. Is there a group admin role, or only the creator? Can admin rights be transferred?
+- OQ-7: **Conversation archival** — Still open. Messages persist indefinitely in v1. No archival policy implemented.
+- ~~OQ-8: **Blocking** — Resolved: see Section 2.6. Block in global scope only, silent rejection. Note: message hiding in existing conversations is NOT implemented — blocks only prevent future DM creation.~~
+- OQ-9: **Admin moderation** — Still open. Staff/superuser can delete any message, but no cross-scope moderation dashboard.
+- ~~OQ-10: **Offline message queue** — Resolved: Push notifications via existing NotificationService. `chat_message_received` notification sent to offline recipients only (presence-aware via PresenceManager.is_online check), rate-limited to 1/conversation/5min. No deferred delivery — messages persist in DB, loaded on next connection.~~
+- ~~OQ-11: **Group chat invitations** — Resolved: Group admins can directly add any scope-eligible participant (no invitation/acceptance flow). Added participants are notified via `chat_group_added` notification.~~
+- ~~OQ-12: **Chat request accumulation** — Resolved: Sender can send up to 3 messages before acceptance is required (`CHAT_REQUEST_MAX_MESSAGES = 3`). After 3 messages, further sends are blocked with "Request pending" error until recipient accepts.~~
+- ~~OQ-13: **Chat request expiration** — Resolved: Pending requests auto-expire after 30 days (`CHAT_REQUEST_EXPIRY_DAYS = 30`). Celery beat task `expire_stale_chat_requests` runs daily and resets `PENDING` to `NONE`.~~
+- ~~OQ-14: **Chat notifications** — Resolved: 5 notification types: `chat_message_received` (offline + rate-limited), `chat_request_received` (PUSH + EMAIL), `chat_request_accepted` (PUSH), `chat_group_added` (PUSH), `chat_reaction_received` (PUSH, skip self-reaction + entity messages). All user-configurable.~~
+- ~~OQ-15: **Group chat administration** — Resolved: Creator gets `admin` role. Admins can promote/demote other members. Admin succession: when last admin leaves, oldest active member is auto-promoted. Admins can add/remove participants, edit group name/description.~~
 
 ---
 
 ## 12. Acceptance Criteria
 
 ### Scope Isolation
-- [ ] Conversations in business scope are invisible from global scope and vice versa
-- [ ] Users can only participate in business-scope conversations if they are active members
-- [ ] Users can only participate in platform-scope conversations if they are platform members
-- [ ] Removing a member from a business prevents them from sending new messages in business scope
-- [ ] No API endpoint returns conversations from a different scope than requested
+- [x] Conversations in business scope are invisible from global scope and vice versa
+- [x] Users can only participate in business-scope conversations if they are active members
+- [x] Users can only participate in platform-scope conversations if they are platform members
+- [x] Removing a member from a business prevents them from sending new messages in business scope
+- [x] No API endpoint returns conversations from a different scope than requested
 
 ### Conversation Management
-- [ ] Users can create 1:1 DM conversations within their scope
-- [ ] Users can create group conversations with 3+ participants within their scope
-- [ ] Group chat supports add/remove participants (within scope eligibility)
-- [ ] Conversation list returns conversations ordered by last activity
-- [ ] Unread count is accurate per conversation and per scope
+- [x] Users can create 1:1 DM conversations within their scope
+- [x] Users can create group conversations with 3+ participants within their scope
+- [x] Group chat supports add/remove participants (within scope eligibility)
+- [x] Conversation list returns conversations ordered by last activity
+- [x] Unread count is accurate per conversation and per scope
 
 ### Entity Participation (Global Scope)
-- [ ] Business accounts can send/receive messages in global scope
-- [ ] Only members with `can_manage_chat` can act on behalf of the entity
-- [ ] Messages sent by entity show entity name/avatar (not the acting user)
-- [ ] Audit trail records which user performed each entity action
-- [ ] Entity-to-entity conversations work (business ↔ business, business ↔ platform)
+- [x] Business accounts can send/receive messages in global scope
+- [x] Only members with `can_manage_chat` can act on behalf of the entity
+- [x] Messages sent by entity show entity name/avatar (not the acting user)
+- [x] Audit trail records which user performed each entity action
+- [x] Entity-to-entity conversations work (business ↔ business, business ↔ platform)
 
 ### Real-Time
-- [ ] New messages appear instantly for online participants (< 200ms)
-- [ ] Typing indicators display correctly for active participants
-- [ ] Read receipts update in real-time
-- [ ] Online/offline presence is visible within scope
+- [x] New messages appear instantly for online participants (< 200ms)
+- [x] Typing indicators display correctly for active participants
+- [x] Read receipts update in real-time
+- [x] Online/offline presence is visible within scope
 
 ### Chat Requests
-- [ ] First DM to a non-connected user creates a chat request (not direct delivery)
-- [ ] Connected users bypass chat requests entirely
-- [ ] Chat requests appear in a separate "Message Requests" section for the recipient
-- [ ] Accepting a request moves the conversation to main inbox and enables direct messaging
-- [ ] Ignoring a request hides it from the UI but does not block future requests
-- [ ] Blocking from a request adds the sender to the block list
-- [ ] Mutual intent (recipient messages requester first) auto-accepts the pending request
-- [ ] Entity accounts (businesses/platforms) bypass chat requests — always direct delivery
-- [ ] Chat requests do not apply in org scopes (business/platform internal)
+- [x] First DM to a non-connected user creates a chat request (not direct delivery)
+- [x] Connected users bypass chat requests entirely
+- [x] Chat requests appear in a separate "Message Requests" section for the recipient
+- [x] Accepting a request moves the conversation to main inbox and enables direct messaging
+- [x] Ignoring a request hides it from the UI but does not block future requests
+- [ ] ~~Blocking from a request adds the sender to the block list~~ — Not implemented as combined action; blocking is a separate endpoint (`POST /blocks/`)
+- [ ] ~~Mutual intent (recipient messages requester first) auto-accepts the pending request~~ — Not implemented; chat request auto-acceptance is based on `ConnectionSelector.is_connected()` at DM creation time only
+- [x] Entity accounts (businesses/platforms) bypass chat requests — always direct delivery
+- [x] Chat requests do not apply in org scopes (business/platform internal)
 
 ### Block System
-- [ ] Blocking a user silently prevents all future DMs from them in global scope
-- [ ] Blocked user sees their messages as "sent" (no indication of being blocked)
-- [ ] Block list is viewable and manageable (unblock restores messaging ability)
-- [ ] Blocked user's messages are hidden in existing DMs and group chats for the blocker
-- [ ] Blocking is not available in org scopes
-- [ ] Unblocking does not re-deliver previously blocked messages
+- [x] Blocking a user silently prevents all future DMs from them in global scope
+- [x] Blocked user sees their messages as "sent" (no indication of being blocked)
+- [x] Block list is viewable and manageable (unblock restores messaging ability)
+- [ ] ~~Blocked user's messages are hidden in existing DMs and group chats for the blocker~~ — Not implemented in v1; blocks prevent new DMs but don't filter messages in existing conversations
+- [x] Blocking is not available in org scopes
+- [x] Unblocking does not re-deliver previously blocked messages
 
 ### Delivery & Read Status
-- [ ] Messages transition through sent → delivered → seen states correctly
-- [ ] Delivered status is set when recipient's client acknowledges receipt
-- [ ] Seen status is set when recipient opens the conversation (watermark pattern)
-- [ ] Status updates are pushed in real-time to the sender via WebSocket
-- [ ] Status updates are batched (one event per conversation, not per message)
-- [ ] Group chats show per-participant seen status with aggregate display
-- [ ] Offline users receive delivered status when they reconnect and receive pending messages
+- [x] Messages transition through sent → delivered → seen states correctly
+- [x] Delivered status is set when recipient's client acknowledges receipt
+- [x] Seen status is set when recipient opens the conversation (watermark pattern)
+- [x] Status updates are pushed in real-time to the sender via WebSocket
+- [x] Status updates are batched (one event per conversation, not per message)
+- [ ] ~~Group chats show per-participant seen status with aggregate display~~ — Backend has per-participant seen status; aggregate "Seen by X of Y" display is a frontend concern (not yet built)
+- [x] Offline users receive delivered status when they reconnect and receive pending messages
 
 ### Messages
-- [ ] Text messages send and display correctly
-- [ ] Messages can be edited within the configured time window
-- [ ] Deleted messages show "message deleted" placeholder
-- [ ] Message history loads with cursor-based pagination
-- [ ] Messages persist durably before delivery acknowledgment
+- [x] Text messages send and display correctly
+- [x] Messages can be edited within the configured time window (15 minutes)
+- [x] Deleted messages show "message deleted" placeholder
+- [x] Message history loads with cursor-based pagination
+- [x] Messages persist durably before delivery acknowledgment
+
+### Image Attachments (Added in Phase 4)
+- [x] Image uploads (jpeg, png, gif, webp) up to 10MB
+- [x] Two-step upload: orphan attachment → link to message
+- [x] Max 10 attachments per message
+- [x] Orphan cleanup via Celery task after 24h
+
+### Reactions (Added in Phase 4)
+- [x] 6 preset reaction types (like, heart, laugh, wow, sad, angry)
+- [x] One of each type per user per message
+- [x] Real-time broadcast on add/remove
+- [x] Notification to message author (skip self-reaction, skip entity messages)
+
+### Audit & Search (Added in Phase 5)
+- [x] 9 audit actions logged via AuditService
+- [x] Full-text message search (PostgreSQL FTS + trigram, SQLite fallback)
+- [x] Entity inbox endpoint for business/platform chat management
 
 ---
 

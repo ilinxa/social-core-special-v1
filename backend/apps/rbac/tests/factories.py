@@ -18,14 +18,13 @@ Usage:
 import factory
 from factory.django import DjangoModelFactory
 
-from apps.core.constants import AccountType, PermissionScope, MembershipStatus
-from apps.rbac.models import Permission, Role, RolePermission, Membership
+from apps.core.constants import AccountType, MembershipStatus, PermissionScope
 from apps.organization.platform.models import PlatformAccount
-from apps.users.tests.factories import UserFactory, VerifiedUserFactory  # noqa: F401
 
 # Canonical BusinessAccountFactory lives in organization — re-export for compatibility
 from apps.organization.tests.factories import BusinessAccountFactory  # noqa: F401
-
+from apps.rbac.models import Membership, Permission, Role, RolePermission
+from apps.users.tests.factories import UserFactory, VerifiedUserFactory  # noqa: F401
 
 # =============================================================================
 # ACCOUNT FACTORIES
@@ -74,9 +73,7 @@ class BusinessPermissionFactory(PermissionFactory):
 class PlatformPermissionFactory(PermissionFactory):
     """Factory for platform-scope permission."""
 
-    applicable_scopes = factory.LazyFunction(
-        lambda: ["platform_only", "global_only"]
-    )
+    applicable_scopes = factory.LazyFunction(lambda: ["platform_only", "global_only"])
 
 
 # =============================================================================
@@ -92,9 +89,7 @@ class RoleFactory(DjangoModelFactory):
 
     name = factory.Sequence(lambda n: f"Test Role {n}")
     account_type = AccountType.BUSINESS
-    account_id = factory.LazyAttribute(
-        lambda obj: BusinessAccountFactory().id
-    )
+    account_id = factory.LazyAttribute(lambda obj: BusinessAccountFactory().id)
     level = 5
     is_system_role = False
     description = "Test role for unit testing"
@@ -110,9 +105,7 @@ class PlatformRoleFactory(RoleFactory):
     """Factory for platform role."""
 
     account_type = AccountType.PLATFORM
-    account_id = factory.LazyAttribute(
-        lambda obj: PlatformAccountFactory().id
-    )
+    account_id = factory.LazyAttribute(lambda obj: PlatformAccountFactory().id)
 
 
 class OwnerRoleFactory(RoleFactory):
@@ -172,9 +165,7 @@ class MembershipFactory(DjangoModelFactory):
 
     user = factory.SubFactory(UserFactory)
     account_type = AccountType.BUSINESS
-    account_id = factory.LazyAttribute(
-        lambda obj: BusinessAccountFactory().id
-    )
+    account_id = factory.LazyAttribute(lambda obj: BusinessAccountFactory().id)
     role = factory.SubFactory(RoleFactory)
     is_owner = False
     status = MembershipStatus.ACTIVE
@@ -190,9 +181,7 @@ class PlatformMembershipFactory(MembershipFactory):
     """Factory for platform membership."""
 
     account_type = AccountType.PLATFORM
-    account_id = factory.LazyAttribute(
-        lambda obj: PlatformAccountFactory().id
-    )
+    account_id = factory.LazyAttribute(lambda obj: PlatformAccountFactory().id)
     role = factory.SubFactory(PlatformRoleFactory)
 
 
@@ -272,7 +261,7 @@ class BusinessWithOwnerFactory(DjangoModelFactory):
                 defaults={
                     "level": 10,
                     "is_system_role": True,
-                }
+                },
             )
 
     @property

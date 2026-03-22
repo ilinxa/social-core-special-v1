@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useTagSuggestions } from "@/features/explore/hooks/use-explore-queries";
+import { useTagSuggestions } from "@/hooks/use-tag-suggestions";
 
 interface FormTagInputProps {
   label: string;
@@ -75,6 +75,7 @@ export function FormTagInput({
               <button
                 type="button"
                 onClick={() => removeTag(tag)}
+                aria-label={`Remove ${tag}`}
                 className="ml-0.5 rounded-sm hover:bg-muted-foreground/20"
               >
                 <X className="h-3 w-3" />

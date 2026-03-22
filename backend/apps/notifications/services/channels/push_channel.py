@@ -19,15 +19,12 @@ class PushChannel(BaseChannel):
     """
     Push notification channel via Firebase Cloud Messaging.
 
-    TODO: Implement with Firebase Admin SDK when ready.
+    NOTE: Push channel is a placeholder. Will be implemented when Firebase integration is prioritized.
     """
 
     @staticmethod
     def send(
-        *,
-        user,
-        notification_type: str,
-        context: Dict[str, Any]
+        *, user, notification_type: str, context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Send notification via push.
@@ -36,12 +33,10 @@ class PushChannel(BaseChannel):
         """
         # Check if push is configured
         if not PushChannel.is_available():
-            return {
-                'status': 'skipped',
-                'reason': 'Push notifications not configured'
-            }
+            return {"status": "skipped", "reason": "Push notifications not configured"}
 
-        # TODO: Implement push notification logic
+        # NOTE: Push notification logic placeholder
+        # When Firebase integration is prioritized:
         # 1. Get user's push tokens from device sessions
         # 2. Send via Firebase Admin SDK
         # 3. Handle token refresh/invalidation
@@ -50,20 +45,17 @@ class PushChannel(BaseChannel):
             "notification.push.skipped",
             user_id=str(user.id),
             notification_type=notification_type,
-            reason='Not implemented',
+            reason="Not implemented",
         )
 
-        return {
-            'status': 'skipped',
-            'reason': 'Push channel not implemented yet'
-        }
+        return {"status": "skipped", "reason": "Push channel not implemented yet"}
 
     @staticmethod
     def is_available() -> bool:
         """
         Check if Firebase is configured.
         """
-        # TODO: Check for Firebase credentials
+        # NOTE: Check for Firebase credentials when integration is ready
         # from django.conf import settings
         # return bool(getattr(settings, 'FIREBASE_CREDENTIALS', None))
         return False

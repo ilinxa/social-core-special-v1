@@ -37,7 +37,7 @@ class JWTAuthentication(BaseAuthentication):
     Returns (user, payload) tuple on success.
     """
 
-    keyword = 'Bearer'
+    keyword = "Bearer"
 
     def authenticate(self, request):
         """
@@ -52,7 +52,7 @@ class JWTAuthentication(BaseAuthentication):
         Raises:
             AuthenticationFailed: If token is invalid or expired
         """
-        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
 
         if not auth_header:
             return None
@@ -67,10 +67,12 @@ class JWTAuthentication(BaseAuthentication):
             return None
 
         if len(parts) == 1:
-            raise AuthenticationFailed('Invalid token header. No credentials provided.')
+            raise AuthenticationFailed("Invalid token header. No credentials provided.")
 
         if len(parts) > 2:
-            raise AuthenticationFailed('Invalid token header. Token string should not contain spaces.')
+            raise AuthenticationFailed(
+                "Invalid token header. Token string should not contain spaces."
+            )
 
         token = parts[1]
 
@@ -81,10 +83,7 @@ class JWTAuthentication(BaseAuthentication):
             user, payload = AuthService.validate_access_token(token)
 
             # Log successful auth (debug level)
-            logger.debug(
-                "auth.jwt.success",
-                extra={'user_id': user.id}
-            )
+            logger.debug("auth.jwt.success", extra={"user_id": user.id})
 
             return (user, payload)
 
@@ -93,26 +92,34 @@ class JWTAuthentication(BaseAuthentication):
 
         except Exception as e:
             # Import here to check exception types
-            from apps.core.exceptions import TokenExpired, TokenInvalid, TokenAlreadyUsed
+            from apps.core.exceptions import (
+                ServiceUnavailable,
+                TokenAlreadyUsed,
+                TokenExpired,
+                TokenInvalid,
+            )
 
             if isinstance(e, TokenExpired):
                 raise AuthenticationFailed(
-                    detail='Token has expired',
-                    code='token_expired'
+                    detail="Token has expired", code="token_expired"
                 )
             elif isinstance(e, TokenAlreadyUsed):
                 raise AuthenticationFailed(
-                    detail=str(e) or 'Token has already been used',
-                    code='token_already_used'
+                    detail=str(e) or "Token has already been used",
+                    code="token_already_used",
                 )
             elif isinstance(e, TokenInvalid):
                 raise AuthenticationFailed(
-                    detail=str(e) or 'Invalid token',
-                    code='token_invalid'
+                    detail=str(e) or "Invalid token", code="token_invalid"
+                )
+            elif isinstance(e, ServiceUnavailable):
+                raise AuthenticationFailed(
+                    detail="Service temporarily unavailable. Please try again.",
+                    code="service_unavailable",
                 )
             else:
                 logger.error(f"JWT authentication error: {e}")
-                raise AuthenticationFailed('Authentication failed')
+                raise AuthenticationFailed("Authentication failed")
 
     def authenticate_header(self, request):
         """

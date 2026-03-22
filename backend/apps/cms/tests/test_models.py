@@ -1,12 +1,20 @@
 # apps/cms/tests/test_models.py
 import pytest
 from django.db import IntegrityError
-from apps.cms.tests.factories import (
-    SiteFactory, PageFactory, SectionTemplateFactory, BlockTemplateFactory,
-    PageSectionPlacementFactory, SectionBlockPlacementFactory,
-    ContentVersionFactory, MediaFolderFactory, MediaFileFactory, CMSApiKeyFactory,
-)
+
 from apps.cms.models import CMSApiKey
+from apps.cms.tests.factories import (
+    BlockTemplateFactory,
+    CMSApiKeyFactory,
+    ContentVersionFactory,
+    MediaFileFactory,
+    MediaFolderFactory,
+    PageFactory,
+    PageSectionPlacementFactory,
+    SectionBlockPlacementFactory,
+    SectionTemplateFactory,
+    SiteFactory,
+)
 
 
 @pytest.mark.django_db
@@ -26,6 +34,7 @@ class TestSiteModel:
     def test_different_owners_same_slug(self, site):
         """Different owners can have the same slug."""
         import uuid
+
         other_site = SiteFactory(
             owner_type=site.owner_type,
             owner_id=uuid.uuid4(),
@@ -88,7 +97,10 @@ class TestSectionTemplateModel:
 @pytest.mark.django_db
 class TestBlockTemplateModel:
     def test_template_str(self, block_template):
-        assert str(block_template) == f"{block_template.display_name} (v{block_template.schema_version})"
+        assert (
+            str(block_template)
+            == f"{block_template.display_name} (v{block_template.schema_version})"
+        )
 
     def test_schema_version_default(self, block_template):
         assert block_template.schema_version == 1

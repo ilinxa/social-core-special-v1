@@ -9,18 +9,19 @@ Key invariants:
 """
 
 import uuid
+
+from django.conf import settings
 from django.contrib.postgres.indexes import GinIndex
 from django.db import models
-from django.conf import settings
 from django.utils.text import slugify
 
-from apps.core.models import AuditModel, SoftDeleteManager
 from apps.core.constants import (
-    BusinessType,
     BusinessStatus,
-    VerificationStatus,
+    BusinessType,
     CompanySize,
+    VerificationStatus,
 )
+from apps.core.models import AuditModel, SoftDeleteManager
 
 
 class BusinessAccountManager(SoftDeleteManager):
@@ -156,9 +157,7 @@ class BusinessProfile(models.Model):
     display_name = models.CharField(max_length=255)
     tagline = models.CharField(max_length=500, blank=True, default="")
     description = models.TextField(blank=True, default="")
-    logo = models.ImageField(
-        upload_to="business/logos/%Y/%m/", blank=True, null=True
-    )
+    logo = models.ImageField(upload_to="business/logos/%Y/%m/", blank=True, null=True)
     cover_image = models.ImageField(
         upload_to="business/covers/%Y/%m/", blank=True, null=True
     )

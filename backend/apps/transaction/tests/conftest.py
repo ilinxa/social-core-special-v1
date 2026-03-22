@@ -1,35 +1,36 @@
-import pytest
-from uuid import uuid4
 from datetime import timedelta
+from uuid import uuid4
+
+import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.users.tests.factories import UserFactory
-from apps.rbac.tests.factories import (
-    BusinessAccountFactory,
-    OwnerRoleFactory,
-    BaseMemberRoleFactory,
-    RoleFactory,
-    MembershipFactory,
-    OwnerMembershipFactory,
-    PlatformAccountFactory,
-    PlatformRoleFactory,
-)
+from apps.core.constants import AccountType, ContextType
+from apps.core.types import ActorContext
 from apps.rbac.models import Permission, RolePermission
 from apps.rbac.services import RBACService
-from apps.core.types import ActorContext
-from apps.core.constants import ContextType, AccountType
+from apps.rbac.tests.factories import (
+    BaseMemberRoleFactory,
+    BusinessAccountFactory,
+    MembershipFactory,
+    OwnerMembershipFactory,
+    OwnerRoleFactory,
+    PlatformAccountFactory,
+    PlatformRoleFactory,
+    RoleFactory,
+)
+from apps.transaction.constants import PartyType, TransactionMode, TransactionStatus
 from apps.transaction.tests.factories import (
-    TransactionFactory,
     PendingInvitationFactory,
     PendingRequestFactory,
+    TransactionFactory,
 )
-from apps.transaction.constants import TransactionMode, TransactionStatus, PartyType
-
+from apps.users.tests.factories import UserFactory
 
 # =========================================================================
 # API Clients
 # =========================================================================
+
 
 @pytest.fixture
 def api_client():
@@ -45,6 +46,7 @@ def authenticated_client(api_client, user):
 # =========================================================================
 # Users
 # =========================================================================
+
 
 @pytest.fixture
 def user(db):
@@ -64,6 +66,7 @@ def third_user(db):
 # =========================================================================
 # Accounts + Roles + Memberships
 # =========================================================================
+
 
 @pytest.fixture
 def business(db, user):
@@ -139,6 +142,7 @@ def platform_membership(db, third_user, platform, platform_owner_role):
 # Permissions (add to roles)
 # =========================================================================
 
+
 @pytest.fixture
 def can_invite_member_perm(db):
     perm, _ = Permission.objects.get_or_create(
@@ -210,6 +214,20 @@ def can_configure_transactions_perm(db):
 
 
 @pytest.fixture
+def can_approve_business_creation_perm(db):
+    perm, _ = Permission.objects.get_or_create(
+        code="can_approve_business_creation",
+        defaults={
+            "name": "Approve Business Creation",
+            "description": "Approve business creation permission requests",
+            "category": "membership",
+            "applicable_scopes": ["platform_only"],
+        },
+    )
+    return perm
+
+
+@pytest.fixture
 def owner_with_invite_perm(owner_membership, owner_role, can_invite_member_perm):
     RolePermission.objects.get_or_create(
         role=owner_role,
@@ -221,7 +239,9 @@ def owner_with_invite_perm(owner_membership, owner_role, can_invite_member_perm)
 
 @pytest.fixture
 def owner_with_configure_perm(
-    owner_with_invite_perm, owner_role, can_configure_transactions_perm,
+    owner_with_invite_perm,
+    owner_role,
+    can_configure_transactions_perm,
 ):
     RolePermission.objects.get_or_create(
         role=owner_role,
@@ -232,7 +252,21 @@ def owner_with_configure_perm(
 
 
 @pytest.fixture
-def member_with_approve_perm(member_membership, base_member_role, can_approve_membership_perm):
+def owner_with_approve_perm(
+    owner_membership, owner_role, can_approve_membership_perm
+):
+    RolePermission.objects.get_or_create(
+        role=owner_role,
+        permission=can_approve_membership_perm,
+        defaults={"scope": "business"},
+    )
+    return owner_membership
+
+
+@pytest.fixture
+def member_with_approve_perm(
+    member_membership, base_member_role, can_approve_membership_perm
+):
     RolePermission.objects.get_or_create(
         role=base_member_role,
         permission=can_approve_membership_perm,
@@ -245,17 +279,20 @@ def member_with_approve_perm(member_membership, base_member_role, can_approve_me
 # Actor Contexts
 # =========================================================================
 
+
 @pytest.fixture
 def owner_actor_context(owner_with_invite_perm):
     return RBACService.build_actor_context(
-        membership=owner_with_invite_perm, request=None,
+        membership=owner_with_invite_perm,
+        request=None,
     )
 
 
 @pytest.fixture
 def member_actor_context(member_with_approve_perm):
     return RBACService.build_actor_context(
-        membership=member_with_approve_perm, request=None,
+        membership=member_with_approve_perm,
+        request=None,
     )
 
 
@@ -267,13 +304,15 @@ def user_actor_context(user):
 @pytest.fixture
 def platform_actor_context(platform_membership):
     return RBACService.build_actor_context(
-        membership=platform_membership, request=None,
+        membership=platform_membership,
+        request=None,
     )
 
 
 # =========================================================================
 # Platform permission assignment (mirrors business pattern)
 # =========================================================================
+
 
 @pytest.fixture
 def platform_base_member_role(db, platform):
@@ -296,7 +335,9 @@ def platform_base_membership(db, another_user, platform, platform_base_member_ro
 
 @pytest.fixture
 def platform_owner_with_invite_perm(
-    platform_membership, platform_owner_role, can_invite_member_perm,
+    platform_membership,
+    platform_owner_role,
+    can_invite_member_perm,
 ):
     """Platform owner with can_invite_member permission assigned."""
     RolePermission.objects.get_or_create(
@@ -338,10 +379,33 @@ def platform_owner_with_configure_perm(
 
 
 @pytest.fixture
+def platform_owner_with_all_perms(
+    platform_membership,
+    platform_owner_role,
+    can_invite_member_perm,
+    can_approve_membership_perm,
+    can_approve_business_creation_perm,
+):
+    """Platform owner with invite + approve membership + approve business creation."""
+    for perm in [
+        can_invite_member_perm,
+        can_approve_membership_perm,
+        can_approve_business_creation_perm,
+    ]:
+        RolePermission.objects.get_or_create(
+            role=platform_owner_role,
+            permission=perm,
+            defaults={"scope": "platform_only"},
+        )
+    return platform_membership
+
+
+@pytest.fixture
 def platform_owner_actor_ctx(platform_owner_with_invite_perm):
     """ActorContext for platform owner WITH permissions."""
     return RBACService.build_actor_context(
-        membership=platform_owner_with_invite_perm, request=None,
+        membership=platform_owner_with_invite_perm,
+        request=None,
     )
 
 
@@ -349,13 +413,15 @@ def platform_owner_actor_ctx(platform_owner_with_invite_perm):
 def platform_approver_actor_ctx(platform_owner_with_approve_perm):
     """ActorContext for platform owner with approve permission."""
     return RBACService.build_actor_context(
-        membership=platform_owner_with_approve_perm, request=None,
+        membership=platform_owner_with_approve_perm,
+        request=None,
     )
 
 
 # =========================================================================
 # Platform API clients
 # =========================================================================
+
 
 @pytest.fixture
 def platform_authenticated_client(api_client, third_user):
@@ -368,8 +434,11 @@ def platform_authenticated_client(api_client, third_user):
 # Transactions
 # =========================================================================
 
+
 @pytest.fixture
-def pending_invitation(db, owner_with_invite_perm, another_user, business, owner_actor_context):
+def pending_invitation(
+    db, owner_with_invite_perm, another_user, business, owner_actor_context
+):
     return TransactionFactory(
         transaction_type="business_membership_invitation",
         mode=TransactionMode.INVITATION,
@@ -432,6 +501,7 @@ def accepted_transaction(db, user, another_user, business):
 # URL Helpers
 # =========================================================================
 
+
 @pytest.fixture
 def transaction_list_url():
     return "/api/v1/transactions/"
@@ -474,6 +544,7 @@ def transaction_approve_url(txn_id):
 # =========================================================================
 # Platform Transactions
 # =========================================================================
+
 
 @pytest.fixture
 def platform_pending_invitation(

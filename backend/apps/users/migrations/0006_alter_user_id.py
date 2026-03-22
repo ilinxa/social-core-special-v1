@@ -49,7 +49,8 @@ def _convert_postgres(schema_editor):
     """
     with schema_editor.connection.cursor() as cursor:
         # 1. Find all FK constraints referencing users.id
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT con.conname, rel.relname, att.attname
             FROM pg_constraint con
             JOIN pg_class rel ON con.conrelid = rel.oid
@@ -59,23 +60,24 @@ def _convert_postgres(schema_editor):
             JOIN pg_class ref ON con.confrelid = ref.oid
             WHERE con.contype = 'f'
                 AND ref.relname = 'users'
-        """)
+        """
+        )
         fk_constraints = cursor.fetchall()
 
         # 2. Find CHECK constraints on users table
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT con.conname
             FROM pg_constraint con
             JOIN pg_class rel ON con.conrelid = rel.oid
             WHERE rel.relname = 'users' AND con.contype = 'c'
-        """)
+        """
+        )
         check_constraints = cursor.fetchall()
 
         # 3. Drop CHECK constraints (e.g. no_self_referral: id = referred_by_id)
         for (constraint_name,) in check_constraints:
-            cursor.execute(
-                f'ALTER TABLE "users" DROP CONSTRAINT "{constraint_name}"'
-            )
+            cursor.execute(f'ALTER TABLE "users" DROP CONSTRAINT "{constraint_name}"')
 
         # 4. Drop FK constraints
         for constraint_name, table_name, _ in fk_constraints:
@@ -84,29 +86,25 @@ def _convert_postgres(schema_editor):
             )
 
         # 5. Drop PK constraint
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT con.conname
             FROM pg_constraint con
             JOIN pg_class rel ON con.conrelid = rel.oid
             WHERE rel.relname = 'users' AND con.contype = 'p'
-        """)
+        """
+        )
         pk_row = cursor.fetchone()
         if pk_row:
-            cursor.execute(
-                f'ALTER TABLE "users" DROP CONSTRAINT "{pk_row[0]}"'
-            )
+            cursor.execute(f'ALTER TABLE "users" DROP CONSTRAINT "{pk_row[0]}"')
 
         # 6. Convert users.id: drop identity, change type, set default
+        cursor.execute('ALTER TABLE "users" ALTER COLUMN "id" DROP IDENTITY IF EXISTS')
         cursor.execute(
-            'ALTER TABLE "users" ALTER COLUMN "id" DROP IDENTITY IF EXISTS'
+            'ALTER TABLE "users" ALTER COLUMN "id" ' "TYPE uuid USING gen_random_uuid()"
         )
         cursor.execute(
-            'ALTER TABLE "users" ALTER COLUMN "id" '
-            "TYPE uuid USING gen_random_uuid()"
-        )
-        cursor.execute(
-            'ALTER TABLE "users" ALTER COLUMN "id" '
-            "SET DEFAULT gen_random_uuid()"
+            'ALTER TABLE "users" ALTER COLUMN "id" ' "SET DEFAULT gen_random_uuid()"
         )
         cursor.execute('ALTER TABLE "users" ALTER COLUMN "id" SET NOT NULL')
 
@@ -120,18 +118,22 @@ def _convert_postgres(schema_editor):
         cursor.execute('ALTER TABLE "users" ADD PRIMARY KEY ("id")')
 
         # 9. Re-add CHECK constraints with updated types
-        cursor.execute("""
+        cursor.execute(
+            """
             ALTER TABLE "users" ADD CONSTRAINT "no_self_referral"
             CHECK (NOT (id = referred_by_id AND referred_by_id IS NOT NULL))
-        """)
+        """
+        )
 
         # 10. Re-add self-referencing FK for referred_by_id
-        cursor.execute("""
+        cursor.execute(
+            """
             ALTER TABLE "users" ADD CONSTRAINT
             "users_referred_by_id_985c1072_fk_users_id"
             FOREIGN KEY ("referred_by_id") REFERENCES "users" ("id")
             DEFERRABLE INITIALLY DEFERRED
-        """)
+        """
+        )
 
         # 11. Convert FK columns in other tables and re-add their constraints
         for constraint_name, table_name, column_name in fk_constraints:

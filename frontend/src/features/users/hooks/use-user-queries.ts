@@ -2,6 +2,7 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import { queryKeys } from "@/lib/query-keys";
 import {
+  fetchApprovedCreatorsApi,
   fetchCurrentUserApi,
   fetchProfileApi,
   fetchUserByUsernameApi,
@@ -51,5 +52,13 @@ export function useUserByUsername(username: string) {
       if ("status" in error && (error as { status: number }).status === 404) return false;
       return failureCount < 2;
     },
+  });
+}
+
+export function useApprovedCreators(params?: Record<string, unknown>) {
+  return useQuery({
+    queryKey: queryKeys.users.withBusinessPermission(params),
+    queryFn: () => fetchApprovedCreatorsApi(params),
+    staleTime: 2 * 60 * 1000,
   });
 }

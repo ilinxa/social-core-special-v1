@@ -21,10 +21,7 @@ class EmailChannel(BaseChannel):
 
     @staticmethod
     def send(
-        *,
-        user,
-        notification_type: str,
-        context: Dict[str, Any]
+        *, user, notification_type: str, context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Send notification via email.
@@ -38,29 +35,26 @@ class EmailChannel(BaseChannel):
         """
         type_config = get_notification_type(notification_type)
         if not type_config or not type_config.email_template:
-            return {'status': 'skipped', 'reason': 'No email template'}
+            return {"status": "skipped", "reason": "No email template"}
 
         try:
             from apps.email.services import EmailService
 
             # Add standard context
-            full_context = {
-                'user_email': user.email,
-                **context
-            }
+            full_context = {"user_email": user.email, **context}
 
             # Try to get user's display name from profile if available
-            if hasattr(user, 'profile') and user.profile:
-                full_context['user_name'] = user.profile.display_name
+            if hasattr(user, "profile") and user.profile:
+                full_context["user_name"] = user.profile.display_name
             else:
                 # Fallback to email username part
-                full_context['user_name'] = user.email.split('@')[0]
+                full_context["user_name"] = user.email.split("@")[0]
 
             # Send via Email system
             email_log = EmailService.send(
                 template_name=type_config.email_template,
                 to_email=user.email,
-                context=full_context
+                context=full_context,
             )
 
             logger.info(
@@ -70,10 +64,7 @@ class EmailChannel(BaseChannel):
                 email_log_id=str(email_log.id),
             )
 
-            return {
-                'status': 'sent',
-                'email_log_id': str(email_log.id)
-            }
+            return {"status": "sent", "email_log_id": str(email_log.id)}
 
         except Exception as e:
             logger.error(
@@ -82,10 +73,7 @@ class EmailChannel(BaseChannel):
                 notification_type=notification_type,
                 error=str(e),
             )
-            return {
-                'status': 'failed',
-                'error': str(e)
-            }
+            return {"status": "failed", "error": str(e)}
 
     @staticmethod
     def is_available() -> bool:

@@ -6,7 +6,7 @@ export const createRoleSchema = z.object({
     .min(1, "Role name is required")
     .max(100, "Role name must be 100 characters or less"),
   level: z
-    .number({ required_error: "Level is required" })
+    .number({ error: "Level is required" })
     .int("Level must be a whole number")
     .min(1, "Level must be at least 1")
     .max(100, "Level must be at most 100"),

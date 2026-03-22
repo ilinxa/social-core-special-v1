@@ -22,8 +22,8 @@ class BaseEmailBackend(ABC):
         from_email: str,
         subject: str,
         html_body: str,
-        text_body: str = '',
-        reply_to: str = ''
+        text_body: str = "",
+        reply_to: str = "",
     ) -> str:
         """
         Send an email.

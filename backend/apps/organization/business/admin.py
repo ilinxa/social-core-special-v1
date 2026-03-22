@@ -53,9 +53,21 @@ class BusinessAccountAdmin(admin.ModelAdmin):
         "open_member_request",
         "created_at",
     )
-    list_filter = ("status", "verification_status", "business_type", "country", "max_members", "open_member_request")
+    list_filter = (
+        "status",
+        "verification_status",
+        "business_type",
+        "country",
+        "max_members",
+        "open_member_request",
+    )
     list_editable = ("max_members", "open_member_request")
-    actions = ["enable_team_membership", "disable_team_membership", "enable_member_requests", "disable_member_requests"]
+    actions = [
+        "enable_team_membership",
+        "disable_team_membership",
+        "enable_member_requests",
+        "disable_member_requests",
+    ]
     search_fields = ("legal_name", "slug", "registration_number", "tax_id")
     readonly_fields = (
         "id",
@@ -115,7 +127,9 @@ class BusinessAccountAdmin(admin.ModelAdmin):
     @admin.action(description="Disable team membership (max_members=1)")
     def disable_team_membership(self, request, queryset):
         updated = queryset.update(max_members=1)
-        self.message_user(request, f"{updated} businesses set to owner-only (max_members=1).")
+        self.message_user(
+            request, f"{updated} businesses set to owner-only (max_members=1)."
+        )
 
     @admin.action(description="Enable member requests (open_member_request=True)")
     def enable_member_requests(self, request, queryset):
@@ -125,7 +139,9 @@ class BusinessAccountAdmin(admin.ModelAdmin):
     @admin.action(description="Disable member requests (open_member_request=False)")
     def disable_member_requests(self, request, queryset):
         updated = queryset.update(open_member_request=False)
-        self.message_user(request, f"{updated} businesses no longer accept member requests.")
+        self.message_user(
+            request, f"{updated} businesses no longer accept member requests."
+        )
 
     def get_queryset(self, request):
         """Include soft-deleted businesses in admin."""
@@ -140,3 +156,6 @@ class BusinessSlugHistoryAdmin(admin.ModelAdmin):
     search_fields = ("old_slug", "business__legal_name", "business__slug")
     readonly_fields = ("old_slug", "business", "changed_at")
     ordering = ["-changed_at"]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("business")

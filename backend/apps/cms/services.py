@@ -6,34 +6,51 @@ All write operations for the CMS app.
 Pattern: @staticmethod, @transaction.atomic, keyword-only arguments.
 """
 
-from typing import Optional
 from uuid import UUID
+
 from django.db import transaction
 from django.http import HttpRequest
 from django.utils import timezone
 
-from apps.core.exceptions import (
-    NotFound, ValidationError, PermissionDenied,
-    ConflictError, BusinessRuleViolation,
+from apps.cms.constants import (
+    MAX_VERSIONS_PER_PLACEMENT,
+    VERSION_THROTTLE_SECONDS,
+    BlockPlacementStatus,
+    ContentLayer,
+    ContentVersionAction,
+    PageStatus,
 )
-from apps.core.types import ActorContext
-from apps.core.observability import AuditService, AuditLog, get_logger
-from apps.rbac.policies import MembershipPolicy
-from apps.users.models import User
 from apps.cms.models import (
-    Site, Page, SectionTemplate, BlockTemplate,
-    PageSectionPlacement, SectionBlockPlacement,
-    ContentVersion, MediaFolder, MediaFile, MediaUsage, CMSApiKey,
+    BlockTemplate,
+    CMSApiKey,
+    ContentVersion,
+    MediaFile,
+    MediaUsage,
+    Page,
+    PageSectionPlacement,
+    SectionBlockPlacement,
+    SectionTemplate,
+    Site,
 )
 from apps.cms.selectors import (
-    CMSSiteSelector, CMSPageSelector, CMSTemplateSelector,
-    CMSBlockPlacementSelector, CMSMediaSelector,
+    CMSBlockPlacementSelector,
     CMSContentVersionSelector,
+    CMSMediaSelector,
+    CMSPageSelector,
+    CMSSiteSelector,
+    CMSTemplateSelector,
 )
-from apps.cms.constants import (
-    PageStatus, BlockPlacementStatus, ContentVersionAction,
-    ContentLayer, VERSION_THROTTLE_SECONDS, MAX_VERSIONS_PER_PLACEMENT,
+from apps.core.exceptions import (
+    BusinessRuleViolation,
+    ConflictError,
+    NotFound,
+    PermissionDenied,
+    ValidationError,
 )
+from apps.core.observability import AuditLog, AuditService, get_logger
+from apps.core.types import ActorContext
+from apps.rbac.policies import MembershipPolicy
+from apps.users.models import User
 
 logger = get_logger(__name__)
 
@@ -43,6 +60,7 @@ logger = get_logger(__name__)
 # Module-level helper — same pattern as apps/rbac/services.py
 # and apps/transaction/services.py
 # ---------------------------------------------------------------------------
+
 
 def _resolve_actor(actor_context: ActorContext):
     """Resolve User from ActorContext.user_id for audit logging."""
@@ -55,6 +73,7 @@ def _resolve_actor(actor_context: ActorContext):
 # ===========================================================================
 # CMSSiteService
 # ===========================================================================
+
 
 class CMSSiteService:
     """Site lifecycle — create, update, soft-delete (platform-only, superuser)."""
@@ -70,8 +89,8 @@ class CMSSiteService:
         description: str = "",
         owner_type: str,
         owner_id=None,
-        metadata: Optional[dict] = None,
-        request: Optional[HttpRequest] = None,
+        metadata: dict | None = None,
+        request: HttpRequest | None = None,
     ) -> Site:
         MembershipPolicy.authorize_action(
             actor_context=actor_context,
@@ -110,7 +129,7 @@ class CMSSiteService:
         *,
         actor_context: ActorContext,
         slug: str,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
         **fields,
     ) -> Site:
         MembershipPolicy.authorize_action(
@@ -147,7 +166,7 @@ class CMSSiteService:
         *,
         actor_context: ActorContext,
         slug: str,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> None:
         MembershipPolicy.authorize_action(
             actor_context=actor_context,
@@ -176,6 +195,7 @@ class CMSSiteService:
 # CMSTemplateService
 # ===========================================================================
 
+
 class CMSTemplateService:
     """Create/update/delete templates, placement ordering (superuser)."""
 
@@ -189,9 +209,9 @@ class CMSTemplateService:
         slug: str,
         section_type: str,
         description: str = "",
-        metadata: Optional[dict] = None,
-        ui_config: Optional[dict] = None,
-        request: Optional[HttpRequest] = None,
+        metadata: dict | None = None,
+        ui_config: dict | None = None,
+        request: HttpRequest | None = None,
     ) -> SectionTemplate:
         MembershipPolicy.authorize_action(
             actor_context=actor_context,
@@ -214,7 +234,9 @@ class CMSTemplateService:
             updated_by=actor,
         )
 
-        logger.info("cms.section_template.created", template_id=str(template.id), slug=slug)
+        logger.info(
+            "cms.section_template.created", template_id=str(template.id), slug=slug
+        )
         AuditService.log(
             action=AuditLog.Action.CMS_SECTION_TEMPLATE_CREATED,
             actor=actor,
@@ -234,10 +256,10 @@ class CMSTemplateService:
         block_type: str,
         schema: dict,
         description: str = "",
-        default_content: Optional[dict] = None,
-        metadata: Optional[dict] = None,
-        ui_config: Optional[dict] = None,
-        request: Optional[HttpRequest] = None,
+        default_content: dict | None = None,
+        metadata: dict | None = None,
+        ui_config: dict | None = None,
+        request: HttpRequest | None = None,
     ) -> BlockTemplate:
         MembershipPolicy.authorize_action(
             actor_context=actor_context,
@@ -248,6 +270,7 @@ class CMSTemplateService:
             raise ConflictError(resource="BlockTemplate", conflict_type="duplicate")
 
         from apps.cms.validators import SchemaValidator
+
         SchemaValidator.validate_schema_structure(schema=schema)
 
         actor = _resolve_actor(actor_context)
@@ -266,7 +289,9 @@ class CMSTemplateService:
             updated_by=actor,
         )
 
-        logger.info("cms.block_template.created", template_id=str(template.id), slug=slug)
+        logger.info(
+            "cms.block_template.created", template_id=str(template.id), slug=slug
+        )
         AuditService.log(
             action=AuditLog.Action.CMS_BLOCK_TEMPLATE_CREATED,
             actor=actor,
@@ -282,7 +307,7 @@ class CMSTemplateService:
         actor_context: ActorContext,
         template_id: UUID,
         schema: dict,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> BlockTemplate:
         """Update block template schema. Increments schema_version."""
         MembershipPolicy.authorize_action(
@@ -294,13 +319,16 @@ class CMSTemplateService:
         old_schema = template.schema
 
         from apps.cms.validators import SchemaValidator
+
         SchemaValidator.validate_schema_structure(schema=schema)
 
         actor = _resolve_actor(actor_context)
         template.schema = schema
         template.schema_version += 1
         template.updated_by = actor
-        template.save(update_fields=["schema", "schema_version", "updated_by", "updated_at"])
+        template.save(
+            update_fields=["schema", "schema_version", "updated_by", "updated_at"]
+        )
 
         logger.info(
             "cms.block_template.schema_changed",
@@ -324,7 +352,7 @@ class CMSTemplateService:
         actor_context: ActorContext,
         page_id: UUID,
         ordered_placement_ids: list[UUID],
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> None:
         """Atomic bulk reassignment of section placement order within a page."""
         MembershipPolicy.authorize_action(
@@ -333,8 +361,9 @@ class CMSTemplateService:
         )
 
         existing_ids = set(
-            PageSectionPlacement.objects.filter(page_id=page_id)
-            .values_list("id", flat=True)
+            PageSectionPlacement.objects.filter(page_id=page_id).values_list(
+                "id", flat=True
+            )
         )
         provided_ids = set(ordered_placement_ids)
         if existing_ids != provided_ids:
@@ -346,7 +375,9 @@ class CMSTemplateService:
         # Pass 1: Set all orders to high offset (temporary, guaranteed unique)
         offset = 100000
         for index, placement_id in enumerate(ordered_placement_ids):
-            PageSectionPlacement.objects.filter(id=placement_id).update(order=offset + index)
+            PageSectionPlacement.objects.filter(id=placement_id).update(
+                order=offset + index
+            )
         # Pass 2: Set final order values
         for index, placement_id in enumerate(ordered_placement_ids):
             PageSectionPlacement.objects.filter(id=placement_id).update(order=index)
@@ -360,7 +391,7 @@ class CMSTemplateService:
         actor_context: ActorContext,
         section_placement_id: UUID,
         ordered_placement_ids: list[UUID],
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> None:
         """Atomic bulk reassignment of block placement order within a section."""
         MembershipPolicy.authorize_action(
@@ -369,8 +400,9 @@ class CMSTemplateService:
         )
 
         existing_ids = set(
-            SectionBlockPlacement.objects.filter(section_placement_id=section_placement_id)
-            .values_list("id", flat=True)
+            SectionBlockPlacement.objects.filter(
+                section_placement_id=section_placement_id
+            ).values_list("id", flat=True)
         )
         provided_ids = set(ordered_placement_ids)
         if existing_ids != provided_ids:
@@ -382,7 +414,9 @@ class CMSTemplateService:
         # Pass 1: Set all orders to high offset (temporary, guaranteed unique)
         offset = 100000
         for index, placement_id in enumerate(ordered_placement_ids):
-            SectionBlockPlacement.objects.filter(id=placement_id).update(order=offset + index)
+            SectionBlockPlacement.objects.filter(id=placement_id).update(
+                order=offset + index
+            )
         # Pass 2: Set final order values
         for index, placement_id in enumerate(ordered_placement_ids):
             SectionBlockPlacement.objects.filter(id=placement_id).update(order=index)
@@ -396,6 +430,7 @@ class CMSTemplateService:
 # ===========================================================================
 # CMSPageService
 # ===========================================================================
+
 
 class CMSPageService:
     """Page lifecycle, ordering, publish/unpublish, export/import."""
@@ -412,9 +447,9 @@ class CMSPageService:
         page_type: str,
         order: int,
         description: str = "",
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         is_required: bool = False,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> Page:
         MembershipPolicy.authorize_action(
             actor_context=actor_context,
@@ -458,7 +493,7 @@ class CMSPageService:
         actor_context: ActorContext,
         site_id: UUID,
         ordered_page_ids: list[UUID],
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> None:
         """Atomic bulk reassignment of page order within a site."""
         MembershipPolicy.authorize_action(
@@ -490,7 +525,7 @@ class CMSPageService:
         *,
         actor_context: ActorContext,
         page_id: UUID,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> Page:
         """
         Atomic publish: validate all blocks, copy draft->published.
@@ -508,7 +543,7 @@ class CMSPageService:
         if not page:
             raise NotFound(resource="Page", resource_id=page_id)
 
-        section_placements = list(
+        list(
             PageSectionPlacement.objects.select_for_update()
             .filter(page=page)
             .order_by("order")
@@ -532,12 +567,14 @@ class CMSPageService:
                 strict=True,
             )
             for error in errors:
-                publish_errors.append({
-                    "section_placement_id": str(bp.section_placement_id),
-                    "block_placement_id": str(bp.id),
-                    "block_template": bp.template.slug,
-                    **error,
-                })
+                publish_errors.append(
+                    {
+                        "section_placement_id": str(bp.section_placement_id),
+                        "block_placement_id": str(bp.id),
+                        "block_template": bp.template.slug,
+                        **error,
+                    }
+                )
 
         if publish_errors:
             # ValidationError only accepts message/field/value, so set details manually
@@ -551,9 +588,14 @@ class CMSPageService:
             bp.published_content = bp.draft_content
             bp.status = BlockPlacementStatus.PUBLISHED
             bp.schema_version_validated = bp.template.schema_version
-            bp.save(update_fields=[
-                "published_content", "status", "schema_version_validated", "updated_at",
-            ])
+            bp.save(
+                update_fields=[
+                    "published_content",
+                    "status",
+                    "schema_version_validated",
+                    "updated_at",
+                ]
+            )
 
             _create_content_version(
                 block_placement=bp,
@@ -597,7 +639,7 @@ class CMSPageService:
         *,
         actor_context: ActorContext,
         page_id: UUID,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> Page:
         """Revert page to draft. published_content is NOT cleared."""
         MembershipPolicy.authorize_action(
@@ -614,9 +656,9 @@ class CMSPageService:
 
         actor = _resolve_actor(actor_context)
 
-        SectionBlockPlacement.objects.filter(
-            section_placement__page=page
-        ).update(status=BlockPlacementStatus.DRAFT)
+        SectionBlockPlacement.objects.filter(section_placement__page=page).update(
+            status=BlockPlacementStatus.DRAFT
+        )
 
         page.status = PageStatus.DRAFT
         page.updated_by = actor
@@ -636,7 +678,7 @@ class CMSPageService:
         *,
         actor_context: ActorContext,
         page_id: UUID,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> dict:
         """Export page tree as JSON (see spec Section 10.1)."""
         MembershipPolicy.authorize_action(
@@ -672,7 +714,7 @@ class CMSPageService:
         actor_context: ActorContext,
         page_id: UUID,
         import_data: dict,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> Page:
         """Content-only import: match block placements by UUID, update draft_content."""
         MembershipPolicy.authorize_action(
@@ -685,14 +727,19 @@ class CMSPageService:
 
         imported_blocks = _extract_block_placements_from_import(import_data)
         for bp_data in imported_blocks:
-            bp = SectionBlockPlacement.objects.filter(
-                id=bp_data["id"],
-                section_placement__page=page,
-            ).select_related("template").first()
+            bp = (
+                SectionBlockPlacement.objects.filter(
+                    id=bp_data["id"],
+                    section_placement__page=page,
+                )
+                .select_related("template")
+                .first()
+            )
             if not bp:
                 continue  # Skip non-matching UUIDs
 
             from apps.cms.validators import SchemaValidator
+
             SchemaValidator.validate_content(
                 schema=bp.template.schema,
                 content=bp_data.get("draft_content", {}),
@@ -724,6 +771,7 @@ class CMSPageService:
 # CMSContentService
 # ===========================================================================
 
+
 class CMSContentService:
     """Draft content editing, rollback, visibility toggling."""
 
@@ -734,7 +782,7 @@ class CMSContentService:
         actor_context: ActorContext,
         block_placement_id: UUID,
         content: dict,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> SectionBlockPlacement:
         """
         Update draft_content on a block placement.
@@ -751,6 +799,7 @@ class CMSContentService:
         )
 
         from apps.cms.validators import SchemaValidator
+
         content = SchemaValidator.sanitize_content(
             schema=placement.template.schema,
             content=content,
@@ -803,7 +852,7 @@ class CMSContentService:
         actor_context: ActorContext,
         block_placement_id: UUID,
         version_number: int,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> SectionBlockPlacement:
         """
         Rollback draft_content to a previous version.
@@ -856,7 +905,7 @@ class CMSContentService:
         actor_context: ActorContext,
         block_placement_id: UUID,
         is_visible: bool,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> SectionBlockPlacement:
         """Toggle visibility on a non-required block placement."""
         MembershipPolicy.authorize_action(
@@ -898,6 +947,7 @@ class CMSContentService:
 # CMSMediaService
 # ===========================================================================
 
+
 class CMSMediaService:
     """File upload, delete, tombstone cleanup."""
 
@@ -909,22 +959,38 @@ class CMSMediaService:
         owner_type: str,
         owner_id: UUID,
         file,  # Django UploadedFile
-        folder_id: Optional[UUID] = None,
+        folder_id: UUID | None = None,
         alt_text: str = "",
         title: str = "",
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> MediaFile:
         MembershipPolicy.authorize_action(
             actor_context=actor_context,
             required_permission="can_upload_cms_media",
         )
 
-        from django.core.files.storage import default_storage
         import uuid as uuid_mod
+
+        from django.core.files.storage import default_storage
+
+        from apps.cms.constants import ALLOWED_MEDIA_EXTENSIONS, ALLOWED_MEDIA_TYPES
 
         actor = _resolve_actor(actor_context)
 
-        ext = file.name.rsplit(".", 1)[-1] if "." in file.name else ""
+        # Validate file type (extension + MIME type whitelist)
+        ext = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else ""
+        mime = (file.content_type or "").lower()
+        if ext not in ALLOWED_MEDIA_EXTENSIONS:
+            raise ValidationError(
+                message=f"File extension '.{ext}' is not allowed",
+                field="file",
+            )
+        if mime not in ALLOWED_MEDIA_TYPES:
+            raise ValidationError(
+                message=f"File type '{mime}' is not allowed",
+                field="file",
+            )
+
         storage_key = f"{owner_type}/{str(owner_id)}/media/{uuid_mod.uuid4().hex}.{ext}"
 
         saved_path = default_storage.save(storage_key, file)
@@ -958,7 +1024,7 @@ class CMSMediaService:
         *,
         actor_context: ActorContext,
         file_id: UUID,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
         **fields,
     ) -> MediaFile:
         """Update media file metadata (alt_text, title, folder)."""
@@ -996,7 +1062,7 @@ class CMSMediaService:
         *,
         actor_context: ActorContext,
         file_id: UUID,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> MediaFile:
         """
         Delete a media file. If published content references it,
@@ -1049,7 +1115,7 @@ class CMSMediaService:
         *,
         actor_context: ActorContext,
         folder_id: UUID,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> None:
         """
         Soft-delete a folder and recursively soft-delete all children.
@@ -1116,6 +1182,7 @@ class CMSMediaService:
 # CMSApiKeyService
 # ===========================================================================
 
+
 class CMSApiKeyService:
     """API key lifecycle for public API access."""
 
@@ -1126,10 +1193,10 @@ class CMSApiKeyService:
         actor_context: ActorContext,
         site_id: UUID,
         name: str,
-        allowed_origins: Optional[list[str]] = None,
+        allowed_origins: list[str] | None = None,
         rate_limit: int = 60,
         expires_at=None,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> tuple[CMSApiKey, str]:
         """
         Create a new API key. Returns (api_key_record, plaintext_key).
@@ -1173,7 +1240,7 @@ class CMSApiKeyService:
         *,
         actor_context: ActorContext,
         api_key_id: UUID,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> CMSApiKey:
         """Revoke (soft-delete) an API key."""
         MembershipPolicy.authorize_action(
@@ -1206,9 +1273,11 @@ class CMSApiKeyService:
         Checks: exists, active, not expired.
         """
         key_hash = CMSApiKey.hash_key(plaintext_key)
-        api_key = CMSApiKey.objects.filter(
-            key_hash=key_hash, is_deleted=False
-        ).select_related("site").first()
+        api_key = (
+            CMSApiKey.objects.filter(key_hash=key_hash, is_deleted=False)
+            .select_related("site")
+            .first()
+        )
 
         if not api_key:
             raise PermissionDenied(message="Invalid API key")
@@ -1228,6 +1297,7 @@ class CMSApiKeyService:
 # ---------------------------------------------------------------------------
 # Internal helpers (module-level, not exposed)
 # ---------------------------------------------------------------------------
+
 
 def _create_content_version(
     *,
@@ -1263,14 +1333,12 @@ def _create_content_version_throttled(
     content: dict,
     action: str,
     actor,
-) -> Optional[ContentVersion]:
+) -> ContentVersion | None:
     """
     Create version with throttling: max 1 per 30 seconds.
     Within the window, updates the latest version in-place
     (only if same user, same action=draft_save).
     """
-    import datetime
-
     latest = CMSContentVersionSelector.get_latest_version(
         block_placement_id=block_placement.id
     )
@@ -1279,7 +1347,8 @@ def _create_content_version_throttled(
         latest
         and latest.action == ContentVersionAction.DRAFT_SAVE
         and latest.created_by == actor
-        and (timezone.now() - latest.created_at).total_seconds() < VERSION_THROTTLE_SECONDS
+        and (timezone.now() - latest.created_at).total_seconds()
+        < VERSION_THROTTLE_SECONDS
     ):
         # Update in-place
         latest.content_snapshot = content or {}
@@ -1308,7 +1377,7 @@ def _prune_old_versions(*, block_placement_id: UUID) -> None:
 def _sync_media_usage(
     *,
     block_placement: SectionBlockPlacement,
-    content: Optional[dict],
+    content: dict | None,
     layer: str,
 ) -> None:
     """
@@ -1334,7 +1403,9 @@ def _sync_media_usage(
         )
 
 
-def _extract_media_references(*, content: dict, prefix: str = "") -> list[tuple[str, UUID]]:
+def _extract_media_references(
+    *, content: dict, prefix: str = ""
+) -> list[tuple[str, UUID]]:
     """
     Recursively extract (field_key, media_id) pairs from content JSONB.
     Handles media fields {"media_id": "uuid", "alt": "..."} and repeaters.
@@ -1390,7 +1461,9 @@ def _null_media_id_in_content(*, content: dict, target_media_id: str) -> None:
         elif isinstance(value, list):
             for item in value:
                 if isinstance(item, dict):
-                    _null_media_id_in_content(content=item, target_media_id=target_media_id)
+                    _null_media_id_in_content(
+                        content=item, target_media_id=target_media_id
+                    )
 
 
 def _serialize_page_for_export(page: Page) -> dict:

@@ -1,7 +1,7 @@
 -r base.txt
 
-# Production monitoring & error tracking (optional - uncomment if needed)
-# sentry-sdk==2.21.0
+# Production monitoring & error tracking (env-var gated: only activates when SENTRY_DSN is set)
+sentry-sdk==2.21.0
 
 # Static files serving (if not using nginx/S3)
 whitenoise==6.8.2

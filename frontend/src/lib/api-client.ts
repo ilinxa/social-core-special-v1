@@ -1,4 +1,4 @@
-import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
+import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 
 import type { ApiErrorCode, ApiErrorResponse } from "@/types";
 import { clearSessionCookie } from "@/lib/session-cookie";
@@ -180,7 +180,7 @@ apiClient.interceptors.response.use(
     // Token expired, missing, or invalid — attempt refresh via HttpOnly cookie
     const isRecoverable401 =
       status === 401 &&
-      (errorCode === "token_expired" || errorCode === "not_authenticated" || errorCode === "token_invalid");
+      (errorCode === "token_expired" || errorCode === "authentication_error" || errorCode === "token_invalid");
 
     if (
       isRecoverable401 &&

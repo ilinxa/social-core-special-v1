@@ -4,11 +4,13 @@ RBAC Admin Configuration
 """
 
 from django.contrib import admin
-from apps.rbac.models import Permission, Role, RolePermission, Membership
+
+from apps.rbac.models import Membership, Permission, Role, RolePermission
 
 
 class RolePermissionInline(admin.TabularInline):
     """Inline for role permissions."""
+
     model = RolePermission
     extra = 1
     autocomplete_fields = ["permission"]
@@ -25,12 +27,8 @@ class PermissionAdmin(admin.ModelAdmin):
     readonly_fields = ["id"]
 
     fieldsets = (
-        (None, {
-            "fields": ("id", "code", "name", "category")
-        }),
-        ("Details", {
-            "fields": ("description", "applicable_scopes")
-        }),
+        (None, {"fields": ("id", "code", "name", "category")}),
+        ("Details", {"fields": ("description", "applicable_scopes")}),
     )
 
 
@@ -46,19 +44,16 @@ class RoleAdmin(admin.ModelAdmin):
     inlines = [RolePermissionInline]
 
     fieldsets = (
-        (None, {
-            "fields": ("id", "name", "description")
-        }),
-        ("Account", {
-            "fields": ("account_type", "account_id")
-        }),
-        ("Configuration", {
-            "fields": ("level", "is_system_role")
-        }),
-        ("Audit", {
-            "fields": ("created_at", "updated_at", "created_by", "updated_by"),
-            "classes": ("collapse",)
-        }),
+        (None, {"fields": ("id", "name", "description")}),
+        ("Account", {"fields": ("account_type", "account_id")}),
+        ("Configuration", {"fields": ("level", "is_system_role")}),
+        (
+            "Audit",
+            {
+                "fields": ("created_at", "updated_at", "created_by", "updated_by"),
+                "classes": ("collapse",),
+            },
+        ),
     )
 
 
@@ -72,44 +67,61 @@ class RolePermissionAdmin(admin.ModelAdmin):
     autocomplete_fields = ["role", "permission"]
     readonly_fields = ["id"]
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("role", "permission")
+
 
 @admin.register(Membership)
 class MembershipAdmin(admin.ModelAdmin):
     """Admin for Membership model."""
 
     list_display = [
-        "user", "account_type", "account_id", "role",
-        "is_owner", "status", "joined_at"
+        "user",
+        "account_type",
+        "account_id",
+        "role",
+        "is_owner",
+        "status",
+        "joined_at",
     ]
     list_filter = ["account_type", "status", "is_owner"]
     search_fields = ["user__email", "user__username", "role__name"]
     autocomplete_fields = ["user", "role"]
     readonly_fields = [
-        "id", "joined_at", "status_changed_at",
-        "created_at", "updated_at"
+        "id",
+        "joined_at",
+        "status_changed_at",
+        "created_at",
+        "updated_at",
     ]
     ordering = ["-joined_at"]
 
     fieldsets = (
-        (None, {
-            "fields": ("id", "user", "role")
-        }),
-        ("Account", {
-            "fields": ("account_type", "account_id")
-        }),
-        ("Status", {
-            "fields": ("is_owner", "status", "status_reason")
-        }),
-        ("Timestamps", {
-            "fields": ("joined_at", "status_changed_at", "status_changed_by"),
-            "classes": ("collapse",)
-        }),
-        ("Audit", {
-            "fields": ("created_at", "updated_at", "is_deleted", "deleted_at", "deleted_by"),
-            "classes": ("collapse",)
-        }),
+        (None, {"fields": ("id", "user", "role")}),
+        ("Account", {"fields": ("account_type", "account_id")}),
+        ("Status", {"fields": ("is_owner", "status", "status_reason")}),
+        (
+            "Timestamps",
+            {
+                "fields": ("joined_at", "status_changed_at", "status_changed_by"),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "Audit",
+            {
+                "fields": (
+                    "created_at",
+                    "updated_at",
+                    "is_deleted",
+                    "deleted_at",
+                    "deleted_by",
+                ),
+                "classes": ("collapse",),
+            },
+        ),
     )
 
     def get_queryset(self, request):
         """Include soft-deleted memberships in admin."""
-        return Membership.all_objects.all()
+        return Membership.all_objects.select_related("user", "role").all()

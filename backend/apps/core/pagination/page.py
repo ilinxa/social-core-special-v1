@@ -20,15 +20,15 @@ Usage in Views:
 """
 
 from rest_framework.pagination import (
-    PageNumberPagination,
-    LimitOffsetPagination,
     CursorPagination,
+    LimitOffsetPagination,
+    PageNumberPagination,
 )
-
 
 # =============================================================================
 # PAGE NUMBER PAGINATION (Default)
 # =============================================================================
+
 
 class StandardPagination(PageNumberPagination):
     """
@@ -96,6 +96,7 @@ class LargeResultsPagination(PageNumberPagination):
 # LIMIT OFFSET PAGINATION
 # =============================================================================
 
+
 class LimitOffsetResultsPagination(LimitOffsetPagination):
     """
     Limit/offset based pagination.
@@ -132,6 +133,7 @@ class LimitOffsetResultsPagination(LimitOffsetPagination):
 # =============================================================================
 # CURSOR PAGINATION
 # =============================================================================
+
 
 class CursorResultsPagination(CursorPagination):
     """
@@ -192,6 +194,7 @@ class IDCursorPagination(CursorPagination):
 # =============================================================================
 # NO PAGINATION
 # =============================================================================
+
 
 class NoPagination:
     """

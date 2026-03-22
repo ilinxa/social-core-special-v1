@@ -21,8 +21,8 @@ the business-plane dominance rule is SKIPPED. Authority comes from
 the platform role and global permission, not from any business membership.
 """
 
-from apps.core.exceptions import PermissionDenied
 from apps.core.constants import AccountType, MembershipStatus
+from apps.core.exceptions import PermissionDenied
 from apps.core.types import ActorContext
 from apps.rbac.models import Membership, Role
 
@@ -116,7 +116,7 @@ class MembershipPolicy:
                 if actor_context.role_level >= target_membership.role.level:
                     raise PermissionDenied(
                         message="Insufficient authority: your role level does not "
-                                "outrank the target member's role",
+                        "outrank the target member's role",
                     )
             # Cross-account: dominance rule SKIPPED
             # Authority comes from global permission, not relative role levels
@@ -144,26 +144,30 @@ class MembershipPolicy:
         if new_role.level == 0:
             raise PermissionDenied(
                 message="Owner role cannot be assigned directly. "
-                        "Use ownership transfer instead.",
+                "Use ownership transfer instead.",
             )
 
         # Actor must outrank the role they're assigning
         if actor_context.role_level >= new_role.level:
             raise PermissionDenied(
                 message="Cannot assign a role with equal or higher "
-                        "authority than your own",
+                "authority than your own",
             )
 
         # Role must belong to the target's account
-        if (new_role.account_type != target_membership.account_type
-                or new_role.account_id != target_membership.account_id):
+        if (
+            new_role.account_type != target_membership.account_type
+            or new_role.account_id != target_membership.account_id
+        ):
             raise PermissionDenied(
                 message="Role does not belong to this account",
             )
 
     @staticmethod
     def get_viewer_permissions(
-        *, actor_context: ActorContext, target_membership: Membership,
+        *,
+        actor_context: ActorContext,
+        target_membership: Membership,
     ) -> dict:
         """Return permission booleans for the viewer on a membership detail."""
 
@@ -187,7 +191,8 @@ class MembershipPolicy:
         # Reactivation is only meaningful for non-active, non-deleted members.
         # The service uses can_suspend_member for reactivation to ACTIVE.
         reactivatable = target_membership.status in (
-            MembershipStatus.SUSPENDED, MembershipStatus.REMOVED,
+            MembershipStatus.SUSPENDED,
+            MembershipStatus.REMOVED,
         )
         can_reactivate = reactivatable and _safe_check("can_suspend_member")
 
@@ -227,7 +232,7 @@ class RolePolicy:
         if actor_context.role_level >= level:
             raise PermissionDenied(
                 message="Cannot create a role with equal or higher "
-                        "authority than your own",
+                "authority than your own",
             )
 
     @staticmethod
@@ -252,7 +257,7 @@ class RolePolicy:
         if actor_context.role_level >= role.level:
             raise PermissionDenied(
                 message="Cannot modify a role with equal or higher "
-                        "authority than your own",
+                "authority than your own",
             )
 
     @staticmethod
@@ -272,7 +277,9 @@ class RolePolicy:
 
     @staticmethod
     def get_viewer_permissions(
-        *, actor_context: ActorContext, role: Role,
+        *,
+        actor_context: ActorContext,
+        role: Role,
     ) -> dict:
         """Return permission booleans for the viewer on a role detail."""
 

@@ -38,13 +38,13 @@ class SMTPBackend(BaseEmailBackend):
 
     def __init__(self):
         """Initialize SMTP settings."""
-        self.host = getattr(settings, 'EMAIL_HOST', 'localhost')
-        self.port = getattr(settings, 'EMAIL_PORT', 587)
-        self.username = getattr(settings, 'EMAIL_HOST_USER', '')
-        self.password = getattr(settings, 'EMAIL_HOST_PASSWORD', '')
-        self.use_tls = getattr(settings, 'EMAIL_USE_TLS', True)
-        self.use_ssl = getattr(settings, 'EMAIL_USE_SSL', False)
-        self.timeout = getattr(settings, 'EMAIL_TIMEOUT', 30)
+        self.host = getattr(settings, "EMAIL_HOST", "localhost")
+        self.port = getattr(settings, "EMAIL_PORT", 587)
+        self.username = getattr(settings, "EMAIL_HOST_USER", "")
+        self.password = getattr(settings, "EMAIL_HOST_PASSWORD", "")
+        self.use_tls = getattr(settings, "EMAIL_USE_TLS", True)
+        self.use_ssl = getattr(settings, "EMAIL_USE_SSL", False)
+        self.timeout = getattr(settings, "EMAIL_TIMEOUT", 30)
 
     def send(
         self,
@@ -53,8 +53,8 @@ class SMTPBackend(BaseEmailBackend):
         from_email: str,
         subject: str,
         html_body: str,
-        text_body: str = '',
-        reply_to: str = ''
+        text_body: str = "",
+        reply_to: str = "",
     ) -> str:
         """
         Send email via SMTP.
@@ -78,33 +78,25 @@ class SMTPBackend(BaseEmailBackend):
 
         try:
             # Create message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = from_email
-            msg['To'] = to_email
-            msg['Message-ID'] = f"<{message_id}>"
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = from_email
+            msg["To"] = to_email
+            msg["Message-ID"] = f"<{message_id}>"
 
             if reply_to:
-                msg['Reply-To'] = reply_to
+                msg["Reply-To"] = reply_to
 
             # Attach text and HTML parts
             if text_body:
-                msg.attach(MIMEText(text_body, 'plain', 'utf-8'))
-            msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+                msg.attach(MIMEText(text_body, "plain", "utf-8"))
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
 
             # Connect and send
             if self.use_ssl:
-                server = smtplib.SMTP_SSL(
-                    self.host,
-                    self.port,
-                    timeout=self.timeout
-                )
+                server = smtplib.SMTP_SSL(self.host, self.port, timeout=self.timeout)
             else:
-                server = smtplib.SMTP(
-                    self.host,
-                    self.port,
-                    timeout=self.timeout
-                )
+                server = smtplib.SMTP(self.host, self.port, timeout=self.timeout)
 
             try:
                 if self.use_tls and not self.use_ssl:
@@ -129,20 +121,17 @@ class SMTPBackend(BaseEmailBackend):
         except smtplib.SMTPAuthenticationError as e:
             logger.error("email.smtp.auth_failed", error=str(e))
             raise ServiceUnavailable(
-                message="SMTP authentication failed",
-                service='SMTP'
-            )
+                message="SMTP authentication failed", service="SMTP"
+            ) from e
 
         except smtplib.SMTPException as e:
             logger.error("email.smtp.error", error=str(e))
             raise ServiceUnavailable(
-                message=f"Failed to send email via SMTP: {str(e)}",
-                service='SMTP'
-            )
+                message=f"Failed to send email via SMTP: {str(e)}", service="SMTP"
+            ) from e
 
         except Exception as e:
             logger.error("email.smtp.unexpected_error", error=str(e))
             raise ServiceUnavailable(
-                message=f"Failed to send email: {str(e)}",
-                service='SMTP'
-            )
+                message=f"Failed to send email: {str(e)}", service="SMTP"
+            ) from e

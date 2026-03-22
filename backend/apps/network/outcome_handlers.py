@@ -18,7 +18,9 @@ class FollowOutcomeHandler:
     @staticmethod
     @db_transaction.atomic
     def handle_accepted(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         acceptance_payload: dict = None,
     ):
         """
@@ -30,6 +32,7 @@ class FollowOutcomeHandler:
         - platform_follow_request (AUTO_APPROVAL)
         """
         from django.contrib.auth import get_user_model
+
         from apps.network.services import FollowService
 
         User = get_user_model()
@@ -53,7 +56,9 @@ class ConnectionOutcomeHandler:
     @staticmethod
     @db_transaction.atomic
     def handle_user_accepted(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         acceptance_payload: dict = None,
     ):
         """
@@ -81,7 +86,9 @@ class ConnectionOutcomeHandler:
     @staticmethod
     @db_transaction.atomic
     def handle_account_accepted(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         acceptance_payload: dict = None,
     ):
         """

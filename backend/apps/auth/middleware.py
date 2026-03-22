@@ -22,8 +22,8 @@ Usage in asgi.py:
 
 from urllib.parse import parse_qs
 
-from channels.middleware import BaseMiddleware
 from channels.db import database_sync_to_async
+from channels.middleware import BaseMiddleware
 from django.contrib.auth.models import AnonymousUser
 
 from apps.core.observability import get_logger
@@ -48,21 +48,18 @@ class JWTAuthMiddleware(BaseMiddleware):
 
     async def __call__(self, scope, receive, send):
         # Try query parameter auth
-        query_string = scope.get('query_string', b'').decode()
+        query_string = scope.get("query_string", b"").decode()
         query_params = parse_qs(query_string)
-        token = query_params.get('token', [None])[0]
+        token = query_params.get("token", [None])[0]
 
         if token:
-            scope['user'] = await self.get_user_from_token(token)
-            if scope['user'].is_authenticated:
-                logger.debug(
-                    "ws.auth.success",
-                    extra={'user_id': scope['user'].id}
-                )
+            scope["user"] = await self.get_user_from_token(token)
+            if scope["user"].is_authenticated:
+                logger.debug("ws.auth.success", extra={"user_id": scope["user"].id})
             else:
-                logger.debug("ws.auth.failed", extra={'reason': 'invalid_token'})
+                logger.debug("ws.auth.failed", extra={"reason": "invalid_token"})
         else:
-            scope['user'] = AnonymousUser()
+            scope["user"] = AnonymousUser()
 
         return await super().__call__(scope, receive, send)
 
@@ -71,6 +68,7 @@ class JWTAuthMiddleware(BaseMiddleware):
         """Validate token and return user."""
         try:
             from apps.auth.services import AuthService
+
             user, payload = AuthService.validate_access_token(token)
             return user
         except Exception as e:
@@ -102,8 +100,8 @@ class TokenAuthMiddleware(BaseMiddleware):
 
     async def __call__(self, scope, receive, send):
         # Start with anonymous user
-        scope['user'] = AnonymousUser()
-        scope['auth_token'] = None
+        scope["user"] = AnonymousUser()
+        scope["auth_token"] = None
         return await super().__call__(scope, receive, send)
 
 

@@ -11,20 +11,19 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
+from apps.notifications.models import NotificationLog, NotificationPreference
 from apps.notifications.selectors import (
     NotificationLogSelector,
     NotificationPreferenceSelector,
 )
-from apps.notifications.models import NotificationLog, NotificationPreference
 from apps.notifications.tests.factories import (
+    FailedNotificationLogFactory,
     NotificationLogFactory,
     NotificationPreferenceFactory,
-    SentNotificationLogFactory,
-    FailedNotificationLogFactory,
     PartialNotificationLogFactory,
+    SentNotificationLogFactory,
 )
 from apps.users.tests.factories import UserFactory
-
 
 # =============================================================================
 # NOTIFICATION LOG SELECTOR
@@ -74,12 +73,8 @@ class TestNotificationLogSelector:
         """get_user_history filters by notification_type when provided."""
         user = UserFactory()
 
-        welcome_log = NotificationLogFactory(
-            user=user, notification_type="welcome"
-        )
-        login_log = NotificationLogFactory(
-            user=user, notification_type="new_login"
-        )
+        welcome_log = NotificationLogFactory(user=user, notification_type="welcome")
+        login_log = NotificationLogFactory(user=user, notification_type="new_login")
 
         result = list(
             NotificationLogSelector.get_user_history(
@@ -119,9 +114,7 @@ class TestNotificationLogSelector:
         for _ in range(5):
             NotificationLogFactory(user=user)
 
-        result = list(
-            NotificationLogSelector.get_user_history(user=user, limit=3)
-        )
+        result = list(NotificationLogSelector.get_user_history(user=user, limit=3))
 
         assert len(result) == 3
 
@@ -186,16 +179,12 @@ class TestNotificationLogSelector:
         # Without limit - should return all 3 failed
         all_failed = list(NotificationLogSelector.get_failed_logs())
         assert len(all_failed) == 3
-        assert all(
-            log.status == NotificationLog.Status.FAILED for log in all_failed
-        )
+        assert all(log.status == NotificationLog.Status.FAILED for log in all_failed)
 
         # With limit
         limited = list(NotificationLogSelector.get_failed_logs(limit=2))
         assert len(limited) == 2
-        assert all(
-            log.status == NotificationLog.Status.FAILED for log in limited
-        )
+        assert all(log.status == NotificationLog.Status.FAILED for log in limited)
 
     def test_get_partial_logs(self):
         """get_partial_logs returns only PARTIAL logs."""
@@ -208,9 +197,7 @@ class TestNotificationLogSelector:
         result = list(NotificationLogSelector.get_partial_logs())
 
         assert len(result) == 2
-        assert all(
-            log.status == NotificationLog.Status.PARTIAL for log in result
-        )
+        assert all(log.status == NotificationLog.Status.PARTIAL for log in result)
 
 
 # =============================================================================
@@ -252,9 +239,15 @@ class TestNotificationPreferenceSelector:
             "follow_request_accepted",
             "connection_request_received",
             "connection_accepted",
+            # Social / Chat
+            "chat_message_received",
+            "chat_request_received",
+            "chat_request_accepted",
+            "chat_group_added",
+            "chat_reaction_received",
         }
         assert set(prefs.keys()) == expected_types
-        assert len(prefs) == 22
+        assert len(prefs) == 27
 
         # Each entry has the required keys
         for type_name, entry in prefs.items():

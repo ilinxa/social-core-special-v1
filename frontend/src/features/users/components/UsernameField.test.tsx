@@ -3,7 +3,7 @@ import { screen } from "@testing-library/react";
 import { useForm } from "react-hook-form";
 
 import type { UsernameCheckResult } from "@/features/users/hooks/use-username-check";
-import type { EditProfileFormValues } from "@/lib/validations/profile";
+import type { UsernameFormValues } from "@/lib/validations/profile";
 
 const mockUsernameCheck = vi.fn<() => UsernameCheckResult>();
 
@@ -24,15 +24,9 @@ describe("UsernameField", () => {
     const { UsernameField } = await import("./UsernameField");
 
     function TestWrapper() {
-      const { register, control, formState: { errors } } = useForm<EditProfileFormValues>({
+      const { register, control, formState: { errors } } = useForm<UsernameFormValues>({
         defaultValues: {
           username: "testuser",
-          first_name: "",
-          last_name: "",
-          phone: "",
-          timezone: "UTC",
-          language: "en",
-          is_public: true,
         },
       });
 

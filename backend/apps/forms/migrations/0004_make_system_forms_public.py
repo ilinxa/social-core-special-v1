@@ -4,8 +4,8 @@ Make system forms visible in the public template library.
 System forms should appear in the library so any business/platform
 can fork them for their own use.
 """
-from django.db import migrations
 
+from django.db import migrations
 
 SYSTEM_SLUGS = [
     "system-business-verification",

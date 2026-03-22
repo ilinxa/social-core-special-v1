@@ -1,11 +1,11 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from apps.forms.models import FormResponse
 from apps.core.constants import ResponseStatus
+from apps.forms.models import FormResponse
 
 
-@receiver(post_save, sender=FormResponse)
+@receiver(post_save, sender=FormResponse, dispatch_uid="on_response_submitted")
 def on_response_submitted(sender, instance, created, **kwargs):
     """
     React to response submission.

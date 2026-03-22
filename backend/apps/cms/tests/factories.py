@@ -1,14 +1,23 @@
 # apps/cms/tests/factories.py
 import uuid
+
 import factory
+
+from apps.cms.constants import BlockPlacementStatus, ContentVersionAction, PageStatus
 from apps.cms.models import (
-    Site, Page, SectionTemplate, BlockTemplate,
-    PageSectionPlacement, SectionBlockPlacement,
-    ContentVersion, MediaFolder, MediaFile, CMSApiKey,
+    BlockTemplate,
+    CMSApiKey,
+    ContentVersion,
+    MediaFile,
+    MediaFolder,
+    Page,
+    PageSectionPlacement,
+    SectionBlockPlacement,
+    SectionTemplate,
+    Site,
 )
-from apps.users.tests.factories import UserFactory  # Canonical source
 from apps.core.constants import OwnerType
-from apps.cms.constants import PageStatus, BlockPlacementStatus, ContentVersionAction
+from apps.users.tests.factories import UserFactory  # Canonical source
 
 
 class SiteFactory(factory.django.DjangoModelFactory):
@@ -65,23 +74,25 @@ class BlockTemplateFactory(factory.django.DjangoModelFactory):
     display_name = factory.LazyAttribute(lambda obj: obj.name.replace("_", " ").title())
     slug = factory.LazyAttribute(lambda obj: obj.name)
     block_type = "text"
-    schema = factory.LazyFunction(lambda: {
-        "fields": [
-            {
-                "key": "title",
-                "type": "text",
-                "label": "Title",
-                "required": True,
-                "validation": {"max_length": 200},
-            },
-            {
-                "key": "body",
-                "type": "textarea",
-                "label": "Body",
-                "required": False,
-            },
-        ]
-    })
+    schema = factory.LazyFunction(
+        lambda: {
+            "fields": [
+                {
+                    "key": "title",
+                    "type": "text",
+                    "label": "Title",
+                    "required": True,
+                    "validation": {"max_length": 200},
+                },
+                {
+                    "key": "body",
+                    "type": "textarea",
+                    "label": "Body",
+                    "required": False,
+                },
+            ]
+        }
+    )
     schema_version = 1
     created_by = factory.SubFactory(UserFactory)
     updated_by = factory.LazyAttribute(lambda obj: obj.created_by)

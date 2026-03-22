@@ -34,15 +34,17 @@ class UserPolicy:
             return True
         if not target.is_active:
             return False
-        profile = getattr(target, 'profile', None)
+        profile = getattr(target, "profile", None)
         if profile is None:
             return False
         if profile.is_public:
             return True
         # Private profile — check connection
         from apps.network.selectors import ConnectionSelector
+
         return ConnectionSelector.is_connected(
-            user_a_id=viewer.id, user_b_id=target.id,
+            user_a_id=viewer.id,
+            user_b_id=target.id,
         )
 
     @staticmethod
@@ -61,7 +63,8 @@ class UserPolicy:
         if viewer.id != target.id:
             perms.update(
                 NetworkPolicy.get_connection_permissions_for_user(
-                    viewer=viewer, target_user_id=target.id,
+                    viewer=viewer,
+                    target_user_id=target.id,
                 )
             )
         else:

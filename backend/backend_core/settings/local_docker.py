@@ -123,14 +123,25 @@ CORS_ALLOW_ALL_ORIGINS = True
 # THROTTLE RATES (relaxed for integration testing)
 # ============================================
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
-    "anon": "1000/hour",
-    "user": "10000/hour",
-    "burst": "600/minute",
-    "login": "10/minute",
-    "password_reset": "100/hour",
-    "verification": "10/minute",
-    "refresh": "60/minute",
+    "anon": "10000/hour",
+    "user": "100000/hour",
+    "burst": "6000/minute",
+    "login": "1000/minute",
+    "password_reset": "1000/hour",
+    "verification": "1000/minute",
+    "refresh": "1000/minute",
 }
+
+# ============================================
+# DJANGO-SILK PROFILING (opt-in via ENABLE_SILK=1)
+# ============================================
+if os.getenv("ENABLE_SILK", "") == "1":
+    INSTALLED_APPS += ["silk"]  # noqa: F405
+    MIDDLEWARE.insert(0, "silk.middleware.SilkyMiddleware")  # noqa: F405
+    SILKY_PYTHON_PROFILER = True
+    SILKY_PYTHON_PROFILER_BINARY = True
+    SILKY_MAX_RECORDED_REQUESTS = 1000
+    SILKY_META = True
 
 LOGGING = {
     "version": 1,
@@ -159,4 +170,3 @@ LOGGING = {
         },
     },
 }
-

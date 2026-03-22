@@ -59,4 +59,18 @@ describe("FormField", () => {
     expect(input).toHaveAttribute("aria-describedby", "username-error");
     expect(screen.getByText("Too short")).toHaveAttribute("id", "username-error");
   });
+
+  it("shows asterisk and aria-required when required", () => {
+    render(<FormField label="Email" name="email" required />);
+
+    expect(screen.getByText("*")).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-required", "true");
+  });
+
+  it("does not show asterisk or aria-required when not required", () => {
+    render(<FormField label="Email" name="email" />);
+
+    expect(screen.queryByText("*")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox")).not.toHaveAttribute("aria-required");
+  });
 });

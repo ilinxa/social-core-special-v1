@@ -12,9 +12,9 @@ Covers:
 """
 
 import pytest
-from django.db import IntegrityError, transaction
-from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 
 from apps.users.models import UserProfile
 
@@ -176,7 +176,7 @@ class TestUserProfileModel:
         """Profile is automatically created when user is created."""
         user = user_factory()
 
-        assert hasattr(user, 'profile')
+        assert hasattr(user, "profile")
         assert user.profile is not None
         assert isinstance(user.profile, UserProfile)
 
@@ -273,8 +273,7 @@ class TestCustomUserManager:
     def test_create_user(self):
         """create_user creates a regular user."""
         user = User.objects.create_user(
-            email="newuser@example.com",
-            password="testpass123"
+            email="newuser@example.com", password="testpass123"
         )
 
         assert user.email == "newuser@example.com"
@@ -287,8 +286,7 @@ class TestCustomUserManager:
     def test_create_user_email_normalized(self):
         """Email is normalized and lowercased."""
         user = User.objects.create_user(
-            email="  TEST@EXAMPLE.COM  ",
-            password="testpass123"
+            email="  TEST@EXAMPLE.COM  ", password="testpass123"
         )
 
         assert user.email == "test@example.com"
@@ -301,8 +299,7 @@ class TestCustomUserManager:
     def test_create_user_auto_generates_username(self):
         """Username is auto-generated if not provided."""
         user = User.objects.create_user(
-            email="noname@example.com",
-            password="testpass123"
+            email="noname@example.com", password="testpass123"
         )
 
         assert user.username.startswith("user_")
@@ -311,8 +308,7 @@ class TestCustomUserManager:
     def test_create_superuser(self):
         """create_superuser creates a superuser."""
         user = User.objects.create_superuser(
-            email="admin@example.com",
-            password="adminpass123"
+            email="admin@example.com", password="adminpass123"
         )
 
         assert user.email == "admin@example.com"
@@ -325,18 +321,14 @@ class TestCustomUserManager:
         """create_superuser with is_staff=False raises ValueError."""
         with pytest.raises(ValueError, match="is_staff=True"):
             User.objects.create_superuser(
-                email="admin@example.com",
-                password="adminpass123",
-                is_staff=False
+                email="admin@example.com", password="adminpass123", is_staff=False
             )
 
     def test_create_superuser_with_is_superuser_false_raises(self):
         """create_superuser with is_superuser=False raises ValueError."""
         with pytest.raises(ValueError, match="is_superuser=True"):
             User.objects.create_superuser(
-                email="admin@example.com",
-                password="adminpass123",
-                is_superuser=False
+                email="admin@example.com", password="adminpass123", is_superuser=False
             )
 
 
@@ -379,7 +371,9 @@ class TestUserQuerySet:
         """unverified() returns active users who haven't verified."""
         user_factory(is_active=True, is_verified=True)
         unverified_user = user_factory(is_active=True, is_verified=False)
-        user_factory(is_active=False, is_verified=False)  # Inactive, shouldn't be included
+        user_factory(
+            is_active=False, is_verified=False
+        )  # Inactive, shouldn't be included
 
         unverified_users = User.objects.unverified()
 

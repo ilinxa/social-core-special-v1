@@ -1,7 +1,8 @@
 # apps/cms/tests/test_validators.py
 import pytest
+
+from apps.cms.validators import SchemaValidator, _has_catastrophic_backtracking_risk
 from apps.core.exceptions import ValidationError
-from apps.cms.validators import SchemaValidator
 
 
 class TestSchemaValidatorStructure:
@@ -56,15 +57,98 @@ class TestSchemaValidatorStructure:
 
     def test_nested_repeaters_rejected(self):
         schema = {
-            "fields": [{
-                "key": "parent", "type": "repeater",
-                "item_schema": {
-                    "fields": [{"key": "child", "type": "repeater", "item_schema": {"fields": []}}]
-                },
-            }]
+            "fields": [
+                {
+                    "key": "parent",
+                    "type": "repeater",
+                    "item_schema": {
+                        "fields": [
+                            {
+                                "key": "child",
+                                "type": "repeater",
+                                "item_schema": {"fields": []},
+                            }
+                        ]
+                    },
+                }
+            ]
         }
         with pytest.raises(ValidationError, match="Nested repeaters"):
             SchemaValidator.validate_schema_structure(schema=schema)
+
+    def test_valid_regex_pattern_accepted(self):
+        """Schema with a valid regex pattern passes validation."""
+        schema = {
+            "fields": [
+                {
+                    "key": "code",
+                    "type": "text",
+                    "validation": {"pattern": r"^[A-Z]{3}-\d{4}$"},
+                }
+            ]
+        }
+        SchemaValidator.validate_schema_structure(schema=schema)
+
+    def test_invalid_regex_pattern_rejected(self):
+        """Schema with a syntactically invalid regex is rejected."""
+        schema = {
+            "fields": [
+                {
+                    "key": "code",
+                    "type": "text",
+                    "validation": {"pattern": r"[invalid("},
+                }
+            ]
+        }
+        with pytest.raises(ValidationError, match="Invalid regex pattern"):
+            SchemaValidator.validate_schema_structure(schema=schema)
+
+    def test_regex_pattern_exceeding_length_limit_rejected(self):
+        """Schema with a regex pattern > 500 chars is rejected."""
+        schema = {
+            "fields": [
+                {
+                    "key": "code",
+                    "type": "text",
+                    "validation": {"pattern": "a" * 501},
+                }
+            ]
+        }
+        with pytest.raises(ValidationError, match="exceeds 500 char limit"):
+            SchemaValidator.validate_schema_structure(schema=schema)
+
+    def test_catastrophic_backtracking_pattern_rejected(self):
+        """Schema with a ReDoS-prone pattern (e.g., (a+)+$) is rejected."""
+        dangerous_patterns = [
+            r"(a+)+$",  # classic nested quantifier
+            r"(a*)*b",  # nested star quantifier
+            r"(x+x+)+y",  # overlapping quantifiers
+        ]
+        for pattern in dangerous_patterns:
+            schema = {
+                "fields": [
+                    {
+                        "key": "code",
+                        "type": "text",
+                        "validation": {"pattern": pattern},
+                    }
+                ]
+            }
+            with pytest.raises(ValidationError, match="catastrophic backtracking"):
+                SchemaValidator.validate_schema_structure(schema=schema)
+
+    def test_backtracking_heuristic_safe_patterns(self):
+        """Safe patterns are not flagged by the heuristic."""
+        safe_patterns = [
+            r"^[A-Z]+$",
+            r"^\d{3}-\d{4}$",
+            r"^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$",
+            r"^https?://",
+        ]
+        for pattern in safe_patterns:
+            assert not _has_catastrophic_backtracking_risk(
+                pattern
+            ), f"False positive on: {pattern}"
 
 
 class TestSchemaValidatorContent:
@@ -73,13 +157,21 @@ class TestSchemaValidatorContent:
     def test_permissive_draft_accepts_empty_required(self):
         """Draft mode accepts missing required fields."""
         schema = {"fields": [{"key": "title", "type": "text", "required": True}]}
-        issues = SchemaValidator.validate_content(schema=schema, content={}, strict=False)
+        issues = SchemaValidator.validate_content(
+            schema=schema, content={}, strict=False
+        )
         assert len(issues) == 0
 
     def test_strict_publish_rejects_empty_required(self):
         """Publish mode rejects missing required fields."""
-        schema = {"fields": [{"key": "title", "type": "text", "required": True, "label": "Title"}]}
-        issues = SchemaValidator.validate_content(schema=schema, content={}, strict=True)
+        schema = {
+            "fields": [
+                {"key": "title", "type": "text", "required": True, "label": "Title"}
+            ]
+        }
+        issues = SchemaValidator.validate_content(
+            schema=schema, content={}, strict=True
+        )
         assert len(issues) == 1
         assert issues[0]["error_type"] == "required_field_empty"
 
@@ -113,37 +205,55 @@ class TestSchemaValidatorContent:
 
     def test_max_length_validation(self):
         schema = {
-            "fields": [{
-                "key": "title", "type": "text", "required": False,
-                "validation": {"max_length": 10},
-            }]
+            "fields": [
+                {
+                    "key": "title",
+                    "type": "text",
+                    "required": False,
+                    "validation": {"max_length": 10},
+                }
+            ]
         }
         issues = SchemaValidator.validate_content(
-            schema=schema, content={"title": "x" * 20}, strict=True,
+            schema=schema,
+            content={"title": "x" * 20},
+            strict=True,
         )
         assert any(i["error_type"] == "max_length" for i in issues)
 
     def test_min_length_validation(self):
         schema = {
-            "fields": [{
-                "key": "title", "type": "text", "required": False,
-                "validation": {"min_length": 5},
-            }]
+            "fields": [
+                {
+                    "key": "title",
+                    "type": "text",
+                    "required": False,
+                    "validation": {"min_length": 5},
+                }
+            ]
         }
         issues = SchemaValidator.validate_content(
-            schema=schema, content={"title": "ab"}, strict=True,
+            schema=schema,
+            content={"title": "ab"},
+            strict=True,
         )
         assert any(i["error_type"] == "min_length" for i in issues)
 
     def test_pattern_validation(self):
         schema = {
-            "fields": [{
-                "key": "code", "type": "text", "required": False,
-                "validation": {"pattern": r"^[A-Z]+$"},
-            }]
+            "fields": [
+                {
+                    "key": "code",
+                    "type": "text",
+                    "required": False,
+                    "validation": {"pattern": r"^[A-Z]+$"},
+                }
+            ]
         }
         issues = SchemaValidator.validate_content(
-            schema=schema, content={"code": "abc"}, strict=True,
+            schema=schema,
+            content={"code": "abc"},
+            strict=True,
         )
         assert any(i["error_type"] == "pattern_mismatch" for i in issues)
 
@@ -156,10 +266,14 @@ class TestSchemaValidatorContent:
 
     def test_number_min_max(self):
         schema = {
-            "fields": [{
-                "key": "count", "type": "number", "required": False,
-                "validation": {"min": 1, "max": 10},
-            }]
+            "fields": [
+                {
+                    "key": "count",
+                    "type": "number",
+                    "required": False,
+                    "validation": {"min": 1, "max": 10},
+                }
+            ]
         }
         issues = SchemaValidator.validate_content(
             schema=schema, content={"count": 0}, strict=True
@@ -187,10 +301,14 @@ class TestSchemaValidatorContent:
 
     def test_select_invalid_choice(self):
         schema = {
-            "fields": [{
-                "key": "color", "type": "select", "required": False,
-                "validation": {"choices": [{"value": "red"}, {"value": "blue"}]},
-            }]
+            "fields": [
+                {
+                    "key": "color",
+                    "type": "select",
+                    "required": False,
+                    "validation": {"choices": [{"value": "red"}, {"value": "blue"}]},
+                }
+            ]
         }
         issues = SchemaValidator.validate_content(
             schema=schema, content={"color": "green"}, strict=True
@@ -199,10 +317,14 @@ class TestSchemaValidatorContent:
 
     def test_select_valid_choice(self):
         schema = {
-            "fields": [{
-                "key": "color", "type": "select", "required": False,
-                "validation": {"choices": [{"value": "red"}, {"value": "blue"}]},
-            }]
+            "fields": [
+                {
+                    "key": "color",
+                    "type": "select",
+                    "required": False,
+                    "validation": {"choices": [{"value": "red"}, {"value": "blue"}]},
+                }
+            ]
         }
         issues = SchemaValidator.validate_content(
             schema=schema, content={"color": "red"}, strict=True
@@ -218,10 +340,14 @@ class TestSchemaValidatorContent:
 
     def test_multiselect_invalid_choice(self):
         schema = {
-            "fields": [{
-                "key": "tags", "type": "multiselect", "required": False,
-                "validation": {"choices": [{"value": "a"}, {"value": "b"}]},
-            }]
+            "fields": [
+                {
+                    "key": "tags",
+                    "type": "multiselect",
+                    "required": False,
+                    "validation": {"choices": [{"value": "a"}, {"value": "b"}]},
+                }
+            ]
         }
         issues = SchemaValidator.validate_content(
             schema=schema, content={"tags": ["a", "c"]}, strict=True
@@ -230,13 +356,17 @@ class TestSchemaValidatorContent:
 
     def test_repeater_validates_items(self):
         schema = {
-            "fields": [{
-                "key": "items", "type": "repeater", "required": True,
-                "validation": {"min_items": 1, "max_items": 3},
-                "item_schema": {
-                    "fields": [{"key": "name", "type": "text", "required": True}]
-                },
-            }]
+            "fields": [
+                {
+                    "key": "items",
+                    "type": "repeater",
+                    "required": True,
+                    "validation": {"min_items": 1, "max_items": 3},
+                    "item_schema": {
+                        "fields": [{"key": "name", "type": "text", "required": True}]
+                    },
+                }
+            ]
         }
         # Valid
         issues = SchemaValidator.validate_content(
@@ -256,11 +386,15 @@ class TestSchemaValidatorContent:
 
     def test_repeater_min_items(self):
         schema = {
-            "fields": [{
-                "key": "items", "type": "repeater", "required": False,
-                "validation": {"min_items": 2},
-                "item_schema": {"fields": []},
-            }]
+            "fields": [
+                {
+                    "key": "items",
+                    "type": "repeater",
+                    "required": False,
+                    "validation": {"min_items": 2},
+                    "item_schema": {"fields": []},
+                }
+            ]
         }
         issues = SchemaValidator.validate_content(
             schema=schema, content={"items": [{}]}, strict=True
@@ -269,11 +403,15 @@ class TestSchemaValidatorContent:
 
     def test_repeater_max_items(self):
         schema = {
-            "fields": [{
-                "key": "items", "type": "repeater", "required": False,
-                "validation": {"max_items": 1},
-                "item_schema": {"fields": []},
-            }]
+            "fields": [
+                {
+                    "key": "items",
+                    "type": "repeater",
+                    "required": False,
+                    "validation": {"max_items": 1},
+                    "item_schema": {"fields": []},
+                }
+            ]
         }
         issues = SchemaValidator.validate_content(
             schema=schema, content={"items": [{}, {}, {}]}, strict=True
@@ -283,12 +421,16 @@ class TestSchemaValidatorContent:
     def test_repeater_nested_field_keys(self):
         """Nested errors include parent key path like items[0].name."""
         schema = {
-            "fields": [{
-                "key": "items", "type": "repeater", "required": False,
-                "item_schema": {
-                    "fields": [{"key": "name", "type": "text", "required": True}]
-                },
-            }]
+            "fields": [
+                {
+                    "key": "items",
+                    "type": "repeater",
+                    "required": False,
+                    "item_schema": {
+                        "fields": [{"key": "name", "type": "text", "required": True}]
+                    },
+                }
+            ]
         }
         issues = SchemaValidator.validate_content(
             schema=schema, content={"items": [{}]}, strict=True
@@ -316,18 +458,64 @@ class TestSchemaValidatorSanitize:
         schema = {"fields": [{"key": "title", "type": "text"}]}
         content = {"title": "<script>evil</script>"}
         result = SchemaValidator.sanitize_content(schema=schema, content=content)
-        assert result["title"] == "<script>evil</script>"  # Not sanitized — not richtext
+        assert (
+            result["title"] == "<script>evil</script>"
+        )  # Not sanitized — not richtext
 
     def test_sanitize_repeater_recursion(self):
         schema = {
-            "fields": [{
-                "key": "items", "type": "repeater",
-                "item_schema": {
-                    "fields": [{"key": "desc", "type": "richtext"}]
-                },
-            }]
+            "fields": [
+                {
+                    "key": "items",
+                    "type": "repeater",
+                    "item_schema": {"fields": [{"key": "desc", "type": "richtext"}]},
+                }
+            ]
         }
         content = {"items": [{"desc": "<p>ok</p><script>bad</script>"}]}
         result = SchemaValidator.sanitize_content(schema=schema, content=content)
         assert "<script>" not in result["items"][0]["desc"]
         assert "<p>ok</p>" in result["items"][0]["desc"]
+
+
+class TestSchemaValidatorRegexRuntime:
+    """Tests for runtime regex error handling in _validate_field_value."""
+
+    def test_runtime_regex_error_handled_gracefully(self):
+        """If a stored pattern causes re.error at runtime, it's caught and reported."""
+        schema = {
+            "fields": [
+                {
+                    "key": "code",
+                    "type": "text",
+                    "required": False,
+                    # This pattern is syntactically invalid but somehow got stored
+                    "validation": {"pattern": r"[invalid("},
+                }
+            ]
+        }
+        issues = SchemaValidator.validate_content(
+            schema=schema,
+            content={"code": "test"},
+            strict=True,
+        )
+        assert any(i["error_type"] == "pattern_error" for i in issues)
+
+    def test_valid_pattern_match_works_end_to_end(self):
+        """Valid pattern that matches content produces no issues."""
+        schema = {
+            "fields": [
+                {
+                    "key": "code",
+                    "type": "text",
+                    "required": False,
+                    "validation": {"pattern": r"^[A-Z]{3}-\d{4}$"},
+                }
+            ]
+        }
+        issues = SchemaValidator.validate_content(
+            schema=schema,
+            content={"code": "ABC-1234"},
+            strict=True,
+        )
+        assert len(issues) == 0

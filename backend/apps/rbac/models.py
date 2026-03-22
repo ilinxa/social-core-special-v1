@@ -9,12 +9,12 @@ Critical Invariants:
 - is_owner flag is source of truth for ownership (not role)
 """
 
-import uuid
-from django.db import models
 from django.conf import settings
 from django.core.validators import MaxValueValidator
-from apps.core.models import UUIDModel, AuditModel, SoftDeleteManager
-from apps.core.constants import AccountType, PermissionScope, MembershipStatus
+from django.db import models
+
+from apps.core.constants import AccountType, MembershipStatus, PermissionScope
+from apps.core.models import AuditModel, SoftDeleteManager, UUIDModel
 
 
 class Permission(UUIDModel):
@@ -26,29 +26,27 @@ class Permission(UUIDModel):
 
     INVARIANT: Permissions are immutable after creation (seeded via migration).
     """
+
     code = models.CharField(
         max_length=100,
         unique=True,
         db_index=True,
-        help_text="Machine-readable permission code (e.g., 'can_invite_member')"
+        help_text="Machine-readable permission code (e.g., 'can_invite_member')",
     )
-    name = models.CharField(
-        max_length=255,
-        help_text="Human-readable permission name"
-    )
+    name = models.CharField(max_length=255, help_text="Human-readable permission name")
     description = models.TextField(
         blank=True,
         default="",
-        help_text="Detailed description of what this permission allows"
+        help_text="Detailed description of what this permission allows",
     )
     category = models.CharField(
         max_length=50,
         db_index=True,
-        help_text="Permission category (e.g., 'membership', 'content', 'settings')"
+        help_text="Permission category (e.g., 'membership', 'content', 'settings')",
     )
     applicable_scopes = models.JSONField(
         default=list,
-        help_text="List of valid PermissionScope values for this permission"
+        help_text="List of valid PermissionScope values for this permission",
     )
 
     class Meta:
@@ -68,22 +66,20 @@ class Role(UUIDModel, AuditModel):
     INVARIANT: Level 0 is reserved for Owner roles only.
     INVARIANT: System roles (is_system_role=True) cannot be modified or deleted.
     """
+
     name = models.CharField(max_length=100)
     # NOTE: account_id is UUIDField - any model used as an account MUST have a UUID PK.
     # Currently: BusinessAccount.id (UUID), PlatformAccount.id (UUID)
     account_type = models.CharField(
-        max_length=20,
-        choices=AccountType.choices,
-        db_index=True
+        max_length=20, choices=AccountType.choices, db_index=True
     )
     account_id = models.UUIDField(db_index=True)
     level = models.PositiveSmallIntegerField(
         validators=[MaxValueValidator(10)],
-        help_text="Authority level (0=owner, 10=lowest)"
+        help_text="Authority level (0=owner, 10=lowest)",
     )
     is_system_role = models.BooleanField(
-        default=False,
-        help_text="System roles cannot be modified or deleted"
+        default=False, help_text="System roles cannot be modified or deleted"
     )
     description = models.TextField(blank=True, default="")
 
@@ -94,7 +90,8 @@ class Role(UUIDModel, AuditModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["account_type", "account_id", "name"],
-                name="unique_role_name_per_account"
+                condition=models.Q(is_deleted=False),
+                name="unique_role_name_per_account",
             ),
         ]
         indexes = [
@@ -119,20 +116,15 @@ class RolePermission(UUIDModel):
     VALIDATION: scope must be in the Permission's applicable_scopes list.
     This is enforced in the service layer (RBACService.add_permission_to_role).
     """
+
     role = models.ForeignKey(
-        Role,
-        on_delete=models.CASCADE,
-        related_name="role_permissions"
+        Role, on_delete=models.CASCADE, related_name="role_permissions"
     )
     permission = models.ForeignKey(
-        Permission,
-        on_delete=models.CASCADE,
-        related_name="role_assignments"
+        Permission, on_delete=models.CASCADE, related_name="role_assignments"
     )
     scope = models.CharField(
-        max_length=30,
-        choices=PermissionScope.choices,
-        default=PermissionScope.BUSINESS
+        max_length=30, choices=PermissionScope.choices, default=PermissionScope.BUSINESS
     )
 
     class Meta:
@@ -141,8 +133,7 @@ class RolePermission(UUIDModel):
         verbose_name_plural = "Role Permissions"
         constraints = [
             models.UniqueConstraint(
-                fields=["role", "permission"],
-                name="unique_permission_per_role"
+                fields=["role", "permission"], name="unique_permission_per_role"
             ),
         ]
 
@@ -160,6 +151,7 @@ class MembershipManager(SoftDeleteManager):
     Manager for Membership with common query patterns.
     Inherits from SoftDeleteManager to automatically filter is_deleted=False.
     """
+
     def active(self):
         """Return only active memberships."""
         return self.get_queryset().filter(status=MembershipStatus.ACTIVE)
@@ -180,33 +172,26 @@ class Membership(UUIDModel, AuditModel):
     INVARIANT: Only one owner per account (is_owner=True).
     INVARIANT: Only one membership per user per account.
     """
+
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="memberships"
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships"
     )
     # NOTE: account_id is UUIDField - see Role model note about UUID PK requirement.
     account_type = models.CharField(
-        max_length=20,
-        choices=AccountType.choices,
-        db_index=True
+        max_length=20, choices=AccountType.choices, db_index=True
     )
     account_id = models.UUIDField(db_index=True)
-    role = models.ForeignKey(
-        Role,
-        on_delete=models.PROTECT,
-        related_name="memberships"
-    )
+    role = models.ForeignKey(Role, on_delete=models.PROTECT, related_name="memberships")
     is_owner = models.BooleanField(
         default=False,
         db_index=True,
-        help_text="Whether this member is the account owner"
+        help_text="Whether this member is the account owner",
     )
     status = models.CharField(
         max_length=20,
         choices=MembershipStatus.choices,
         default=MembershipStatus.ACTIVE,
-        db_index=True
+        db_index=True,
     )
     joined_at = models.DateTimeField(auto_now_add=True)
     status_changed_at = models.DateTimeField(null=True, blank=True)
@@ -215,12 +200,10 @@ class Membership(UUIDModel, AuditModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="membership_status_changes"
+        related_name="membership_status_changes",
     )
     status_reason = models.TextField(
-        blank=True,
-        default="",
-        help_text="Reason for status change (e.g., ban reason)"
+        blank=True, default="", help_text="Reason for status change (e.g., ban reason)"
     )
 
     objects = MembershipManager()
@@ -236,13 +219,13 @@ class Membership(UUIDModel, AuditModel):
             models.UniqueConstraint(
                 fields=["account_type", "account_id"],
                 condition=models.Q(is_owner=True, is_deleted=False),
-                name="unique_owner_per_account"
+                name="unique_owner_per_account",
             ),
             # Only one membership per user per account (among non-deleted)
             models.UniqueConstraint(
                 fields=["user", "account_type", "account_id"],
                 condition=models.Q(is_deleted=False),
-                name="unique_membership_per_user_account"
+                name="unique_membership_per_user_account",
             ),
         ]
         indexes = [

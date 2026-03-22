@@ -22,7 +22,6 @@ Usage:
 import base64
 import hashlib
 import secrets
-from typing import Optional, TYPE_CHECKING
 
 from django.conf import settings
 from django.core.cache import cache
@@ -33,7 +32,7 @@ from apps.core.exceptions import OAuthError
 
 # Observability
 from apps.core.observability import get_logger
-from apps.core.observability.audit import AuditService, AuditLog
+from apps.core.observability.audit import AuditLog, AuditService
 
 logger = get_logger(__name__)
 
@@ -50,7 +49,7 @@ class OAuthStateManager:
         - Device info
     """
 
-    STATE_CACHE_PREFIX = 'oauth_state:'
+    STATE_CACHE_PREFIX = "oauth_state:"
     STATE_TTL = 600  # 10 minutes
 
     @classmethod
@@ -69,16 +68,13 @@ class OAuthStateManager:
 
         # Generate SHA256 challenge
         digest = hashlib.sha256(code_verifier.encode()).digest()
-        code_challenge = base64.urlsafe_b64encode(digest).rstrip(b'=').decode()
+        code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
 
         return code_verifier, code_challenge
 
     @classmethod
     def create_state(
-        cls,
-        provider: str,
-        redirect_to: str = None,
-        device_info: dict = None
+        cls, provider: str, redirect_to: str = None, device_info: dict = None
     ) -> dict:
         """
         Create OAuth state with all security parameters.
@@ -97,12 +93,12 @@ class OAuthStateManager:
 
         # Store in cache
         state_data = {
-            'provider': provider,
-            'code_verifier': code_verifier,
-            'nonce': nonce,
-            'redirect_to': redirect_to,
-            'device_info': device_info,
-            'created_at': timezone.now().isoformat()
+            "provider": provider,
+            "code_verifier": code_verifier,
+            "nonce": nonce,
+            "redirect_to": redirect_to,
+            "device_info": device_info,
+            "created_at": timezone.now().isoformat(),
         }
 
         cache_key = f"{cls.STATE_CACHE_PREFIX}{state_token}"
@@ -115,10 +111,10 @@ class OAuthStateManager:
         )
 
         return {
-            'state_token': state_token,
-            'code_verifier': code_verifier,
-            'code_challenge': code_challenge,
-            'nonce': nonce
+            "state_token": state_token,
+            "code_verifier": code_verifier,
+            "code_challenge": code_challenge,
+            "nonce": nonce,
         }
 
     @classmethod
@@ -154,7 +150,7 @@ class OAuthStateManager:
 
         logger.debug(
             "oauth.state.consumed",
-            provider=state_data.get('provider'),
+            provider=state_data.get("provider"),
         )
 
         return state_data
@@ -176,8 +172,8 @@ class OAuthService:
         email_verified: bool = False,
         provider_data: dict = None,
         device_info=None,
-        request: Optional[HttpRequest] = None
-    ) -> tuple['User', 'TokenPair', 'DeviceSession', bool]:
+        request: HttpRequest | None = None,
+    ) -> tuple["User", "TokenPair", "DeviceSession", bool]:
         """
         Authenticate or create user from OAuth provider data.
 
@@ -197,19 +193,23 @@ class OAuthService:
             OAuthError: If OAuth connection cannot be established
         """
         from django.db import transaction
+
         from apps.auth.models import OAuthConnection
         from apps.auth.services import AuthService, DeviceInfo
-        from apps.users.services import UserService
         from apps.users.selectors import UserSelector
+        from apps.users.services import UserService
 
         provider_data = provider_data or {}
 
         with transaction.atomic():
             # Check if OAuth connection exists
-            connection = OAuthConnection.objects.filter(
-                provider=provider,
-                provider_uid=provider_uid
-            ).select_related('user').first()
+            connection = (
+                OAuthConnection.objects.filter(
+                    provider=provider, provider_uid=provider_uid
+                )
+                .select_related("user")
+                .first()
+            )
 
             if connection:
                 # Existing OAuth user - login
@@ -217,14 +217,15 @@ class OAuthService:
 
                 if not user.is_active:
                     raise OAuthError(
-                        message="Account is deactivated",
-                        provider=provider
+                        message="Account is deactivated", provider=provider
                     )
 
                 # Update connection data
                 connection.provider_data = provider_data
                 connection.provider_email = email
-                connection.save(update_fields=['provider_data', 'provider_email', 'updated_at'])
+                connection.save(
+                    update_fields=["provider_data", "provider_email", "updated_at"]
+                )
 
                 is_new_user = False
 
@@ -239,6 +240,19 @@ class OAuthService:
                 existing_user = UserSelector.get_by_email_or_none(email=email)
 
                 if existing_user:
+                    # Block linking if provider did not verify the email
+                    if not email_verified:
+                        logger.warning(
+                            "oauth.login.unverified_email_link_blocked",
+                            provider=provider,
+                        )
+                        from apps.core.exceptions.domain import OAuthError
+
+                        raise OAuthError(
+                            message="Cannot link account: email not verified by provider.",
+                            provider=provider,
+                        )
+
                     # Link OAuth to existing account
                     user = existing_user
 
@@ -247,7 +261,7 @@ class OAuthService:
                         provider=provider,
                         provider_uid=provider_uid,
                         provider_data=provider_data,
-                        provider_email=email
+                        provider_email=email,
                     )
 
                     is_new_user = False
@@ -288,7 +302,7 @@ class OAuthService:
                         provider=provider,
                         provider_uid=provider_uid,
                         provider_data=provider_data,
-                        provider_email=email
+                        provider_email=email,
                     )
 
                     is_new_user = True
@@ -312,8 +326,8 @@ class OAuthService:
         if device_info is None:
             device_info = DeviceInfo(
                 device_id=f"oauth_{provider}_{provider_uid[:8]}",
-                device_type='unknown',
-                device_name=f'{provider.title()} Login'
+                device_type="unknown",
+                device_name=f"{provider.title()} Login",
             )
 
         # Create tokens directly (skip password verification)
@@ -323,12 +337,12 @@ class OAuthService:
             user=user,
             device_id=device_info.device_id,
             defaults={
-                'device_type': device_info.device_type,
-                'device_name': device_info.device_name,
-                'user_agent': device_info.user_agent,
-                'ip_address': device_info.ip_address,
-                'is_active': True
-            }
+                "device_type": device_info.device_type,
+                "device_name": device_info.device_name,
+                "user_agent": device_info.user_agent,
+                "ip_address": device_info.ip_address,
+                "is_active": True,
+            },
         )
 
         # Create token pair
@@ -336,26 +350,26 @@ class OAuthService:
             user=user,
             device_id=device_info.device_id,
             device_info={
-                'type': device_info.device_type,
-                'name': device_info.device_name,
-                'user_agent': device_info.user_agent
+                "type": device_info.device_type,
+                "name": device_info.device_name,
+                "user_agent": device_info.user_agent,
             },
-            ip_address=device_info.ip_address
+            ip_address=device_info.ip_address,
         )
 
         session.current_token = refresh_token
-        session.save(update_fields=['current_token'])
+        session.save(update_fields=["current_token"])
 
         access_token = AuthService._create_access_token(user, refresh_token.jti)
 
-        jwt_auth = getattr(settings, 'JWT_AUTH', {})
+        jwt_auth = getattr(settings, "JWT_AUTH", {})
         from apps.auth.services.auth_service import TokenPair
 
         tokens = TokenPair(
             access_token=access_token,
             refresh_token=raw_refresh,
-            access_expires_in=jwt_auth.get('ACCESS_TOKEN_LIFETIME', 900),
-            refresh_expires_in=jwt_auth.get('REFRESH_TOKEN_LIFETIME', 604800)
+            access_expires_in=jwt_auth.get("ACCESS_TOKEN_LIFETIME", 900),
+            refresh_expires_in=jwt_auth.get("REFRESH_TOKEN_LIFETIME", 604800),
         )
 
         # Update last login

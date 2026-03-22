@@ -27,4 +27,4 @@ Governance:
     - Auth triggers notifications, not emails
 """
 
-default_app_config = 'apps.notifications.apps.NotificationsConfig'
+default_app_config = "apps.notifications.apps.NotificationsConfig"

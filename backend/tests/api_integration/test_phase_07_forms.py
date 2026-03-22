@@ -9,10 +9,10 @@ Depends on Phase 01 (users), Phase 03 (platform), Phase 04 (businesses).
 
 import pytest
 
-
 # =============================================================================
 # F01–F06: FORM TEMPLATE CRUD
 # =============================================================================
+
 
 class TestFormTemplateCRUD:
     """Test form template creation, listing, and management."""
@@ -38,14 +38,17 @@ class TestFormTemplateCRUD:
         """POST /forms/<account_type>/<account_id>/templates/ creates a template."""
         api.set_token(state.get_token("alice"))
         biz_id = state.businesses["alice_corp"]["id"]
-        r = api.post(f"forms/business/{biz_id}/templates/", json={
-            "name": "Feedback Form",
-            "slug": "feedback-form",
-            "description": "Customer feedback collection",
-            "owner_type": "business",
-            "owner_id": biz_id,
-            "scope": "business",
-        })
+        r = api.post(
+            f"forms/business/{biz_id}/templates/",
+            json={
+                "name": "Feedback Form",
+                "slug": "feedback-form",
+                "description": "Customer feedback collection",
+                "owner_type": "business",
+                "owner_id": biz_id,
+                "scope": "business",
+            },
+        )
         assert r.status_code == 201, f"Create template failed: {r.text}"
         data = r.json()
         state.forms["feedback"] = {
@@ -71,9 +74,12 @@ class TestFormTemplateCRUD:
 
         api.set_token(state.get_token("alice"))
         tid = state.forms["feedback"]["template_id"]
-        r = api.patch(f"forms/templates/{tid}/", json={
-            "description": "Updated feedback form description",
-        })
+        r = api.patch(
+            f"forms/templates/{tid}/",
+            json={
+                "description": "Updated feedback form description",
+            },
+        )
         assert r.status_code == 200
 
     def test_f06_delete_template(self, api, state):
@@ -81,13 +87,16 @@ class TestFormTemplateCRUD:
         # Create a disposable template
         api.set_token(state.get_token("alice"))
         biz_id = state.businesses["alice_corp"]["id"]
-        r = api.post(f"forms/business/{biz_id}/templates/", json={
-            "name": "Disposable Form",
-            "slug": "disposable-form",
-            "owner_type": "business",
-            "owner_id": biz_id,
-            "scope": "business",
-        })
+        r = api.post(
+            f"forms/business/{biz_id}/templates/",
+            json={
+                "name": "Disposable Form",
+                "slug": "disposable-form",
+                "owner_type": "business",
+                "owner_id": biz_id,
+                "scope": "business",
+            },
+        )
         if r.status_code != 201:
             pytest.skip("Could not create template to delete")
 
@@ -100,6 +109,7 @@ class TestFormTemplateCRUD:
 # F07–F10: TEMPLATE LIFECYCLE
 # =============================================================================
 
+
 class TestFormTemplateLifecycle:
     """Test publish, archive, fork, and field addition."""
 
@@ -110,14 +120,17 @@ class TestFormTemplateLifecycle:
 
         api.set_token(state.get_token("alice"))
         tid = state.forms["feedback"]["template_id"]
-        r = api.post(f"forms/templates/{tid}/fields/", json={
-            "field_key": "rating",
-            "field_type": "integer",
-            "label": "Overall Rating",
-            "order": 0,
-            "is_required": True,
-            "validation_rules": {"min": 1, "max": 5},
-        })
+        r = api.post(
+            f"forms/templates/{tid}/fields/",
+            json={
+                "field_key": "rating",
+                "field_type": "integer",
+                "label": "Overall Rating",
+                "order": 0,
+                "is_required": True,
+                "validation_rules": {"min": 1, "max": 5},
+            },
+        )
         assert r.status_code in (200, 201), f"Add field failed: {r.text}"
 
     def test_f08_add_second_field(self, api, state):
@@ -127,13 +140,16 @@ class TestFormTemplateLifecycle:
 
         api.set_token(state.get_token("alice"))
         tid = state.forms["feedback"]["template_id"]
-        r = api.post(f"forms/templates/{tid}/fields/", json={
-            "field_key": "comments",
-            "field_type": "text",
-            "label": "Comments",
-            "order": 1,
-            "is_required": False,
-        })
+        r = api.post(
+            f"forms/templates/{tid}/fields/",
+            json={
+                "field_key": "comments",
+                "field_type": "text",
+                "label": "Comments",
+                "order": 1,
+                "is_required": False,
+            },
+        )
         assert r.status_code in (200, 201)
 
     def test_f09_publish_template(self, api, state):
@@ -154,11 +170,14 @@ class TestFormTemplateLifecycle:
         api.set_token(state.get_token("alice"))
         tid = state.forms["feedback"]["template_id"]
         biz_id = state.businesses["alice_corp"]["id"]
-        r = api.post(f"forms/templates/{tid}/fork/", json={
-            "new_owner_type": "business",
-            "new_owner_id": biz_id,
-            "new_name": "Feedback Form v2",
-        })
+        r = api.post(
+            f"forms/templates/{tid}/fork/",
+            json={
+                "new_owner_type": "business",
+                "new_owner_id": biz_id,
+                "new_name": "Feedback Form v2",
+            },
+        )
         if r.status_code in (200, 201):
             state.forms["feedback_fork"] = {
                 "template_id": r.json()["id"],
@@ -170,6 +189,7 @@ class TestFormTemplateLifecycle:
 # =============================================================================
 # F11–F18: FORM RESPONSES
 # =============================================================================
+
 
 class TestFormResponses:
     """Test form response lifecycle."""
@@ -193,12 +213,15 @@ class TestFormResponses:
         tid = state.forms["feedback"]["template_id"]
 
         # Try creating a response — endpoint might accept data inline
-        r = api.post(f"forms/templates/{tid}/responses/", json={
-            "data": {
-                "rating": 4,
-                "comments": "Good service",
+        r = api.post(
+            f"forms/templates/{tid}/responses/",
+            json={
+                "data": {
+                    "rating": 4,
+                    "comments": "Good service",
+                },
             },
-        })
+        )
         if r.status_code in (200, 201):
             data = r.json()
             state.forms["feedback"]["response_id"] = data["id"]
@@ -222,12 +245,15 @@ class TestFormResponses:
 
         api.set_token(state.get_token("bob"))
         rid = state.forms["feedback"]["response_id"]
-        r = api.patch(f"forms/responses/{rid}/", json={
-            "data": {
-                "rating": 5,
-                "comments": "Excellent service!",
+        r = api.patch(
+            f"forms/responses/{rid}/",
+            json={
+                "data": {
+                    "rating": 5,
+                    "comments": "Excellent service!",
+                },
             },
-        })
+        )
         assert r.status_code == 200
 
     def test_f15_submit_response(self, api, state):
@@ -247,9 +273,12 @@ class TestFormResponses:
 
         api.set_token(state.get_token("alice"))
         rid = state.forms["feedback"]["response_id"]
-        r = api.post(f"forms/responses/{rid}/process/", json={
-            "notes": "Reviewed and approved",
-        })
+        r = api.post(
+            f"forms/responses/{rid}/process/",
+            json={
+                "notes": "Reviewed and approved",
+            },
+        )
         assert r.status_code in (200, 400)  # 400 if already processed
 
     def test_f17_void_response(self, api, state):
@@ -261,9 +290,12 @@ class TestFormResponses:
         # Use Bob (confirmed member of alice_corp via T09 accept)
         api.set_token(state.get_token("bob"))
         tid = state.forms["feedback"]["template_id"]
-        r = api.post(f"forms/templates/{tid}/responses/", json={
-            "data": {"rating": 1, "comments": "Bad"},
-        })
+        r = api.post(
+            f"forms/templates/{tid}/responses/",
+            json={
+                "data": {"rating": 1, "comments": "Bad"},
+            },
+        )
         if r.status_code not in (200, 201):
             pytest.skip("Could not create response to void")
 
@@ -273,9 +305,12 @@ class TestFormResponses:
 
         # Void it
         api.set_token(state.get_token("alice"))
-        r = api.post(f"forms/responses/{rid}/void/", json={
-            "reason": "Test voiding",
-        })
+        r = api.post(
+            f"forms/responses/{rid}/void/",
+            json={
+                "reason": "Test voiding",
+            },
+        )
         assert r.status_code in (200, 400)
 
     def test_f18_my_responses(self, api, state):

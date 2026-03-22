@@ -19,23 +19,22 @@ import factory
 from factory.django import DjangoModelFactory
 
 from apps.core.constants import (
-    BusinessType,
     BusinessStatus,
-    VerificationStatus,
+    BusinessType,
     CompanySize,
+    VerificationStatus,
 )
-from apps.organization.platform.models import PlatformAccount, PlatformProfile
 from apps.organization.business.models import (
     BusinessAccount,
     BusinessProfile,
     BusinessSlugHistory,
 )
+from apps.organization.platform.models import PlatformAccount, PlatformProfile
 from apps.users.tests.factories import (  # noqa: F401
-    UserFactory,
     StaffUserFactory,
     SuperuserFactory,
+    UserFactory,
 )
-
 
 # =============================================================================
 # PLATFORM FACTORIES
@@ -88,9 +87,7 @@ class BusinessAccountFactory(DjangoModelFactory):
         model = BusinessAccount
 
     legal_name = factory.Sequence(lambda n: f"Test Business {n}")
-    slug = factory.LazyAttribute(
-        lambda obj: obj.legal_name.lower().replace(" ", "-")
-    )
+    slug = factory.LazyAttribute(lambda obj: obj.legal_name.lower().replace(" ", "-"))
     country = "US"
     city = ""
     business_type = BusinessType.LLC

@@ -12,10 +12,10 @@ import uuid
 
 import pytest
 
-
 # =============================================================================
 # C01–C06: SITES
 # =============================================================================
+
 
 class TestCMSSites:
     """Test site CRUD."""
@@ -29,12 +29,15 @@ class TestCMSSites:
     def test_c02_create_site(self, api, state):
         """POST /cms/admin/sites/ creates a new site."""
         api.set_token(state.get_token("alice"))
-        r = api.post("cms/admin/sites/", json={
-            "name": "Main Site",
-            "slug": "main-site",
-            "domain": "www.example.com",
-            "description": "Primary marketing site",
-        })
+        r = api.post(
+            "cms/admin/sites/",
+            json={
+                "name": "Main Site",
+                "slug": "main-site",
+                "domain": "www.example.com",
+                "description": "Primary marketing site",
+            },
+        )
         assert r.status_code == 201, f"Create site failed: {r.text}"
         data = r.json()
         state.cms["main_site"] = {
@@ -45,10 +48,13 @@ class TestCMSSites:
     def test_c03_duplicate_slug(self, api, state):
         """POST /cms/admin/sites/ with duplicate slug returns 400/409."""
         api.set_token(state.get_token("alice"))
-        r = api.post("cms/admin/sites/", json={
-            "name": "Duplicate Site",
-            "slug": "main-site",
-        })
+        r = api.post(
+            "cms/admin/sites/",
+            json={
+                "name": "Duplicate Site",
+                "slug": "main-site",
+            },
+        )
         # 403 if platform membership missing
         assert r.status_code in (400, 403, 409)
 
@@ -65,19 +71,25 @@ class TestCMSSites:
         """PATCH /cms/admin/sites/<slug>/ updates site."""
         api.set_token(state.get_token("alice"))
         slug = state.cms["main_site"]["site_slug"]
-        r = api.patch(f"cms/admin/sites/{slug}/", json={
-            "description": "Updated site description",
-        })
+        r = api.patch(
+            f"cms/admin/sites/{slug}/",
+            json={
+                "description": "Updated site description",
+            },
+        )
         assert r.status_code == 200
 
     def test_c06_delete_site(self, api, state):
         """DELETE /cms/admin/sites/<slug>/ deletes a site."""
         # Create disposable site
         api.set_token(state.get_token("alice"))
-        r = api.post("cms/admin/sites/", json={
-            "name": "Temp Site",
-            "slug": "temp-site",
-        })
+        r = api.post(
+            "cms/admin/sites/",
+            json={
+                "name": "Temp Site",
+                "slug": "temp-site",
+            },
+        )
         if r.status_code != 201:
             pytest.skip("Could not create site to delete")
 
@@ -88,6 +100,7 @@ class TestCMSSites:
 # =============================================================================
 # C07–C15: PAGES
 # =============================================================================
+
 
 class TestCMSPages:
     """Test page CRUD, publish/unpublish, export/import."""
@@ -102,15 +115,18 @@ class TestCMSPages:
         """POST /cms/admin/pages/ creates a new page."""
         api.set_token(state.get_token("alice"))
         site_id = state.cms["main_site"]["site_id"]
-        r = api.post("cms/admin/pages/", json={
-            "site_id": site_id,
-            "title": "Home Page",
-            "slug": "home",
-            "path": "/",
-            "page_type": "landing",
-            "order": 0,
-            "description": "Main landing page",
-        })
+        r = api.post(
+            "cms/admin/pages/",
+            json={
+                "site_id": site_id,
+                "title": "Home Page",
+                "slug": "home",
+                "path": "/",
+                "page_type": "landing",
+                "order": 0,
+                "description": "Main landing page",
+            },
+        )
         assert r.status_code == 201, f"Create page failed: {r.text}"
         data = r.json()
         state.cms["main_site"]["page_slug"] = data["slug"]
@@ -120,14 +136,17 @@ class TestCMSPages:
         """Create a second page for testing."""
         api.set_token(state.get_token("alice"))
         site_id = state.cms["main_site"]["site_id"]
-        r = api.post("cms/admin/pages/", json={
-            "site_id": site_id,
-            "title": "About Page",
-            "slug": "about",
-            "path": "/about",
-            "page_type": "content",
-            "order": 1,
-        })
+        r = api.post(
+            "cms/admin/pages/",
+            json={
+                "site_id": site_id,
+                "title": "About Page",
+                "slug": "about",
+                "path": "/about",
+                "page_type": "content",
+                "order": 1,
+            },
+        )
         assert r.status_code == 201
 
     def test_c10_get_page_detail(self, api, state):
@@ -145,9 +164,12 @@ class TestCMSPages:
         r = api.get("cms/admin/pages/home/")
         assert r.status_code == 200
         # PATCH is not implemented on page detail
-        r = api.patch("cms/admin/pages/home/", json={
-            "description": "Updated home page",
-        })
+        r = api.patch(
+            "cms/admin/pages/home/",
+            json={
+                "description": "Updated home page",
+            },
+        )
         assert r.status_code == 405  # Method Not Allowed
 
     def test_c12_page_structure_verified(self, api, state):
@@ -191,19 +213,23 @@ class TestCMSPages:
 # C16–C20: TEMPLATES (SECTION & BLOCK)
 # =============================================================================
 
+
 class TestCMSTemplates:
     """Test section and block template CRUD."""
 
     def test_c16_create_section_template(self, api, state):
         """POST /cms/admin/templates/sections/ creates a section template."""
         api.set_token(state.get_token("alice"))
-        r = api.post("cms/admin/templates/sections/", json={
-            "name": "hero_section",
-            "display_name": "Hero Section",
-            "slug": "hero-section",
-            "section_type": "hero",
-            "description": "Full-width hero banner",
-        })
+        r = api.post(
+            "cms/admin/templates/sections/",
+            json={
+                "name": "hero_section",
+                "display_name": "Hero Section",
+                "slug": "hero-section",
+                "section_type": "hero",
+                "description": "Full-width hero banner",
+            },
+        )
         assert r.status_code == 201, f"Create section template failed: {r.text}"
         data = r.json()
         state.cms["section_template"] = {"id": data["id"]}
@@ -211,22 +237,25 @@ class TestCMSTemplates:
     def test_c17_create_block_template(self, api, state):
         """POST /cms/admin/templates/blocks/ creates a block template."""
         api.set_token(state.get_token("alice"))
-        r = api.post("cms/admin/templates/blocks/", json={
-            "name": "text_block",
-            "display_name": "Text Block",
-            "slug": "text-block",
-            "block_type": "text",
-            "schema": {
-                "fields": [
-                    {"key": "heading", "type": "text", "label": "Heading"},
-                    {"key": "body", "type": "richtext", "label": "Body"},
-                ],
+        r = api.post(
+            "cms/admin/templates/blocks/",
+            json={
+                "name": "text_block",
+                "display_name": "Text Block",
+                "slug": "text-block",
+                "block_type": "text",
+                "schema": {
+                    "fields": [
+                        {"key": "heading", "type": "text", "label": "Heading"},
+                        {"key": "body", "type": "richtext", "label": "Body"},
+                    ],
+                },
+                "default_content": {
+                    "heading": "Default Heading",
+                    "body": "",
+                },
             },
-            "default_content": {
-                "heading": "Default Heading",
-                "body": "",
-            },
-        })
+        )
         assert r.status_code == 201, f"Create block template failed: {r.text}"
         data = r.json()
         state.cms["block_template"] = {"id": data["id"]}
@@ -246,13 +275,16 @@ class TestCMSTemplates:
     def test_c20_invalid_schema_rejected(self, api, state):
         """POST block template with invalid schema returns 400."""
         api.set_token(state.get_token("alice"))
-        r = api.post("cms/admin/templates/blocks/", json={
-            "name": "bad_block",
-            "display_name": "Bad Block",
-            "slug": "bad-block",
-            "block_type": "text",
-            "schema": "not a valid schema",  # Should be JSON object
-        })
+        r = api.post(
+            "cms/admin/templates/blocks/",
+            json={
+                "name": "bad_block",
+                "display_name": "Bad Block",
+                "slug": "bad-block",
+                "block_type": "text",
+                "schema": "not a valid schema",  # Should be JSON object
+            },
+        )
         # 403 if platform membership missing
         assert r.status_code in (400, 403)
 
@@ -260,6 +292,7 @@ class TestCMSTemplates:
 # =============================================================================
 # C21–C26: CONTENT (BLOCK PLACEMENTS)
 # =============================================================================
+
 
 class TestCMSContent:
     """Test block placement content editing, history, and rollback."""
@@ -307,6 +340,7 @@ class TestCMSContent:
 # C27–C30: MEDIA
 # =============================================================================
 
+
 class TestCMSMedia:
     """Test media file upload, listing, and tombstone deletion."""
 
@@ -321,10 +355,10 @@ class TestCMSMedia:
         api.set_token(state.get_token("alice"))
         # Create a minimal PNG
         png_data = (
-            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01'
-            b'\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00'
-            b'\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00'
-            b'\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82'
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+            b"\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00"
+            b"\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
         )
         files = {"file": ("hero.png", io.BytesIO(png_data), "image/png")}
         data = {"alt_text": "Hero image", "title": "Hero Banner"}
@@ -364,6 +398,7 @@ class TestCMSMedia:
 # C31–C34: API KEYS
 # =============================================================================
 
+
 class TestCMSApiKeys:
     """Test API key CRUD for public CMS access."""
 
@@ -377,11 +412,14 @@ class TestCMSApiKeys:
         """POST /cms/admin/api-keys/ creates an API key (captures raw key)."""
         api.set_token(state.get_token("alice"))
         site_id = state.cms["main_site"]["site_id"]
-        r = api.post("cms/admin/api-keys/", json={
-            "site_id": site_id,
-            "name": "Test API Key",
-            "rate_limit": 100,
-        })
+        r = api.post(
+            "cms/admin/api-keys/",
+            json={
+                "site_id": site_id,
+                "name": "Test API Key",
+                "rate_limit": 100,
+            },
+        )
         assert r.status_code == 201, f"Create API key failed: {r.text}"
         data = r.json()
         state.cms["main_site"]["api_key_id"] = data["id"]
@@ -412,10 +450,13 @@ class TestCMSApiKeys:
         # Create a disposable key to revoke
         api.set_token(state.get_token("alice"))
         site_id = state.cms["main_site"]["site_id"]
-        r = api.post("cms/admin/api-keys/", json={
-            "site_id": site_id,
-            "name": "Temp Key",
-        })
+        r = api.post(
+            "cms/admin/api-keys/",
+            json={
+                "site_id": site_id,
+                "name": "Temp Key",
+            },
+        )
         if r.status_code != 201:
             pytest.skip("Could not create key to revoke")
 
@@ -427,6 +468,7 @@ class TestCMSApiKeys:
 # =============================================================================
 # CP01–CP08: PUBLIC CMS ENDPOINTS
 # =============================================================================
+
 
 class TestCMSPublic:
     """Test public CMS endpoints with API key authentication."""

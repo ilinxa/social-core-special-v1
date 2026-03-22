@@ -29,7 +29,6 @@ from apps.core.exceptions.domain import (
     ValidationError,
 )
 
-
 # =============================================================================
 # DomainException (base)
 # =============================================================================
@@ -1539,9 +1538,9 @@ class TestInheritanceChains:
         ]
 
         for exc_class in all_exceptions:
-            assert issubclass(exc_class, DomainException), (
-                f"{exc_class.__name__} does not inherit from DomainException"
-            )
+            assert issubclass(
+                exc_class, DomainException
+            ), f"{exc_class.__name__} does not inherit from DomainException"
 
     def test_catch_all_auth_errors_with_authentication_error(self):
         """Catch all auth subclasses with a single except AuthenticationError."""

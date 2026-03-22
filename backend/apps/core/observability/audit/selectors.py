@@ -14,7 +14,7 @@ Usage:
 """
 
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List
 from uuid import UUID
 
 from django.db.models import Count, QuerySet
@@ -34,8 +34,8 @@ class AuditSelector:
     def get_by_actor(
         actor_id: UUID,
         *,
-        since: Optional[datetime] = None,
-        actions: Optional[List[str]] = None,
+        since: datetime | None = None,
+        actions: List[str] | None = None,
     ) -> QuerySet[AuditLog]:
         """
         Get audit logs for a specific actor.
@@ -77,8 +77,8 @@ class AuditSelector:
     def get_by_action(
         action: str,
         *,
-        since: Optional[datetime] = None,
-        outcome: Optional[str] = None,
+        since: datetime | None = None,
+        outcome: str | None = None,
     ) -> QuerySet[AuditLog]:
         """
         Get logs for a specific action type.
@@ -103,7 +103,7 @@ class AuditSelector:
     @staticmethod
     def get_security_events(
         *,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 100,
     ) -> QuerySet[AuditLog]:
         """
@@ -131,9 +131,9 @@ class AuditSelector:
     @staticmethod
     def get_failed_login_count(
         *,
-        ip_address: Optional[str] = None,
-        actor_email: Optional[str] = None,
-        since: Optional[datetime] = None,
+        ip_address: str | None = None,
+        actor_email: str | None = None,
+        since: datetime | None = None,
     ) -> int:
         """
         Count failed login attempts for rate limiting/security.
@@ -163,7 +163,7 @@ class AuditSelector:
     def get_action_summary(
         *,
         since: datetime,
-        until: Optional[datetime] = None,
+        until: datetime | None = None,
     ) -> List[dict]:
         """
         Get summary of actions grouped by type.
@@ -179,6 +179,4 @@ class AuditSelector:
         if until:
             qs = qs.filter(timestamp__lt=until)
 
-        return list(
-            qs.values("action").annotate(count=Count("id")).order_by("-count")
-        )
+        return list(qs.values("action").annotate(count=Count("id")).order_by("-count"))

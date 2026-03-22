@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0003_user_users_referred_by_idx'),
+        ("users", "0003_user_users_referred_by_idx"),
     ]
 
     operations = [
         migrations.RemoveConstraint(
-            model_name='user',
-            name='verified_only_if_active',
+            model_name="user",
+            name="verified_only_if_active",
         ),
     ]

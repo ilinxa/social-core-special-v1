@@ -7,32 +7,33 @@ Processors are functions that transform log event dictionaries.
 They run in order, so sanitization should come early in the pipeline.
 """
 
-from typing import Any, Callable, MutableMapping
 import socket
-
+from typing import Any, Callable, MutableMapping
 
 # Sensitive keys to redact from logs
 # These are checked case-insensitively
-SENSITIVE_KEYS = frozenset({
-    "password",
-    "token",
-    "secret",
-    "api_key",
-    "apikey",
-    "authorization",
-    "credit_card",
-    "creditcard",
-    "ssn",
-    "access_token",
-    "refresh_token",
-    "cookie",
-    "session_id",
-    "private_key",
-    "privatekey",
-    "otp",
-    "verification_code",
-    "csrf",
-})
+SENSITIVE_KEYS = frozenset(
+    {
+        "password",
+        "token",
+        "secret",
+        "api_key",
+        "apikey",
+        "authorization",
+        "credit_card",
+        "creditcard",
+        "ssn",
+        "access_token",
+        "refresh_token",
+        "cookie",
+        "session_id",
+        "private_key",
+        "privatekey",
+        "otp",
+        "verification_code",
+        "csrf",
+    }
+)
 
 
 def sanitize_sensitive_data(
@@ -64,7 +65,11 @@ def sanitize_sensitive_data(
 
         if isinstance(obj, dict):
             return {
-                k: "[REDACTED]" if k.lower() in SENSITIVE_KEYS else sanitize(v, depth + 1)
+                k: (
+                    "[REDACTED]"
+                    if k.lower() in SENSITIVE_KEYS
+                    else sanitize(v, depth + 1)
+                )
                 for k, v in obj.items()
             }
         elif isinstance(obj, (list, tuple)):
@@ -149,6 +154,7 @@ def add_exception_context(
             exc_type, exc_value, exc_tb = exc_info
         else:
             import sys
+
             exc_type, exc_value, exc_tb = sys.exc_info()
 
         if exc_type:

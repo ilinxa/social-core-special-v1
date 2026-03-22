@@ -18,9 +18,9 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
-from apps.core.observability import get_logger, AuditService, AuditLog
-from apps.core.exceptions import ConflictError, ValidationError, PermissionDenied
 from apps.core.constants import BusinessStatus, VerificationStatus
+from apps.core.exceptions import ConflictError, ValidationError
+from apps.core.observability import AuditLog, AuditService, get_logger
 from apps.organization.business.models import (
     BusinessAccount,
     BusinessProfile,
@@ -51,7 +51,9 @@ class BusinessAccountService:
         Raises:
             ConflictError: If slug is already in use or was used historically.
         """
-        if BusinessAccountSelector.slug_exists(slug=slug, exclude_business_id=exclude_business_id):
+        if BusinessAccountSelector.slug_exists(
+            slug=slug, exclude_business_id=exclude_business_id
+        ):
             raise ConflictError(
                 message=f"Slug '{slug}' is not available",
                 resource="BusinessAccount",
@@ -151,7 +153,7 @@ class BusinessAccountService:
         RBACService.initialize_business_account(
             business_id=business.id,
             owner=owner,  # request.user - becomes initial owner
-            request=request
+            request=request,
         )
 
         # This creates:
@@ -208,7 +210,10 @@ class BusinessAccountService:
             business.legal_name = legal_name
             update_fields.append("legal_name")
 
-        if registration_number is not None and registration_number != business.registration_number:
+        if (
+            registration_number is not None
+            and registration_number != business.registration_number
+        ):
             changes["registration_number"] = {
                 "old": business.registration_number,
                 "new": registration_number,
@@ -232,12 +237,18 @@ class BusinessAccountService:
             update_fields.append("city")
 
         if legal_address is not None and legal_address != business.legal_address:
-            changes["legal_address"] = {"old": business.legal_address, "new": legal_address}
+            changes["legal_address"] = {
+                "old": business.legal_address,
+                "new": legal_address,
+            }
             business.legal_address = legal_address
             update_fields.append("legal_address")
 
         if business_type is not None and business_type != business.business_type:
-            changes["business_type"] = {"old": business.business_type, "new": business_type}
+            changes["business_type"] = {
+                "old": business.business_type,
+                "new": business_type,
+            }
             business.business_type = business_type
             update_fields.append("business_type")
 
@@ -247,7 +258,10 @@ class BusinessAccountService:
             changes["settings"] = {"old": old_settings, "new": business.settings}
             update_fields.append("settings")
 
-        if open_member_request is not None and open_member_request != business.open_member_request:
+        if (
+            open_member_request is not None
+            and open_member_request != business.open_member_request
+        ):
             changes["open_member_request"] = {
                 "old": business.open_member_request,
                 "new": open_member_request,
@@ -312,7 +326,9 @@ class BusinessAccountService:
             )
 
         # Validate new slug availability
-        BusinessAccountService._validate_slug(slug=new_slug, exclude_business_id=business.id)
+        BusinessAccountService._validate_slug(
+            slug=new_slug, exclude_business_id=business.id
+        )
 
         # Store old slug in history
         BusinessSlugHistory.objects.create(
@@ -664,12 +680,18 @@ class BusinessProfileService:
             update_fields.append("website")
 
         if contact_email is not None:
-            changes["contact_email"] = {"old": profile.contact_email, "new": contact_email}
+            changes["contact_email"] = {
+                "old": profile.contact_email,
+                "new": contact_email,
+            }
             profile.contact_email = contact_email
             update_fields.append("contact_email")
 
         if contact_phone is not None:
-            changes["contact_phone"] = {"old": profile.contact_phone, "new": contact_phone}
+            changes["contact_phone"] = {
+                "old": profile.contact_phone,
+                "new": contact_phone,
+            }
             profile.contact_phone = contact_phone
             update_fields.append("contact_phone")
 
@@ -699,7 +721,10 @@ class BusinessProfileService:
             update_fields.append("tags")
 
         if custom_fields is not None:
-            changes["custom_fields"] = {"old": profile.custom_fields, "new": custom_fields}
+            changes["custom_fields"] = {
+                "old": profile.custom_fields,
+                "new": custom_fields,
+            }
             profile.custom_fields = custom_fields
             update_fields.append("custom_fields")
 

@@ -6,8 +6,6 @@ from the model serializers in users/ and organization/ since explore cards
 show a different subset of fields (e.g., search_rank, no settings/audit fields).
 """
 
-from typing import Optional
-
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -15,7 +13,6 @@ from apps.core.serializers import BaseOutputSerializer
 from apps.explore.models import SuggestedTag
 from apps.organization.business.models import BusinessAccount, BusinessProfile
 from apps.users.models import User, UserProfile
-
 
 # =============================================================================
 # Business Search Results
@@ -67,6 +64,7 @@ class ExploreBusinessOutput(BaseOutputSerializer):
     @extend_schema_field(serializers.BooleanField())
     def get_is_verified(self, obj) -> bool:
         from apps.core.constants import VerificationStatus
+
         return obj.verification_status == VerificationStatus.VERIFIED
 
 
@@ -95,7 +93,7 @@ class ExploreUserProfileOutput(BaseOutputSerializer):
         read_only_fields = fields
 
     @extend_schema_field(serializers.URLField(allow_null=True))
-    def get_avatar_url(self, obj) -> Optional[str]:
+    def get_avatar_url(self, obj) -> str | None:
         if obj.avatar:
             request = self.context.get("request")
             if request:

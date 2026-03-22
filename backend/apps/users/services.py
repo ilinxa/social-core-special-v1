@@ -26,40 +26,73 @@ Usage:
     profile = UserService.update_profile(
         user=user,
         first_name='John',
-        last_name='Doe' 
+        last_name='Doe'
     )
 """
 
 import re
-from typing import Optional
 
 from django.db import transaction
 from django.http import HttpRequest
 from django.utils import timezone
 
 from apps.core.exceptions import ConflictError, ValidationError
-from apps.core.utils.password import validate_password_strength
-from apps.users.models import User, UserProfile
 
 # Observability
 from apps.core.observability import get_logger
-from apps.core.observability.audit import AuditService, AuditLog
+from apps.core.observability.audit import AuditLog, AuditService
+from apps.core.utils.password import validate_password_strength
+from apps.users.models import User, UserProfile
 
 logger = get_logger(__name__)
 
 # Reserved usernames that cannot be claimed by users.
-RESERVED_USERNAMES = frozenset({
-    # Platform routes
-    'admin', 'administrator', 'support', 'help', 'about', 'contact',
-    'settings', 'profile', 'login', 'logout', 'register', 'signup',
-    'signin', 'home', 'explore', 'search', 'dashboard',
-    # System / brand
-    'system', 'moderator', 'staff', 'official', 'root', 'superuser',
-    'api', 'platform', 'business', 'bconsole', 'pconsole',
-    # Common reserved
-    'null', 'undefined', 'anonymous', 'unknown', 'deleted', 'removed',
-    'everyone', 'nobody', 'noreply', 'postmaster', 'webmaster',
-})
+RESERVED_USERNAMES = frozenset(
+    {
+        # Platform routes
+        "admin",
+        "administrator",
+        "support",
+        "help",
+        "about",
+        "contact",
+        "settings",
+        "profile",
+        "login",
+        "logout",
+        "register",
+        "signup",
+        "signin",
+        "home",
+        "explore",
+        "search",
+        "dashboard",
+        # System / brand
+        "system",
+        "moderator",
+        "staff",
+        "official",
+        "root",
+        "superuser",
+        "api",
+        "platform",
+        "business",
+        "bconsole",
+        "pconsole",
+        # Common reserved
+        "null",
+        "undefined",
+        "anonymous",
+        "unknown",
+        "deleted",
+        "removed",
+        "everyone",
+        "nobody",
+        "noreply",
+        "postmaster",
+        "webmaster",
+    }
+)
 
 
 class UserService:
@@ -77,9 +110,9 @@ class UserService:
         *,
         email: str,
         password: str,
-        username: Optional[str] = None,
-        referred_by_id: Optional[int] = None,
-        request: Optional[HttpRequest] = None
+        username: str | None = None,
+        referred_by_id: int | None = None,
+        request: HttpRequest | None = None,
     ) -> User:
         """
         Create a new user with profile.
@@ -111,9 +144,9 @@ class UserService:
         # Validate email uniqueness
         if User.objects.filter(email__iexact=email).exists():
             raise ConflictError(
-                message='A user with this email already exists',
-                resource='User',
-                conflict_type='duplicate'
+                message="A user with this email already exists",
+                resource="User",
+                conflict_type="duplicate",
             )
 
         # Validate username uniqueness (if provided)
@@ -121,18 +154,15 @@ class UserService:
             username = username.strip().lower()
             if User.objects.filter(username__iexact=username).exists():
                 raise ConflictError(
-                    message='This username is already taken',
-                    resource='User',
-                    conflict_type='duplicate'
+                    message="This username is already taken",
+                    resource="User",
+                    conflict_type="duplicate",
                 )
 
         # Validate password strength
         password_errors = validate_password_strength(password)
         if password_errors:
-            raise ValidationError(
-                message=password_errors[0],
-                field='password'
-            )
+            raise ValidationError(message=password_errors[0], field="password")
 
         # Get referrer if provided
         referred_by = None
@@ -142,7 +172,7 @@ class UserService:
         # Build extra fields
         extra_fields = {}
         if username:
-            extra_fields['username'] = username
+            extra_fields["username"] = username
 
         # Create user (profile created via signal)
         user = User.objects.create_user(
@@ -172,11 +202,7 @@ class UserService:
         return user
 
     @staticmethod
-    def verify_email(
-        *,
-        user: User,
-        request: Optional[HttpRequest] = None
-    ) -> User:
+    def verify_email(*, user: User, request: HttpRequest | None = None) -> User:
         """
         Mark user's email as verified.
 
@@ -198,7 +224,7 @@ class UserService:
             return user
 
         user.is_verified = True
-        user.save(update_fields=['is_verified', 'updated_at'])
+        user.save(update_fields=["is_verified", "updated_at"])
 
         logger.info(
             "user.verified",
@@ -214,11 +240,7 @@ class UserService:
         return user
 
     @staticmethod
-    def unverify_email(
-        *,
-        user: User,
-        request: Optional[HttpRequest] = None
-    ) -> User:
+    def unverify_email(*, user: User, request: HttpRequest | None = None) -> User:
         """
         Mark user's email as unverified.
 
@@ -232,7 +254,7 @@ class UserService:
             Updated User instance
         """
         user.is_verified = False
-        user.save(update_fields=['is_verified', 'updated_at'])
+        user.save(update_fields=["is_verified", "updated_at"])
 
         logger.info(
             "user.unverified",
@@ -252,17 +274,17 @@ class UserService:
     def update_profile(
         *,
         user: User,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-        phone: Optional[str] = None,
-        timezone: Optional[str] = None,
-        language: Optional[str] = None,
-        bio: Optional[str] = None,
-        country: Optional[str] = None,
-        city: Optional[str] = None,
-        tags: Optional[list] = None,
-        is_public: Optional[bool] = None,
-        request: Optional[HttpRequest] = None
+        first_name: str | None = None,
+        last_name: str | None = None,
+        phone: str | None = None,
+        timezone: str | None = None,
+        language: str | None = None,
+        bio: str | None = None,
+        country: str | None = None,
+        city: str | None = None,
+        tags: list | None = None,
+        is_public: bool | None = None,
+        request: HttpRequest | None = None,
     ) -> UserProfile:
         """
         Update user profile fields.
@@ -292,66 +314,72 @@ class UserService:
 
         if first_name is not None:
             if profile.first_name != first_name.strip():
-                changes['first_name'] = {'old': profile.first_name, 'new': first_name.strip()}
+                changes["first_name"] = {
+                    "old": profile.first_name,
+                    "new": first_name.strip(),
+                }
             profile.first_name = first_name.strip()
-            updated_fields.append('first_name')
+            updated_fields.append("first_name")
 
         if last_name is not None:
             if profile.last_name != last_name.strip():
-                changes['last_name'] = {'old': profile.last_name, 'new': last_name.strip()}
+                changes["last_name"] = {
+                    "old": profile.last_name,
+                    "new": last_name.strip(),
+                }
             profile.last_name = last_name.strip()
-            updated_fields.append('last_name')
+            updated_fields.append("last_name")
 
         if phone is not None:
             if profile.phone != phone.strip():
-                changes['phone'] = {'old': profile.phone, 'new': phone.strip()}
+                changes["phone"] = {"old": profile.phone, "new": phone.strip()}
             profile.phone = phone.strip()
-            updated_fields.append('phone')
+            updated_fields.append("phone")
 
         if timezone is not None:
             if profile.timezone != timezone:
-                changes['timezone'] = {'old': profile.timezone, 'new': timezone}
+                changes["timezone"] = {"old": profile.timezone, "new": timezone}
             profile.timezone = timezone
-            updated_fields.append('timezone')
+            updated_fields.append("timezone")
 
         if language is not None:
             if profile.language != language:
-                changes['language'] = {'old': profile.language, 'new': language}
+                changes["language"] = {"old": profile.language, "new": language}
             profile.language = language
-            updated_fields.append('language')
+            updated_fields.append("language")
 
         if bio is not None:
             if profile.bio != bio:
-                changes['bio'] = {'old': profile.bio, 'new': bio}
+                changes["bio"] = {"old": profile.bio, "new": bio}
             profile.bio = bio
-            updated_fields.append('bio')
+            updated_fields.append("bio")
 
         if country is not None:
             if profile.country != country:
-                changes['country'] = {'old': profile.country, 'new': country}
+                changes["country"] = {"old": profile.country, "new": country}
             profile.country = country
-            updated_fields.append('country')
+            updated_fields.append("country")
 
         if city is not None:
             if profile.city != city:
-                changes['city'] = {'old': profile.city, 'new': city}
+                changes["city"] = {"old": profile.city, "new": city}
             profile.city = city
-            updated_fields.append('city')
+            updated_fields.append("city")
 
         if tags is not None:
             if profile.tags != tags:
-                changes['tags'] = {'old': profile.tags, 'new': tags}
+                changes["tags"] = {"old": profile.tags, "new": tags}
             profile.tags = tags
-            updated_fields.append('tags')
+            updated_fields.append("tags")
 
         if is_public is not None:
             if profile.is_public != is_public:
-                changes['is_public'] = {'old': profile.is_public, 'new': is_public}
+                changes["is_public"] = {"old": profile.is_public, "new": is_public}
             profile.is_public = is_public
-            updated_fields.append('is_public')
+            updated_fields.append("is_public")
 
         if updated_fields:
-            updated_fields.append('updated_at')
+            updated_fields.append("updated_at")
             profile.save(update_fields=updated_fields)
 
             logger.info(
@@ -374,10 +402,7 @@ class UserService:
 
     @staticmethod
     def update_avatar(
-        *,
-        user: User,
-        avatar,
-        request: Optional[HttpRequest] = None
+        *, user: User, avatar, request: HttpRequest | None = None
     ) -> UserProfile:
         """
         Update user's avatar image.
@@ -397,7 +422,7 @@ class UserService:
             profile.avatar.delete(save=False)
 
         profile.avatar = avatar
-        profile.save(update_fields=['avatar', 'updated_at'])
+        profile.save(update_fields=["avatar", "updated_at"])
 
         logger.info(
             "avatar.updated",
@@ -411,19 +436,15 @@ class UserService:
             resource=profile,
             request=request,
             details={
-                "filename": avatar.name if hasattr(avatar, 'name') else None,
-                "size": avatar.size if hasattr(avatar, 'size') else None,
+                "filename": avatar.name if hasattr(avatar, "name") else None,
+                "size": avatar.size if hasattr(avatar, "size") else None,
             },
         )
 
         return profile
 
     @staticmethod
-    def remove_avatar(
-        *,
-        user: User,
-        request: Optional[HttpRequest] = None
-    ) -> UserProfile:
+    def remove_avatar(*, user: User, request: HttpRequest | None = None) -> UserProfile:
         """
         Remove user's avatar image.
 
@@ -439,7 +460,7 @@ class UserService:
         if profile.avatar:
             profile.avatar.delete(save=False)
             profile.avatar = None
-            profile.save(update_fields=['avatar', 'updated_at'])
+            profile.save(update_fields=["avatar", "updated_at"])
 
             logger.info(
                 "avatar.removed",
@@ -458,10 +479,7 @@ class UserService:
 
     @staticmethod
     def update_cover_image(
-        *,
-        user: User,
-        cover_image,
-        request: Optional[HttpRequest] = None
+        *, user: User, cover_image, request: HttpRequest | None = None
     ) -> UserProfile:
         """Update user's cover image."""
         profile = user.profile
@@ -470,7 +488,7 @@ class UserService:
             profile.cover_image.delete(save=False)
 
         profile.cover_image = cover_image
-        profile.save(update_fields=['cover_image', 'updated_at'])
+        profile.save(update_fields=["cover_image", "updated_at"])
 
         logger.info("cover_image.updated", user_id=str(user.id))
 
@@ -480,8 +498,8 @@ class UserService:
             resource=profile,
             request=request,
             details={
-                "filename": cover_image.name if hasattr(cover_image, 'name') else None,
-                "size": cover_image.size if hasattr(cover_image, 'size') else None,
+                "filename": cover_image.name if hasattr(cover_image, "name") else None,
+                "size": cover_image.size if hasattr(cover_image, "size") else None,
             },
         )
 
@@ -489,9 +507,7 @@ class UserService:
 
     @staticmethod
     def remove_cover_image(
-        *,
-        user: User,
-        request: Optional[HttpRequest] = None
+        *, user: User, request: HttpRequest | None = None
     ) -> UserProfile:
         """Remove user's cover image."""
         profile = user.profile
@@ -499,7 +515,7 @@ class UserService:
         if profile.cover_image:
             profile.cover_image.delete(save=False)
             profile.cover_image = None
-            profile.save(update_fields=['cover_image', 'updated_at'])
+            profile.save(update_fields=["cover_image", "updated_at"])
 
             logger.info("cover_image.removed", user_id=str(user.id))
 
@@ -513,11 +529,7 @@ class UserService:
         return profile
 
     @staticmethod
-    def deactivate_user(
-        *,
-        user: User,
-        request: Optional[HttpRequest] = None
-    ) -> User:
+    def deactivate_user(*, user: User, request: HttpRequest | None = None) -> User:
         """
         Deactivate user account (soft delete).
 
@@ -538,7 +550,7 @@ class UserService:
         # This replaces the removed DB-level CheckConstraint 'verified_only_if_active'
         # which was removed because it prevented clean reactivation flows.
         user.is_verified = False
-        user.save(update_fields=['is_active', 'is_verified', 'updated_at'])
+        user.save(update_fields=["is_active", "is_verified", "updated_at"])
 
         logger.info(
             "user.deactivated",
@@ -553,14 +565,15 @@ class UserService:
             request=request,
         )
 
+        # Revoke all sessions and tokens
+        from apps.auth.services import AuthService
+
+        AuthService.logout_all(user=user, reason="account_deactivated", request=request)
+
         return user
 
     @staticmethod
-    def reactivate_user(
-        *,
-        user: User,
-        request: Optional[HttpRequest] = None
-    ) -> User:
+    def reactivate_user(*, user: User, request: HttpRequest | None = None) -> User:
         """
         Reactivate deactivated user account.
 
@@ -575,7 +588,7 @@ class UserService:
         """
         user.is_active = True
         # is_verified stays False - user must re-verify
-        user.save(update_fields=['is_active', 'updated_at'])
+        user.save(update_fields=["is_active", "updated_at"])
 
         logger.info(
             "user.reactivated",
@@ -595,10 +608,7 @@ class UserService:
     @staticmethod
     @transaction.atomic
     def change_username(
-        *,
-        user: User,
-        new_username: str,
-        request: Optional[HttpRequest] = None
+        *, user: User, new_username: str, request: HttpRequest | None = None
     ) -> User:
         """
         Change user's username.
@@ -625,31 +635,30 @@ class UserService:
         old_username = user.username
 
         # Validate format
-        if not re.match(r'^[a-zA-Z0-9_]{5,30}$', new_username):
+        if not re.match(r"^[a-zA-Z0-9_]{5,30}$", new_username):
             raise ValidationError(
-                message='Username must be 5-30 alphanumeric characters or underscores',
-                field='username'
+                message="Username must be 5-30 alphanumeric characters or underscores",
+                field="username",
             )
 
         # Check reserved names
         if new_username.lower() in RESERVED_USERNAMES:
-            raise ValidationError(
-                message='This username is reserved',
-                field='username'
-            )
+            raise ValidationError(message="This username is reserved", field="username")
 
         # Check uniqueness (case-insensitive)
-        if User.objects.filter(
-            username__iexact=new_username
-        ).exclude(id=user.id).exists():
+        if (
+            User.objects.filter(username__iexact=new_username)
+            .exclude(id=user.id)
+            .exists()
+        ):
             raise ConflictError(
-                message='This username is already taken',
-                resource='User',
-                conflict_type='duplicate'
+                message="This username is already taken",
+                resource="User",
+                conflict_type="duplicate",
             )
 
         user.username = new_username.lower()
-        user.save(update_fields=['username', 'updated_at'])
+        user.save(update_fields=["username", "updated_at"])
 
         logger.info(
             "username.changed",
@@ -664,9 +673,7 @@ class UserService:
             actor=user,
             resource=user,
             request=request,
-            changes={
-                "username": {"old": old_username, "new": user.username}
-            },
+            changes={"username": {"old": old_username, "new": user.username}},
         )
 
         return user
@@ -685,17 +692,14 @@ class UserService:
             Updated User instance
         """
         user.last_login = timezone.now()
-        user.save(update_fields=['last_login'])
+        user.save(update_fields=["last_login"])
 
         return user
 
     @staticmethod
     @transaction.atomic
     def change_email(
-        *,
-        user: User,
-        new_email: str,
-        request: Optional[HttpRequest] = None
+        *, user: User, new_email: str, request: HttpRequest | None = None
     ) -> User:
         """
         Change user's email address.
@@ -718,18 +722,16 @@ class UserService:
         old_email = user.email
 
         # Validate uniqueness
-        if User.objects.filter(
-            email__iexact=new_email
-        ).exclude(id=user.id).exists():
+        if User.objects.filter(email__iexact=new_email).exclude(id=user.id).exists():
             raise ConflictError(
-                message='A user with this email already exists',
-                resource='User',
-                conflict_type='duplicate'
+                message="A user with this email already exists",
+                resource="User",
+                conflict_type="duplicate",
             )
 
         user.email = new_email
         user.is_verified = False  # Must re-verify new email
-        user.save(update_fields=['email', 'is_verified', 'updated_at'])
+        user.save(update_fields=["email", "is_verified", "updated_at"])
 
         logger.info(
             "email.changed",
@@ -743,9 +745,7 @@ class UserService:
             actor=user,
             resource=user,
             request=request,
-            changes={
-                "email": {"old": old_email, "new": new_email}
-            },
+            changes={"email": {"old": old_email, "new": new_email}},
             details={"requires_verification": True},
         )
 

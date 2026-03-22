@@ -10,9 +10,8 @@ Covers:
 """
 
 import pytest
-from rest_framework import status
 from django.urls import reverse
-
+from rest_framework import status
 
 # =============================================================================
 # CURRENT USER VIEW TESTS
@@ -38,7 +37,9 @@ class TestCurrentUserViewGet:
         assert response.data["username"] == user.username
         assert "profile" in response.data
 
-    def test_get_current_user_includes_profile(self, authenticated_client, user, me_url):
+    def test_get_current_user_includes_profile(
+        self, authenticated_client, user, me_url
+    ):
         """Response includes nested profile data."""
         user.profile.first_name = "John"
         user.profile.last_name = "Doe"
@@ -53,7 +54,9 @@ class TestCurrentUserViewGet:
         assert profile["full_name"] == "John Doe"
         assert profile["display_name"] == "John Doe"
 
-    def test_get_current_user_includes_status_flags(self, authenticated_client, user, me_url):
+    def test_get_current_user_includes_status_flags(
+        self, authenticated_client, user, me_url
+    ):
         """Response includes status flags."""
         response = authenticated_client.get(me_url)
 
@@ -65,7 +68,9 @@ class TestCurrentUserViewGet:
         assert "is_staff" in response.data
         assert "is_superuser" in response.data
 
-    def test_get_current_user_includes_timestamps(self, authenticated_client, user, me_url):
+    def test_get_current_user_includes_timestamps(
+        self, authenticated_client, user, me_url
+    ):
         """Response includes timestamps."""
         response = authenticated_client.get(me_url)
 
@@ -167,7 +172,9 @@ class TestProfileViewGet:
         assert response.data["first_name"] == "John"
         assert response.data["last_name"] == "Doe"
 
-    def test_get_profile_includes_computed_fields(self, authenticated_client, user, profile_url):
+    def test_get_profile_includes_computed_fields(
+        self, authenticated_client, user, profile_url
+    ):
         """Response includes computed fields."""
         user.profile.first_name = "John"
         user.profile.save()
@@ -222,7 +229,9 @@ class TestProfileViewPatch:
 
     def test_patch_profile_timezone(self, authenticated_client, user, profile_url):
         """Can update timezone."""
-        response = authenticated_client.patch(profile_url, {"timezone": "America/New_York"})
+        response = authenticated_client.patch(
+            profile_url, {"timezone": "America/New_York"}
+        )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["timezone"] == "America/New_York"
@@ -241,13 +250,14 @@ class TestProfileViewPatch:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["language"] == "es"
 
-    def test_patch_profile_multiple_fields(self, authenticated_client, user, profile_url):
+    def test_patch_profile_multiple_fields(
+        self, authenticated_client, user, profile_url
+    ):
         """Can update multiple fields."""
-        response = authenticated_client.patch(profile_url, {
-            "first_name": "John",
-            "last_name": "Doe",
-            "phone": "+1234567890"
-        })
+        response = authenticated_client.patch(
+            profile_url,
+            {"first_name": "John", "last_name": "Doe", "phone": "+1234567890"},
+        )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["first_name"] == "John"
@@ -276,37 +286,39 @@ class TestAvatarViewPost:
 
     def test_upload_avatar_requires_auth(self, api_client, avatar_url, sample_image):
         """Unauthenticated request returns 401."""
-        response = api_client.post(avatar_url, {"avatar": sample_image}, format="multipart")
+        response = api_client.post(
+            avatar_url, {"avatar": sample_image}, format="multipart"
+        )
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_upload_avatar_success(self, authenticated_client, user, avatar_url, sample_image):
+    def test_upload_avatar_success(
+        self, authenticated_client, user, avatar_url, sample_image
+    ):
         """Can upload avatar."""
         response = authenticated_client.post(
-            avatar_url,
-            {"avatar": sample_image},
-            format="multipart"
+            avatar_url, {"avatar": sample_image}, format="multipart"
         )
 
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data["has_avatar"] is True
         assert response.data["avatar_url"] is not None
 
-    def test_upload_avatar_jpeg(self, authenticated_client, avatar_url, sample_jpeg_image):
+    def test_upload_avatar_jpeg(
+        self, authenticated_client, avatar_url, sample_jpeg_image
+    ):
         """Can upload JPEG avatar."""
         response = authenticated_client.post(
-            avatar_url,
-            {"avatar": sample_jpeg_image},
-            format="multipart"
+            avatar_url, {"avatar": sample_jpeg_image}, format="multipart"
         )
 
         assert response.status_code == status.HTTP_201_CREATED
 
-    def test_upload_avatar_invalid_file(self, authenticated_client, avatar_url, invalid_file):
+    def test_upload_avatar_invalid_file(
+        self, authenticated_client, avatar_url, invalid_file
+    ):
         """Invalid file type returns 400."""
         response = authenticated_client.post(
-            avatar_url,
-            {"avatar": invalid_file},
-            format="multipart"
+            avatar_url, {"avatar": invalid_file}, format="multipart"
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -319,20 +331,18 @@ class TestAvatarViewPost:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "avatar" in response.data.get("error", {}).get("details", {})
 
-    def test_upload_avatar_replaces_existing(self, authenticated_client, user, avatar_url, sample_image, sample_jpeg_image):
+    def test_upload_avatar_replaces_existing(
+        self, authenticated_client, user, avatar_url, sample_image, sample_jpeg_image
+    ):
         """Uploading new avatar replaces existing."""
         # Upload first avatar
         authenticated_client.post(
-            avatar_url,
-            {"avatar": sample_image},
-            format="multipart"
+            avatar_url, {"avatar": sample_image}, format="multipart"
         )
 
         # Upload second avatar
         response = authenticated_client.post(
-            avatar_url,
-            {"avatar": sample_jpeg_image},
-            format="multipart"
+            avatar_url, {"avatar": sample_jpeg_image}, format="multipart"
         )
 
         assert response.status_code == status.HTTP_201_CREATED
@@ -349,13 +359,13 @@ class TestAvatarViewDelete:
         response = api_client.delete(avatar_url)
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_delete_avatar_success(self, authenticated_client, user, avatar_url, sample_image):
+    def test_delete_avatar_success(
+        self, authenticated_client, user, avatar_url, sample_image
+    ):
         """Can delete avatar."""
         # First upload an avatar
         authenticated_client.post(
-            avatar_url,
-            {"avatar": sample_image},
-            format="multipart"
+            avatar_url, {"avatar": sample_image}, format="multipart"
         )
 
         response = authenticated_client.delete(avatar_url)
@@ -410,33 +420,51 @@ class TestUserOutputSerializer:
         response = authenticated_client.get(me_url)
 
         expected_fields = [
-            "id", "email", "username", "is_active", "is_verified",
-            "is_complete", "can_create_business", "is_staff", "is_superuser",
-            "date_joined", "last_login", "profile"
+            "id",
+            "email",
+            "username",
+            "is_active",
+            "is_verified",
+            "is_complete",
+            "can_create_business",
+            "is_staff",
+            "is_superuser",
+            "date_joined",
+            "last_login",
+            "profile",
         ]
 
         for field in expected_fields:
             assert field in response.data
 
-    def test_profile_output_has_expected_fields(self, authenticated_client, profile_url):
+    def test_profile_output_has_expected_fields(
+        self, authenticated_client, profile_url
+    ):
         """Profile output has all expected fields."""
         response = authenticated_client.get(profile_url)
 
         expected_fields = [
-            "first_name", "last_name", "full_name", "display_name",
-            "phone", "avatar_url", "has_avatar", "timezone", "language"
+            "first_name",
+            "last_name",
+            "full_name",
+            "display_name",
+            "phone",
+            "avatar_url",
+            "has_avatar",
+            "timezone",
+            "language",
         ]
 
         for field in expected_fields:
             assert field in response.data
 
-    def test_avatar_url_is_absolute(self, authenticated_client, user, avatar_url, sample_image, profile_url):
+    def test_avatar_url_is_absolute(
+        self, authenticated_client, user, avatar_url, sample_image, profile_url
+    ):
         """Avatar URL is absolute when avatar exists."""
         # Upload avatar
         authenticated_client.post(
-            avatar_url,
-            {"avatar": sample_image},
-            format="multipart"
+            avatar_url, {"avatar": sample_image}, format="multipart"
         )
 
         response = authenticated_client.get(profile_url)
@@ -467,17 +495,23 @@ class TestCheckUsernameView:
 
     def test_available_username(self, authenticated_client, check_username_url):
         """Available username returns available=True, is_current=False."""
-        response = authenticated_client.get(check_username_url, {"username": "uniquename123"})
+        response = authenticated_client.get(
+            check_username_url, {"username": "uniquename123"}
+        )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["available"] is True
         assert response.data["is_current"] is False
 
-    def test_taken_username(self, authenticated_client, user_factory, check_username_url):
+    def test_taken_username(
+        self, authenticated_client, user_factory, check_username_url
+    ):
         """Taken username returns available=False."""
         user_factory(username="taken_name")
 
-        response = authenticated_client.get(check_username_url, {"username": "taken_name"})
+        response = authenticated_client.get(
+            check_username_url, {"username": "taken_name"}
+        )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["available"] is False
@@ -485,17 +519,23 @@ class TestCheckUsernameView:
 
     def test_own_username(self, authenticated_client, user, check_username_url):
         """Own username returns available=True, is_current=True."""
-        response = authenticated_client.get(check_username_url, {"username": user.username})
+        response = authenticated_client.get(
+            check_username_url, {"username": user.username}
+        )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["available"] is True
         assert response.data["is_current"] is True
 
-    def test_case_insensitive_taken(self, authenticated_client, user_factory, check_username_url):
+    def test_case_insensitive_taken(
+        self, authenticated_client, user_factory, check_username_url
+    ):
         """Username check is case-insensitive."""
         user_factory(username="takenname")
 
-        response = authenticated_client.get(check_username_url, {"username": "TakenName"})
+        response = authenticated_client.get(
+            check_username_url, {"username": "TakenName"}
+        )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["available"] is False
@@ -516,9 +556,13 @@ class TestCheckUsernameView:
         response = authenticated_client.get(check_username_url, {"username": "ab"})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_invalid_format_special_chars(self, authenticated_client, check_username_url):
+    def test_invalid_format_special_chars(
+        self, authenticated_client, check_username_url
+    ):
         """Username with special characters returns 400."""
-        response = authenticated_client.get(check_username_url, {"username": "user@name"})
+        response = authenticated_client.get(
+            check_username_url, {"username": "user@name"}
+        )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_missing_username_param(self, authenticated_client, check_username_url):
@@ -554,7 +598,9 @@ class TestUserPublicDetailViewAuth:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["username"] == another_user.username
 
-    def test_nonexistent_user_returns_404(self, authenticated_client, public_profile_url):
+    def test_nonexistent_user_returns_404(
+        self, authenticated_client, public_profile_url
+    ):
         """Non-existent username returns 404."""
         response = authenticated_client.get(public_profile_url("nonexistent_user_xyz"))
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -735,9 +781,11 @@ class TestUserPublicDetailViewPermissions:
     ):
         """User without a profile record returns limited data (active but no profile)."""
         from apps.users.tests.factories import UserFactory
+
         target = UserFactory()
         # Delete profile if auto-created
         from apps.users.models import UserProfile
+
         UserProfile.objects.filter(user=target).delete()
 
         response = authenticated_client.get(public_profile_url(target.username))
@@ -751,6 +799,7 @@ class TestUserPublicDetailViewPermissions:
     ):
         """Viewing own profile without profile record still returns 200 (self-bypass)."""
         from apps.users.models import UserProfile
+
         UserProfile.objects.filter(user=user).delete()
 
         response = authenticated_client.get(public_profile_url(user.username))
@@ -773,6 +822,7 @@ class TestUserVisibilityAccess:
     ):
         """Connected user can view a private profile in full (not limited)."""
         from unittest.mock import patch
+
         from apps.users.tests.factories import UserFactory
 
         viewer = UserFactory()
@@ -800,6 +850,7 @@ class TestUserVisibilityAccess:
     ):
         """Non-connected user sees limited view of private profile."""
         from unittest.mock import patch
+
         from apps.users.tests.factories import UserFactory
 
         viewer = UserFactory()
@@ -823,6 +874,7 @@ class TestUserVisibilityAccess:
     ):
         """_permissions is injected even on limited profile responses."""
         from unittest.mock import patch
+
         from apps.users.tests.factories import UserFactory
 
         viewer = UserFactory()
@@ -848,6 +900,7 @@ class TestUserVisibilityAccess:
     ):
         """_relationship is injected even on limited profile responses."""
         from unittest.mock import patch
+
         from apps.users.tests.factories import UserFactory
 
         viewer = UserFactory()
@@ -857,15 +910,19 @@ class TestUserVisibilityAccess:
 
         api_client.force_authenticate(user=viewer)
 
-        with patch(
-            "apps.network.selectors.ConnectionSelector.is_connected",
-            return_value=False,
-        ), patch(
-            "apps.network.selectors.ConnectionSelector.get_connection_between_users",
-            return_value=None,
-        ), patch(
-            "apps.transaction.selectors.TransactionSelector.has_active_in_conflict_group",
-            return_value=None,
+        with (
+            patch(
+                "apps.network.selectors.ConnectionSelector.is_connected",
+                return_value=False,
+            ),
+            patch(
+                "apps.network.selectors.ConnectionSelector.get_connection_between_users",
+                return_value=None,
+            ),
+            patch(
+                "apps.transaction.selectors.TransactionSelector.has_active_in_conflict_group",
+                return_value=None,
+            ),
         ):
             response = api_client.get(public_profile_url(target.username))
 
@@ -876,7 +933,8 @@ class TestUserVisibilityAccess:
         self, api_client, public_profile_url, db
     ):
         """Connected users see connection_id in _relationship."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
+
         from apps.users.tests.factories import UserFactory
 
         viewer = UserFactory()
@@ -888,15 +946,19 @@ class TestUserVisibilityAccess:
 
         api_client.force_authenticate(user=viewer)
 
-        with patch(
-            "apps.network.selectors.ConnectionSelector.is_connected",
-            return_value=True,
-        ), patch(
-            "apps.network.selectors.ConnectionSelector.get_connection_between_users",
-            return_value=mock_connection,
-        ), patch(
-            "apps.transaction.selectors.TransactionSelector.has_active_in_conflict_group",
-            return_value=None,
+        with (
+            patch(
+                "apps.network.selectors.ConnectionSelector.is_connected",
+                return_value=True,
+            ),
+            patch(
+                "apps.network.selectors.ConnectionSelector.get_connection_between_users",
+                return_value=mock_connection,
+            ),
+            patch(
+                "apps.transaction.selectors.TransactionSelector.has_active_in_conflict_group",
+                return_value=None,
+            ),
         ):
             response = api_client.get(public_profile_url(target.username))
 
@@ -909,7 +971,8 @@ class TestUserVisibilityAccess:
         self, api_client, public_profile_url, db
     ):
         """Pending connection request shows viewer_role in _relationship."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
+
         from apps.users.tests.factories import UserFactory
 
         viewer = UserFactory()
@@ -925,15 +988,19 @@ class TestUserVisibilityAccess:
 
         api_client.force_authenticate(user=viewer)
 
-        with patch(
-            "apps.network.selectors.ConnectionSelector.is_connected",
-            return_value=False,
-        ), patch(
-            "apps.network.selectors.ConnectionSelector.get_connection_between_users",
-            return_value=None,
-        ), patch(
-            "apps.transaction.selectors.TransactionSelector.has_active_in_conflict_group",
-            return_value=mock_txn,
+        with (
+            patch(
+                "apps.network.selectors.ConnectionSelector.is_connected",
+                return_value=False,
+            ),
+            patch(
+                "apps.network.selectors.ConnectionSelector.get_connection_between_users",
+                return_value=None,
+            ),
+            patch(
+                "apps.transaction.selectors.TransactionSelector.has_active_in_conflict_group",
+                return_value=mock_txn,
+            ),
         ):
             response = api_client.get(public_profile_url(target.username))
 
@@ -947,6 +1014,7 @@ class TestUserVisibilityAccess:
     ):
         """Limited profile includes all T1 user profile fields."""
         from unittest.mock import patch
+
         from apps.users.tests.factories import UserFactory
 
         viewer = UserFactory()
@@ -1023,3 +1091,267 @@ class TestUserProfileVisibilityView:
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+# =============================================================================
+# APPROVED BUSINESS CREATORS LIST VIEW TESTS
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestApprovedBusinessCreatorsListView:
+    """Tests for GET /api/v1/platform/approved-creators/."""
+
+    URL = "/api/v1/platform/approved-creators/"
+
+    @pytest.fixture
+    def platform(self, db):
+        from apps.organization.tests.factories import PlatformAccountFactory
+
+        from apps.organization.platform.models import PlatformAccount
+
+        try:
+            return PlatformAccount.objects.get()
+        except PlatformAccount.DoesNotExist:
+            return PlatformAccountFactory()
+
+    @pytest.fixture
+    def platform_owner_role(self, db, platform):
+        from apps.core.constants import AccountType
+        from apps.rbac.models import Role
+
+        return Role.objects.create(
+            name="Platform Owner",
+            account_type=AccountType.PLATFORM,
+            account_id=platform.id,
+            level=0,
+            is_system_role=True,
+        )
+
+    @pytest.fixture
+    def platform_admin_role(self, db, platform):
+        from apps.core.constants import AccountType
+        from apps.rbac.models import Role
+
+        return Role.objects.create(
+            name="Platform Admin",
+            account_type=AccountType.PLATFORM,
+            account_id=platform.id,
+            level=2,
+            is_system_role=False,
+        )
+
+    @pytest.fixture
+    def platform_base_member_role(self, db, platform):
+        from apps.core.constants import AccountType
+        from apps.rbac.models import Role
+
+        return Role.objects.create(
+            name="Global Moderator",
+            account_type=AccountType.PLATFORM,
+            account_id=platform.id,
+            level=5,
+            is_system_role=False,
+        )
+
+    @pytest.fixture
+    def approve_perm(self, db):
+        from apps.rbac.models import Permission
+
+        perm, _ = Permission.objects.get_or_create(
+            code="can_approve_business_creation",
+            defaults={
+                "name": "Approve Business Creation",
+                "description": "Approve new business account creation requests",
+                "category": "platform",
+            },
+        )
+        return perm
+
+    @pytest.fixture
+    def platform_owner_membership(self, db, user, platform, platform_owner_role, approve_perm):
+        from apps.core.constants import MembershipStatus
+        from apps.rbac.models import Membership, RolePermission
+
+        membership = Membership.objects.create(
+            user=user,
+            account_type=platform_owner_role.account_type,
+            account_id=platform_owner_role.account_id,
+            role=platform_owner_role,
+            is_owner=True,
+            status=MembershipStatus.ACTIVE,
+        )
+        RolePermission.objects.get_or_create(
+            role=platform_owner_role,
+            permission=approve_perm,
+            defaults={"scope": "platform_only"},
+        )
+        return membership
+
+    @pytest.fixture
+    def platform_base_membership(self, db, another_user, platform, platform_base_member_role):
+        from apps.core.constants import MembershipStatus
+        from apps.rbac.models import Membership
+
+        return Membership.objects.create(
+            user=another_user,
+            account_type=platform_base_member_role.account_type,
+            account_id=platform_base_member_role.account_id,
+            role=platform_base_member_role,
+            is_owner=False,
+            status=MembershipStatus.ACTIVE,
+        )
+
+    @pytest.fixture
+    def approved_creators(self, db):
+        """Create users with can_create_business=True."""
+        from apps.users.tests.factories import UserFactory
+
+        u1 = UserFactory(
+            email="alice_creator@test.com",
+            username="alice_creator",
+            can_create_business=True,
+        )
+        u1.profile.first_name = "Alice"
+        u1.profile.last_name = "Creator"
+        u1.profile.save()
+
+        u2 = UserFactory(
+            email="bob_creator@test.com",
+            username="bob_creator",
+            can_create_business=True,
+        )
+        u2.profile.first_name = "Bob"
+        u2.profile.last_name = "Builder"
+        u2.profile.save()
+
+        return [u1, u2]
+
+    # --- Access control ---
+
+    def test_unauthenticated_returns_401(self, api_client):
+        """Unauthenticated request returns 401."""
+        response = api_client.get(self.URL)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_non_platform_member_returns_403(self, authenticated_client):
+        """User without platform membership gets 403."""
+        response = authenticated_client.get(self.URL)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_platform_member_without_permission_returns_403(
+        self, api_client, platform_base_membership
+    ):
+        """Platform member without can_approve_business_creation gets 403."""
+        api_client.force_authenticate(user=platform_base_membership.user)
+        response = api_client.get(self.URL)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_platform_owner_with_permission_returns_200(
+        self, authenticated_client, platform_owner_membership, approved_creators
+    ):
+        """Platform owner with permission gets 200 and results."""
+        response = authenticated_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 2
+
+    # --- Filtering ---
+
+    def test_only_approved_creators_returned(
+        self, authenticated_client, platform_owner_membership, approved_creators
+    ):
+        """Only users with can_create_business=True are returned."""
+        from apps.users.tests.factories import UserFactory
+
+        # Create a user without permission
+        UserFactory(
+            email="noperm@test.com",
+            username="noperm_user",
+            can_create_business=False,
+        )
+
+        response = authenticated_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 2  # Only the 2 approved creators
+
+        usernames = [r["username"] for r in response.data["results"]]
+        assert "noperm_user" not in usernames
+
+    def test_search_by_name(
+        self, authenticated_client, platform_owner_membership, approved_creators
+    ):
+        """Search filters by name."""
+        response = authenticated_client.get(self.URL, {"search": "Alice"})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+        assert response.data["results"][0]["username"] == "alice_creator"
+
+    def test_search_by_email(
+        self, authenticated_client, platform_owner_membership, approved_creators
+    ):
+        """Search filters by email."""
+        response = authenticated_client.get(self.URL, {"search": "bob_creator@"})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+        assert response.data["results"][0]["username"] == "bob_creator"
+
+    def test_search_by_username(
+        self, authenticated_client, platform_owner_membership, approved_creators
+    ):
+        """Search filters by username."""
+        response = authenticated_client.get(self.URL, {"search": "alice_creator"})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+
+    # --- Ordering ---
+
+    def test_ordering_by_name(
+        self, authenticated_client, platform_owner_membership, approved_creators
+    ):
+        """Ordering=name sorts by first_name."""
+        response = authenticated_client.get(self.URL, {"ordering": "name"})
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data["results"]
+        assert results[0]["display_name"] == "Alice Creator"
+        assert results[1]["display_name"] == "Bob Builder"
+
+    def test_ordering_by_email(
+        self, authenticated_client, platform_owner_membership, approved_creators
+    ):
+        """Ordering=email sorts by email."""
+        response = authenticated_client.get(self.URL, {"ordering": "email"})
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data["results"]
+        assert results[0]["email"] == "alice_creator@test.com"
+        assert results[1]["email"] == "bob_creator@test.com"
+
+    # --- Response structure ---
+
+    def test_response_structure(
+        self, authenticated_client, platform_owner_membership, approved_creators
+    ):
+        """Response contains expected fields."""
+        response = authenticated_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+
+        result = response.data["results"][0]
+        expected_fields = [
+            "id", "email", "username", "display_name",
+            "avatar_url", "can_create_business", "date_joined",
+        ]
+        for field in expected_fields:
+            assert field in result, f"Missing field: {field}"
+
+        assert result["can_create_business"] is True
+
+    # --- Pagination ---
+
+    def test_pagination_works(
+        self, authenticated_client, platform_owner_membership, approved_creators
+    ):
+        """Pagination limits results."""
+        response = authenticated_client.get(self.URL, {"page_size": 1})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 2
+        assert len(response.data["results"]) == 1
+        assert response.data["next"] is not None

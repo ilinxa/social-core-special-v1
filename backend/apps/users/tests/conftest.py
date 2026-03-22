@@ -5,26 +5,24 @@ Pytest configuration and fixtures for Users app tests.
 These fixtures are available to all tests in the users app.
 """
 
-import pytest
 from io import BytesIO
-from PIL import Image
+
+import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image
 from rest_framework.test import APIClient
 
-from apps.users.tests.factories import (
-    # User factories
-    UserFactory,
-    VerifiedUserFactory,
-    StaffUserFactory,
-    SuperuserFactory,
+from apps.users.tests.factories import (  # User factories; Profile factories
+    CompleteProfileFactory,
     InactiveUserFactory,
     ReferredUserFactory,
-    # Profile factories
+    StaffUserFactory,
+    SuperuserFactory,
+    UserFactory,
     UserProfileFactory,
-    CompleteProfileFactory,
     UserWithProfileFactory,
+    VerifiedUserFactory,
 )
-
 
 # =============================================================================
 # API CLIENT FIXTURES
@@ -191,9 +189,7 @@ def sample_image():
     buffer.seek(0)
 
     return SimpleUploadedFile(
-        name="test_avatar.png",
-        content=buffer.read(),
-        content_type="image/png"
+        name="test_avatar.png", content=buffer.read(), content_type="image/png"
     )
 
 
@@ -206,9 +202,7 @@ def sample_jpeg_image():
     buffer.seek(0)
 
     return SimpleUploadedFile(
-        name="test_avatar.jpg",
-        content=buffer.read(),
-        content_type="image/jpeg"
+        name="test_avatar.jpg", content=buffer.read(), content_type="image/jpeg"
     )
 
 
@@ -227,9 +221,7 @@ def oversized_image():
     buffer.seek(0)
 
     return SimpleUploadedFile(
-        name="large_avatar.png",
-        content=buffer.read(),
-        content_type="image/png"
+        name="large_avatar.png", content=buffer.read(), content_type="image/png"
     )
 
 
@@ -244,7 +236,7 @@ def invalid_file():
     return SimpleUploadedFile(
         name="not_an_image.txt",
         content=b"This is not an image file",
-        content_type="text/plain"
+        content_type="text/plain",
     )
 
 
@@ -280,6 +272,8 @@ def check_username_url():
 @pytest.fixture
 def public_profile_url():
     """Return a URL builder for public user profile endpoint."""
+
     def _url(username):
         return f"/api/v1/users/{username}/"
+
     return _url

@@ -42,7 +42,6 @@ from apps.auth.tests.factories import (
 )
 from apps.users.tests.factories import UserFactory
 
-
 # =============================================================================
 # REFRESH TOKEN TESTS
 # =============================================================================
@@ -87,9 +86,7 @@ class TestRefreshToken:
 
     def test_is_valid_false_when_expired_by_one_second(self):
         """is_valid returns False when the token expired just one second ago."""
-        token = RefreshTokenFactory(
-            expires_at=timezone.now() - timedelta(seconds=1)
-        )
+        token = RefreshTokenFactory(expires_at=timezone.now() - timedelta(seconds=1))
         assert token.is_valid is False
 
     def test_is_valid_false_when_revoked(self):
@@ -186,7 +183,7 @@ class TestRefreshToken:
 
     def test_default_ordering(self):
         """Tokens are ordered by -created_at by default."""
-        assert RefreshToken._meta.ordering == ['-created_at']
+        assert RefreshToken._meta.ordering == ["-created_at"]
 
     def test_meta_db_table(self):
         """RefreshToken uses the correct database table name."""

@@ -16,10 +16,10 @@ import pytest
 import redis as redis_lib
 import requests
 
-
 # =============================================================================
 # PYTEST HOOKS — Enforce definition order (prevent pytest-django reordering)
 # =============================================================================
+
 
 def pytest_collection_modifyitems(items):
     """Preserve test definition order within each module.
@@ -28,6 +28,7 @@ def pytest_collection_modifyitems(items):
     We rename our DB fixture to 'db_helper' to avoid collision, but this hook
     provides extra safety to keep tests in the order they appear in source files.
     """
+
     # Sort by: (module file path, class line number, function line number)
     def sort_key(item):
         # Get the module's file path for inter-file ordering
@@ -43,6 +44,7 @@ def pytest_collection_modifyitems(items):
 # =============================================================================
 # API HELPER — HTTP client with token management
 # =============================================================================
+
 
 class APIHelper:
     """HTTP client that wraps requests.Session with auth token management."""
@@ -81,19 +83,30 @@ class APIHelper:
 
     # -- Convenience auth methods --
 
-    def register_user(self, email, password="TestPass123!"):
+    def register_user(self, email, password="TestPass123!", username=None):
         """Register a new user. Returns response object.
 
-        RegisterSerializer fields: email, password (+ optional device_*).
-        NO password_confirm, NO first_name, NO last_name.
+        RegisterSerializer fields: email, username, password (+ optional device_*).
+        If username is not provided, it's derived from the email local part.
         Clears any stale Bearer token first (AllowAny endpoints still
         validate tokens if present via DRF authentication classes).
         """
+        if username is None:
+            # Derive username from email local part (e.g., alice@test.com -> alice)
+            local = email.split("@")[0].replace(".", "_").replace("-", "_")
+            # Ensure minimum 5 chars for regex validation
+            if len(local) < 5:
+                local = local + "_user"
+            username = local
         self.clear_token()
-        return self.post("auth/register/", json={
-            "email": email,
-            "password": password,
-        })
+        return self.post(
+            "auth/register/",
+            json={
+                "email": email,
+                "username": username,
+                "password": password,
+            },
+        )
 
     def login_as(self, email, password="TestPass123!"):
         """Login and set Bearer token. Returns response object.
@@ -103,10 +116,13 @@ class APIHelper:
         headers would cause 401 even on login.
         """
         self.clear_token()
-        r = self.post("auth/login/", json={
-            "email": email,
-            "password": password,
-        })
+        r = self.post(
+            "auth/login/",
+            json={
+                "email": email,
+                "password": password,
+            },
+        )
         if r.status_code == 200:
             data = r.json()
             self.set_token(data["tokens"]["access_token"])
@@ -120,9 +136,12 @@ class APIHelper:
         JWTAuthentication to 500 during validation before the view runs.
         """
         self.clear_token()
-        return self.post("auth/refresh/", json={
-            "refresh_token": refresh_token,
-        })
+        return self.post(
+            "auth/refresh/",
+            json={
+                "refresh_token": refresh_token,
+            },
+        )
 
     def login_as_with_retry(self, email, password="TestPass123!", max_wait=60):
         """Login with rate-limit retry. Waits up to max_wait seconds if throttled."""
@@ -130,6 +149,7 @@ class APIHelper:
         if r.status_code == 429:
             # Extract wait time from response
             import re
+
             wait = 30  # default
             try:
                 text = r.json().get("error", {}).get("message", "")
@@ -143,11 +163,14 @@ class APIHelper:
             r = self.login_as(email, password)
         return r
 
-    def register_with_retry(self, email, password="TestPass123!", max_wait=60):
+    def register_with_retry(
+        self, email, password="TestPass123!", username=None, max_wait=60
+    ):
         """Register with rate-limit retry."""
-        r = self.register_user(email, password)
+        r = self.register_user(email, password, username=username)
         if r.status_code == 429:
             import re
+
             wait = 30
             try:
                 text = r.json().get("error", {}).get("message", "")
@@ -158,13 +181,14 @@ class APIHelper:
                 pass
             wait = min(wait, max_wait)
             time.sleep(wait)
-            r = self.register_user(email, password)
+            r = self.register_user(email, password, username=username)
         return r
 
 
 # =============================================================================
 # TEST STATE — Session-wide shared state across all test phases
 # =============================================================================
+
 
 class TestState:
     """Mutable container for sharing state between ordered test phases.
@@ -220,6 +244,7 @@ class TestState:
 # =============================================================================
 # DB HELPER — Direct PostgreSQL queries for out-of-band data
 # =============================================================================
+
 
 class DBHelper:
     """Direct PostgreSQL access for data not available through API.
@@ -371,7 +396,9 @@ class DBHelper:
         )
         return str(row[0]) if row else None
 
-    def create_system_form_response(self, template_slug, user_email, data, context_type="", context_id=None):
+    def create_system_form_response(
+        self, template_slug, user_email, data, context_type="", context_id=None
+    ):
         """Create a form response for a system-owned form template via direct SQL.
 
         System forms have owner_type='system' and owner_id=NULL, so the standard
@@ -416,9 +443,14 @@ class DBHelper:
             )
             """,
             (
-                response_id, template_id, version, user_id,
-                submitter_context, data_json,
-                context_type, str(context_id) if context_id else None,
+                response_id,
+                template_id,
+                version,
+                user_id,
+                submitter_context,
+                data_json,
+                context_type,
+                str(context_id) if context_id else None,
             ),
             fetch=False,
         )
@@ -428,14 +460,16 @@ class DBHelper:
         """Promote a user to superuser + staff. Required for platform configuration."""
         self.execute(
             "UPDATE users SET is_superuser = TRUE, is_staff = TRUE WHERE email = %s",
-            (email,), fetch=False,
+            (email,),
+            fetch=False,
         )
 
     def grant_business_creation_permission(self, email):
         """Set can_create_business=True for a user."""
         self.execute(
             "UPDATE users SET can_create_business = TRUE WHERE email = %s",
-            (email,), fetch=False,
+            (email,),
+            fetch=False,
         )
 
     def set_business_max_members(self, business_id, max_members):
@@ -485,7 +519,7 @@ class DBHelper:
             return None
         role_id = str(row[0])
 
-        # Check if membership already exists
+        # Check if membership already exists for THIS user
         existing = self.execute_one(
             """
             SELECT id FROM rbac_membership
@@ -496,6 +530,17 @@ class DBHelper:
         )
         if existing:
             return str(existing[0])
+
+        # Soft-delete any existing owner membership to avoid unique constraint
+        self.execute(
+            """
+            UPDATE rbac_membership SET is_deleted = TRUE, deleted_at = NOW()
+            WHERE account_type = 'platform' AND account_id = %s
+                AND is_owner = TRUE AND is_deleted = FALSE
+            """,
+            (platform_id,),
+            fetch=False,
+        )
 
         # Create membership (include all NOT NULL columns)
         membership_id = str(uuid.uuid4())
@@ -518,6 +563,7 @@ class DBHelper:
 # =============================================================================
 # REDIS HELPER — Direct Redis queries for cache/blacklist verification
 # =============================================================================
+
 
 class RedisHelper:
     """Direct Redis access for verifying cache state, JTI blacklist, etc."""
@@ -563,18 +609,17 @@ class RedisHelper:
 # SESSION-SCOPED FIXTURES
 # =============================================================================
 
+
 @pytest.fixture(scope="session")
 def api():
     """Session-scoped HTTP client."""
     helper = APIHelper()
     # Quick connectivity check
     try:
-        r = helper.session.get(f"{helper.base_url}/")
+        helper.session.get(f"{helper.base_url}/")
         # Any response (even 404) means server is up
     except requests.ConnectionError:
-        pytest.skip(
-            "Django server not running. Start with: make dev"
-        )
+        pytest.skip("Django server not running. Start with: make dev")
     return helper
 
 
@@ -596,9 +641,7 @@ def db_helper():
     try:
         helper.execute("SELECT 1")
     except psycopg2.OperationalError:
-        pytest.skip(
-            "PostgreSQL not available. Start with: make dev-up"
-        )
+        pytest.skip("PostgreSQL not available. Start with: make dev-up")
     return helper
 
 
@@ -609,9 +652,7 @@ def redis_helper():
     try:
         helper.cache_client.ping()
     except redis_lib.ConnectionError:
-        pytest.skip(
-            "Redis not available. Start with: make dev-up"
-        )
+        pytest.skip("Redis not available. Start with: make dev-up")
     return helper
 
 
@@ -619,17 +660,21 @@ def redis_helper():
 # UTILITY FIXTURES
 # =============================================================================
 
+
 @pytest.fixture(scope="session")
 def random_uuid():
     """Generate a random UUID (for 404 tests)."""
+
     def _gen():
         return str(uuid.uuid4())
+
     return _gen
 
 
 @pytest.fixture(scope="session")
 def assert_error():
     """Helper to assert standard error response format."""
+
     def _check(response, expected_code, expected_status=None):
         if expected_status:
             assert response.status_code == expected_status, (
@@ -642,6 +687,7 @@ def assert_error():
             f"Expected error code '{expected_code}', "
             f"got '{data['error']['code']}': {data['error']['message']}"
         )
+
     return _check
 
 
@@ -666,28 +712,32 @@ def _cleanup_previous_run(db_helper):
                 """
                 DELETE FROM auth_verification_tokens WHERE email = %s
                 """,
-                (email,), fetch=False,
+                (email,),
+                fetch=False,
             )
             db_helper.execute(
                 """
                 DELETE FROM auth_password_reset_tokens
                 WHERE user_id IN (SELECT id FROM users WHERE email = %s)
                 """,
-                (email,), fetch=False,
+                (email,),
+                fetch=False,
             )
             db_helper.execute(
                 """
                 DELETE FROM auth_device_sessions
                 WHERE user_id IN (SELECT id FROM users WHERE email = %s)
                 """,
-                (email,), fetch=False,
+                (email,),
+                fetch=False,
             )
             db_helper.execute(
                 """
                 DELETE FROM auth_refresh_tokens
                 WHERE user_id IN (SELECT id FROM users WHERE email = %s)
                 """,
-                (email,), fetch=False,
+                (email,),
+                fetch=False,
             )
             # Delete memberships
             db_helper.execute(
@@ -695,12 +745,14 @@ def _cleanup_previous_run(db_helper):
                 DELETE FROM rbac_membership
                 WHERE user_id IN (SELECT id FROM users WHERE email = %s)
                 """,
-                (email,), fetch=False,
+                (email,),
+                fetch=False,
             )
             # Delete user
             db_helper.execute(
                 "DELETE FROM users WHERE email = %s",
-                (email,), fetch=False,
+                (email,),
+                fetch=False,
             )
         except Exception:
             pass  # Table may not exist or FK constraints may prevent deletion

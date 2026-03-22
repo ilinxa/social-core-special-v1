@@ -19,15 +19,12 @@ class SMSChannel(BaseChannel):
     """
     SMS notification channel via Twilio.
 
-    TODO: Implement with Twilio SDK when ready.
+    NOTE: SMS channel is a placeholder. Will be implemented when Twilio integration is prioritized.
     """
 
     @staticmethod
     def send(
-        *,
-        user,
-        notification_type: str,
-        context: Dict[str, Any]
+        *, user, notification_type: str, context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Send notification via SMS.
@@ -36,12 +33,10 @@ class SMSChannel(BaseChannel):
         """
         # Check if SMS is configured
         if not SMSChannel.is_available():
-            return {
-                'status': 'skipped',
-                'reason': 'SMS notifications not configured'
-            }
+            return {"status": "skipped", "reason": "SMS notifications not configured"}
 
-        # TODO: Implement SMS notification logic
+        # NOTE: SMS notification logic placeholder
+        # When Twilio integration is prioritized:
         # 1. Get user's phone from profile
         # 2. Validate phone number format
         # 3. Send via Twilio
@@ -51,20 +46,17 @@ class SMSChannel(BaseChannel):
             "notification.sms.skipped",
             user_id=str(user.id),
             notification_type=notification_type,
-            reason='Not implemented',
+            reason="Not implemented",
         )
 
-        return {
-            'status': 'skipped',
-            'reason': 'SMS channel not implemented yet'
-        }
+        return {"status": "skipped", "reason": "SMS channel not implemented yet"}
 
     @staticmethod
     def is_available() -> bool:
         """
         Check if Twilio is configured.
         """
-        # TODO: Check for Twilio credentials
+        # NOTE: Check for Twilio credentials when integration is ready
         # from django.conf import settings
         # return bool(getattr(settings, 'TWILIO_AUTH_TOKEN', None))
         return False

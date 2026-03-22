@@ -1,19 +1,31 @@
 # apps/cms/tests/test_selectors.py
 import uuid
+
 import pytest
-from apps.core.exceptions import NotFound
+
+from apps.cms.constants import PageStatus
 from apps.cms.selectors import (
-    CMSSiteSelector, CMSPageSelector, CMSTemplateSelector,
-    CMSBlockPlacementSelector, CMSMediaSelector,
-    CMSContentVersionSelector, CMSApiKeySelector,
+    CMSApiKeySelector,
+    CMSBlockPlacementSelector,
+    CMSContentVersionSelector,
+    CMSMediaSelector,
+    CMSPageSelector,
+    CMSSiteSelector,
+    CMSTemplateSelector,
 )
 from apps.cms.tests.factories import (
-    SiteFactory, PageFactory, SectionTemplateFactory, BlockTemplateFactory,
-    PageSectionPlacementFactory, SectionBlockPlacementFactory,
-    ContentVersionFactory, MediaFileFactory, MediaFolderFactory,
+    BlockTemplateFactory,
     CMSApiKeyFactory,
+    ContentVersionFactory,
+    MediaFileFactory,
+    MediaFolderFactory,
+    PageFactory,
+    PageSectionPlacementFactory,
+    SectionBlockPlacementFactory,
+    SectionTemplateFactory,
+    SiteFactory,
 )
-from apps.cms.constants import PageStatus
+from apps.core.exceptions import NotFound
 
 
 @pytest.mark.django_db
@@ -42,7 +54,8 @@ class TestCMSSiteSelector:
 
     def test_list_for_owner(self, site):
         result = CMSSiteSelector.list_for_owner(
-            owner_type=site.owner_type, owner_id=site.owner_id,
+            owner_type=site.owner_type,
+            owner_id=site.owner_id,
         )
         assert site in result
 
@@ -53,7 +66,9 @@ class TestCMSSiteSelector:
             is_active=False,
         )
         result = CMSSiteSelector.list_for_owner(
-            owner_type=site.owner_type, owner_id=site.owner_id, active_only=True,
+            owner_type=site.owner_type,
+            owner_id=site.owner_id,
+            active_only=True,
         )
         assert site in result
         assert inactive_site not in result
@@ -87,12 +102,14 @@ class TestCMSPageSelector:
 
     def test_list_by_site_with_status_filter(self, page):
         result = CMSPageSelector.list_by_site(
-            site_id=page.site_id, status=PageStatus.DRAFT,
+            site_id=page.site_id,
+            status=PageStatus.DRAFT,
         )
         assert page in result
 
         result = CMSPageSelector.list_by_site(
-            site_id=page.site_id, status=PageStatus.PUBLISHED,
+            site_id=page.site_id,
+            status=PageStatus.PUBLISHED,
         )
         assert page not in result
 
@@ -104,7 +121,9 @@ class TestCMSPageSelector:
 @pytest.mark.django_db
 class TestCMSTemplateSelector:
     def test_get_section_template_by_slug(self, section_template):
-        result = CMSTemplateSelector.get_section_template_by_slug(slug=section_template.slug)
+        result = CMSTemplateSelector.get_section_template_by_slug(
+            slug=section_template.slug
+        )
         assert result.id == section_template.id
 
     def test_get_section_template_not_found(self):
@@ -112,11 +131,15 @@ class TestCMSTemplateSelector:
             CMSTemplateSelector.get_section_template_by_slug(slug="nonexistent")
 
     def test_get_block_template_by_slug(self, block_template):
-        result = CMSTemplateSelector.get_block_template_by_slug(slug=block_template.slug)
+        result = CMSTemplateSelector.get_block_template_by_slug(
+            slug=block_template.slug
+        )
         assert result.id == block_template.id
 
     def test_get_block_template_by_id(self, block_template):
-        result = CMSTemplateSelector.get_block_template_by_id(template_id=block_template.id)
+        result = CMSTemplateSelector.get_block_template_by_id(
+            template_id=block_template.id
+        )
         assert result.id == block_template.id
 
     def test_list_section_templates(self, section_template):
@@ -197,37 +220,51 @@ class TestCMSMediaSelector:
 class TestCMSContentVersionSelector:
     def test_list_for_placement(self, block_placement, user):
         v1 = ContentVersionFactory(
-            block_placement=block_placement, version_number=1, created_by=user,
+            block_placement=block_placement,
+            version_number=1,
+            created_by=user,
         )
         v2 = ContentVersionFactory(
-            block_placement=block_placement, version_number=2, created_by=user,
+            block_placement=block_placement,
+            version_number=2,
+            created_by=user,
         )
-        result = list(CMSContentVersionSelector.list_for_placement(
-            block_placement_id=block_placement.id,
-        ))
+        result = list(
+            CMSContentVersionSelector.list_for_placement(
+                block_placement_id=block_placement.id,
+            )
+        )
         assert result[0].version_number > result[1].version_number
 
     def test_get_version(self, block_placement, user):
         v = ContentVersionFactory(
-            block_placement=block_placement, version_number=5, created_by=user,
+            block_placement=block_placement,
+            version_number=5,
+            created_by=user,
         )
         result = CMSContentVersionSelector.get_version(
-            block_placement_id=block_placement.id, version_number=5,
+            block_placement_id=block_placement.id,
+            version_number=5,
         )
         assert result.id == v.id
 
     def test_get_version_not_found(self, block_placement):
         with pytest.raises(NotFound):
             CMSContentVersionSelector.get_version(
-                block_placement_id=block_placement.id, version_number=999,
+                block_placement_id=block_placement.id,
+                version_number=999,
             )
 
     def test_get_latest_version(self, block_placement, user):
         ContentVersionFactory(
-            block_placement=block_placement, version_number=1, created_by=user,
+            block_placement=block_placement,
+            version_number=1,
+            created_by=user,
         )
         ContentVersionFactory(
-            block_placement=block_placement, version_number=3, created_by=user,
+            block_placement=block_placement,
+            version_number=3,
+            created_by=user,
         )
         result = CMSContentVersionSelector.get_latest_version(
             block_placement_id=block_placement.id,

@@ -20,7 +20,7 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-@shared_task(name='auth.cleanup_expired_tokens')
+@shared_task(name="auth.cleanup_expired_tokens", soft_time_limit=240, time_limit=300)
 def cleanup_expired_tokens():
     """
     Periodic cleanup of expired tokens.
@@ -36,46 +36,39 @@ def cleanup_expired_tokens():
         Dict with deletion counts
     """
     from apps.auth.models import (
-        RefreshToken,
         EmailVerificationToken,
         PasswordResetToken,
+        RefreshToken,
     )
 
     # Keep tokens for 7 days past expiry for audit trail
     cutoff = timezone.now() - timedelta(days=7)
 
     # Cleanup expired refresh tokens
-    deleted_refresh = RefreshToken.objects.filter(
-        expires_at__lt=cutoff
-    ).delete()[0]
+    deleted_refresh = RefreshToken.objects.filter(expires_at__lt=cutoff).delete()[0]
 
     # Cleanup used/expired verification tokens
     deleted_verification = EmailVerificationToken.objects.filter(
-        models.Q(expires_at__lt=cutoff) |
-        models.Q(is_used=True, used_at__lt=cutoff)
+        models.Q(expires_at__lt=cutoff) | models.Q(is_used=True, used_at__lt=cutoff)
     ).delete()[0]
 
     # Cleanup used/expired password reset tokens
     deleted_reset = PasswordResetToken.objects.filter(
-        models.Q(expires_at__lt=cutoff) |
-        models.Q(is_used=True, used_at__lt=cutoff)
+        models.Q(expires_at__lt=cutoff) | models.Q(is_used=True, used_at__lt=cutoff)
     ).delete()[0]
 
     result = {
-        'refresh_tokens_deleted': deleted_refresh,
-        'verification_tokens_deleted': deleted_verification,
-        'password_reset_tokens_deleted': deleted_reset,
+        "refresh_tokens_deleted": deleted_refresh,
+        "verification_tokens_deleted": deleted_verification,
+        "password_reset_tokens_deleted": deleted_reset,
     }
 
-    logger.info(
-        "auth.cleanup.completed",
-        extra=result
-    )
+    logger.info("auth.cleanup.completed", extra=result)
 
     return result
 
 
-@shared_task(name='auth.cleanup_inactive_sessions')
+@shared_task(name="auth.cleanup_inactive_sessions", soft_time_limit=240, time_limit=300)
 def cleanup_inactive_sessions():
     """
     Cleanup sessions inactive for 30+ days.
@@ -96,22 +89,18 @@ def cleanup_inactive_sessions():
     cutoff = timezone.now() - timedelta(days=30)
 
     deleted = DeviceSession.objects.filter(
-        last_activity__lt=cutoff,
-        is_active=False
+        last_activity__lt=cutoff, is_active=False
     ).delete()[0]
 
-    result = {'sessions_deleted': deleted}
+    result = {"sessions_deleted": deleted}
 
-    logger.info(
-        "auth.session_cleanup.completed",
-        extra=result
-    )
+    logger.info("auth.session_cleanup.completed", extra=result)
 
     return result
 
 
-@shared_task(name='auth.revoke_user_tokens')
-def revoke_user_tokens(user_id: int, reason: str = 'security'):
+@shared_task(name="auth.revoke_user_tokens", soft_time_limit=60, time_limit=120)
+def revoke_user_tokens(user_id: int, reason: str = "security"):
     """
     Async task to revoke all tokens for a user.
 
@@ -127,36 +116,27 @@ def revoke_user_tokens(user_id: int, reason: str = 'security'):
     Returns:
         Dict with revocation count
     """
-    from apps.auth.models import RefreshToken, DeviceSession
     from apps.auth.blacklist import JTIBlacklist
+    from apps.auth.models import DeviceSession, RefreshToken
 
     # Blacklist all JTIs
     JTIBlacklist.blacklist_user_tokens(user_id)
 
     # Revoke all refresh tokens
-    token_count = RefreshToken.objects.filter(
-        user_id=user_id,
-        is_revoked=False
-    ).update(
-        is_revoked=True,
-        revoked_at=timezone.now(),
-        revoked_reason=reason
+    token_count = RefreshToken.objects.filter(user_id=user_id, is_revoked=False).update(
+        is_revoked=True, revoked_at=timezone.now(), revoked_reason=reason
     )
 
     # Deactivate all sessions
     session_count = DeviceSession.objects.filter(
-        user_id=user_id,
-        is_active=True
+        user_id=user_id, is_active=True
     ).update(is_active=False)
 
     result = {
-        'tokens_revoked': token_count,
-        'sessions_deactivated': session_count,
+        "tokens_revoked": token_count,
+        "sessions_deactivated": session_count,
     }
 
-    logger.info(
-        "auth.revoke_user.completed",
-        extra={'user_id': user_id, **result}
-    )
+    logger.info("auth.revoke_user.completed", extra={"user_id": user_id, **result})
 
     return result

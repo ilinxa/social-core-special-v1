@@ -7,7 +7,7 @@ and cleanup_old_notification_logs Celery tasks.
 
 import uuid
 from datetime import timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.test import override_settings
@@ -15,18 +15,17 @@ from django.utils import timezone
 
 from apps.notifications.models import NotificationLog
 from apps.notifications.tasks import (
+    cleanup_old_notification_logs,
     dispatch_notification_task,
     retry_partial_notification_task,
-    cleanup_old_notification_logs,
 )
 from apps.notifications.tests.factories import (
-    NotificationLogFactory,
-    SentNotificationLogFactory,
     FailedNotificationLogFactory,
+    NotificationLogFactory,
     PartialNotificationLogFactory,
     ProcessingNotificationLogFactory,
+    SentNotificationLogFactory,
 )
-
 
 # =============================================================================
 # HELPERS
@@ -160,9 +159,7 @@ class TestDispatchNotificationTask:
 
     @patch("apps.notifications.tasks.retry_partial_notification_task")
     @patch("apps.notifications.services.channels.get_channel")
-    def test_dispatch_partial_schedules_retry(
-        self, mock_get_channel, mock_retry_task
-    ):
+    def test_dispatch_partial_schedules_retry(self, mock_get_channel, mock_retry_task):
         """When dispatch results in PARTIAL, retry_partial_notification_task is scheduled."""
         email_channel = _mock_channel({"status": "sent"})
         push_channel = _mock_channel({"status": "failed", "error": "Timeout"})

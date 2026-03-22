@@ -358,6 +358,7 @@ describe("RequestToJoinButton", () => {
           type: "business_membership_request",
           status: "pending",
           mode: "request",
+          viewer_role: "initiator",
         },
       },
     };
@@ -379,6 +380,7 @@ describe("RequestToJoinButton", () => {
           type: "business_membership_request",
           status: "pending",
           mode: "request",
+          viewer_role: "initiator",
         },
       },
     };
@@ -404,6 +406,7 @@ describe("RequestToJoinButton", () => {
           type: "business_membership_request",
           status: "pending",
           mode: "request",
+          viewer_role: "initiator",
         },
       },
     };
@@ -430,6 +433,7 @@ describe("RequestToJoinButton", () => {
           type: "business_membership_request",
           status: "pending",
           mode: "request",
+          viewer_role: "initiator",
         },
       },
     };
@@ -458,6 +462,7 @@ describe("RequestToJoinButton", () => {
           type: "business_membership_invitation",
           status: "pending",
           mode: "invitation",
+          viewer_role: "initiator",
         },
       },
     };

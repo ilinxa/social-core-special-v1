@@ -18,23 +18,22 @@ Usage:
     # All subsequent logs in this request will include these values
 """
 
-from contextvars import ContextVar
-from typing import Any, Dict, Optional
 import uuid
+from contextvars import ContextVar
+from typing import Any, Dict
 
 import structlog
 
-
 # Context variables for request-scoped data
-_request_id: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
-_user_id: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
-_correlation_id: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
+_request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
+_user_id: ContextVar[str | None] = ContextVar("user_id", default=None)
+_correlation_id: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 
 
 def bind_request_context(
-    request_id: Optional[str] = None,
-    user_id: Optional[str] = None,
-    correlation_id: Optional[str] = None,
+    request_id: str | None = None,
+    user_id: str | None = None,
+    correlation_id: str | None = None,
     **extra,
 ) -> None:
     """
@@ -84,17 +83,17 @@ def clear_request_context() -> None:
     structlog.contextvars.clear_contextvars()
 
 
-def get_request_id() -> Optional[str]:
+def get_request_id() -> str | None:
     """Get the current request ID."""
     return _request_id.get()
 
 
-def get_user_id() -> Optional[str]:
+def get_user_id() -> str | None:
     """Get the current user ID."""
     return _user_id.get()
 
 
-def get_correlation_id() -> Optional[str]:
+def get_correlation_id() -> str | None:
     """Get the current correlation ID."""
     return _correlation_id.get()
 

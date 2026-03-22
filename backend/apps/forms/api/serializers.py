@@ -1,12 +1,13 @@
 from rest_framework import serializers
-from apps.core.serializers import BaseInputSerializer, BaseOutputSerializer
-from apps.core.constants import FieldType, OwnerType, FormScope
-from apps.forms.models import FormTemplate, FormField, FormResponse
 
+from apps.core.constants import FieldType, FormScope, OwnerType
+from apps.core.serializers import BaseInputSerializer, BaseOutputSerializer
+from apps.forms.models import FormField, FormResponse, FormTemplate
 
 # ============================================================================
 # INPUT SERIALIZERS
 # ============================================================================
+
 
 class FormTemplateCreateInputSerializer(BaseInputSerializer):
     name = serializers.CharField(max_length=255)
@@ -31,8 +32,12 @@ class FormFieldCreateInputSerializer(BaseInputSerializer):
     description = serializers.CharField(required=False, allow_blank=True, default="")
     placeholder = serializers.CharField(required=False, allow_blank=True, default="")
     order = serializers.IntegerField(min_value=0)
-    step_tag = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
-    section_tag = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    step_tag = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, default=""
+    )
+    section_tag = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, default=""
+    )
     options = serializers.ListField(required=False, default=list)
     validation_rules = serializers.JSONField(required=False, default=dict)
     ui_config = serializers.JSONField(required=False, default=dict)
@@ -62,12 +67,16 @@ class FormResponseVoidInputSerializer(BaseInputSerializer):
 class UpdateFieldInputSerializer(BaseInputSerializer):
     label = serializers.CharField(max_length=200, required=False)
     help_text = serializers.CharField(max_length=500, required=False, allow_blank=True)
-    placeholder = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    placeholder = serializers.CharField(
+        max_length=200, required=False, allow_blank=True
+    )
     options = serializers.JSONField(required=False)
     validation_rules = serializers.JSONField(required=False)
     is_required = serializers.BooleanField(required=False)
     is_indexable = serializers.BooleanField(required=False)
-    section_tag = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    section_tag = serializers.CharField(
+        max_length=100, required=False, allow_blank=True
+    )
     step_tag = serializers.CharField(max_length=100, required=False, allow_blank=True)
     conditional_logic = serializers.JSONField(required=False)
 
@@ -92,14 +101,28 @@ class ForkTemplateInputSerializer(BaseInputSerializer):
 # OUTPUT SERIALIZERS
 # ============================================================================
 
+
 class FormFieldOutputSerializer(BaseOutputSerializer):
     class Meta:
         model = FormField
         fields = [
-            "id", "field_key", "field_type", "label", "description",
-            "placeholder", "order", "step_tag", "section_tag", "options",
-            "validation_rules", "ui_config", "default_value",
-            "is_required", "is_indexed", "is_hidden", "is_readonly",
+            "id",
+            "field_key",
+            "field_type",
+            "label",
+            "description",
+            "placeholder",
+            "order",
+            "step_tag",
+            "section_tag",
+            "options",
+            "validation_rules",
+            "ui_config",
+            "default_value",
+            "is_required",
+            "is_indexed",
+            "is_hidden",
+            "is_readonly",
         ]
         read_only_fields = fields
 
@@ -108,9 +131,18 @@ class FormTemplateListOutputSerializer(BaseOutputSerializer):
     class Meta:
         model = FormTemplate
         fields = [
-            "id", "name", "slug", "description", "owner_type",
-            "scope", "status", "version", "is_current",
-            "is_template_public", "created_at", "updated_at",
+            "id",
+            "name",
+            "slug",
+            "description",
+            "owner_type",
+            "scope",
+            "status",
+            "version",
+            "is_current",
+            "is_template_public",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = fields
 
@@ -127,10 +159,24 @@ class FormTemplateDetailOutputSerializer(BaseOutputSerializer):
     class Meta:
         model = FormTemplate
         fields = [
-            "id", "name", "slug", "description", "owner_type", "owner_id",
-            "scope", "status", "version", "is_current", "parent_version",
-            "is_template_public", "forked_from", "forked_from_name",
-            "settings", "fields", "created_at", "updated_at",
+            "id",
+            "name",
+            "slug",
+            "description",
+            "owner_type",
+            "owner_id",
+            "scope",
+            "status",
+            "version",
+            "is_current",
+            "parent_version",
+            "is_template_public",
+            "forked_from",
+            "forked_from_name",
+            "settings",
+            "fields",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = fields
 
@@ -138,16 +184,27 @@ class FormTemplateDetailOutputSerializer(BaseOutputSerializer):
 class FormResponseListOutputSerializer(BaseOutputSerializer):
     form_name = serializers.CharField(source="form_template.name", read_only=True)
     submitter_email = serializers.CharField(source="submitted_by.email", read_only=True)
-    submitter_username = serializers.CharField(source="submitted_by.username", read_only=True)
+    submitter_username = serializers.CharField(
+        source="submitted_by.username", read_only=True
+    )
     submitter_display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = FormResponse
         fields = [
-            "id", "form_template", "form_name", "form_version",
-            "submitted_by", "submitter_email", "submitter_username",
-            "submitter_display_name", "data", "status",
-            "submitted_at", "processed_at", "created_at",
+            "id",
+            "form_template",
+            "form_name",
+            "form_version",
+            "submitted_by",
+            "submitter_email",
+            "submitter_username",
+            "submitter_display_name",
+            "data",
+            "status",
+            "submitted_at",
+            "processed_at",
+            "created_at",
         ]
         read_only_fields = fields
 
@@ -161,7 +218,9 @@ class FormResponseListOutputSerializer(BaseOutputSerializer):
 class FormResponseDetailOutputSerializer(BaseOutputSerializer):
     form_name = serializers.CharField(source="form_template.name", read_only=True)
     submitter_email = serializers.CharField(source="submitted_by.email", read_only=True)
-    submitter_username = serializers.CharField(source="submitted_by.username", read_only=True)
+    submitter_username = serializers.CharField(
+        source="submitted_by.username", read_only=True
+    )
     submitter_display_name = serializers.SerializerMethodField()
     processor_email = serializers.CharField(
         source="processed_by.email",
@@ -173,12 +232,24 @@ class FormResponseDetailOutputSerializer(BaseOutputSerializer):
     class Meta:
         model = FormResponse
         fields = [
-            "id", "form_template", "form_name", "form_version",
-            "submitted_by", "submitter_email", "submitter_username",
-            "submitter_display_name", "submitter_context",
-            "data", "status", "submitted_at", "processed_at",
-            "processed_by", "processor_email", "processor_notes",
-            "created_at", "updated_at",
+            "id",
+            "form_template",
+            "form_name",
+            "form_version",
+            "submitted_by",
+            "submitter_email",
+            "submitter_username",
+            "submitter_display_name",
+            "submitter_context",
+            "data",
+            "status",
+            "submitted_at",
+            "processed_at",
+            "processed_by",
+            "processor_email",
+            "processor_notes",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = fields
 

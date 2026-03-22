@@ -8,9 +8,9 @@ Endpoints:
     /api/v1/platform/settings/    - Platform settings management
 """
 
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -38,9 +38,9 @@ from apps.organization.platform.services import (
 def _build_platform_relationship(user, platform) -> dict:
     """Compute _relationship data for an authenticated user + platform."""
     from apps.core.constants import AccountType
+    from apps.network.selectors import FollowSelector
     from apps.rbac.selectors import MembershipSelector
     from apps.transaction.selectors import TransactionSelector
-    from apps.network.selectors import FollowSelector
 
     membership = MembershipSelector.get_membership_for_user_account(
         user=user,
@@ -70,22 +70,36 @@ def _build_platform_relationship(user, platform) -> dict:
 
     return {
         "membership_status": membership.status if membership else None,
-        "active_transaction": {
-            "id": str(active_txn.id),
-            "type": active_txn.transaction_type,
-            "status": active_txn.status,
-            "mode": active_txn.mode,
-            "viewer_role": "initiator" if active_txn.initiator_id == user.id else "target",
-        } if active_txn else None,
+        "active_transaction": (
+            {
+                "id": str(active_txn.id),
+                "type": active_txn.transaction_type,
+                "status": active_txn.status,
+                "mode": active_txn.mode,
+                "viewer_role": (
+                    "initiator" if active_txn.initiator_id == user.id else "target"
+                ),
+            }
+            if active_txn
+            else None
+        ),
         "follow_status": follow.status if follow else None,
         "follow_id": str(follow.id) if follow else None,
-        "active_follow_transaction": {
-            "id": str(active_follow_txn.id),
-            "type": active_follow_txn.transaction_type,
-            "status": active_follow_txn.status,
-            "mode": active_follow_txn.mode,
-            "viewer_role": "initiator" if active_follow_txn.initiator_id == user.id else "target",
-        } if active_follow_txn else None,
+        "active_follow_transaction": (
+            {
+                "id": str(active_follow_txn.id),
+                "type": active_follow_txn.transaction_type,
+                "status": active_follow_txn.status,
+                "mode": active_follow_txn.mode,
+                "viewer_role": (
+                    "initiator"
+                    if active_follow_txn.initiator_id == user.id
+                    else "target"
+                ),
+            }
+            if active_follow_txn
+            else None
+        ),
     }
 
 
@@ -143,7 +157,7 @@ class PlatformAccountView(RelationshipInjectMixin, PermissionInjectMixin, APIVie
         self._inject_permissions = True
         self._inject_relationship = True
 
-        serializer = PlatformAccountOutput(platform, context={'request': request})
+        serializer = PlatformAccountOutput(platform, context={"request": request})
         return Response(serializer.data)
 
     @extend_schema(
@@ -189,7 +203,7 @@ class PlatformAccountView(RelationshipInjectMixin, PermissionInjectMixin, APIVie
             request=request,
         )
 
-        output = PlatformAccountOutput(platform, context={'request': request})
+        output = PlatformAccountOutput(platform, context={"request": request})
         return Response(output.data, status=status.HTTP_201_CREATED)
 
 
@@ -245,7 +259,7 @@ class PlatformProfileView(PermissionInjectMixin, APIView):
         self._resource = profile
         self._inject_permissions = True
 
-        serializer = PlatformProfileOutput(profile, context={'request': request})
+        serializer = PlatformProfileOutput(profile, context={"request": request})
         return Response(serializer.data)
 
     @extend_schema(
@@ -294,7 +308,7 @@ class PlatformProfileView(PermissionInjectMixin, APIView):
             **serializer.validated_data,
         )
 
-        output = PlatformProfileOutput(profile, context={'request': request})
+        output = PlatformProfileOutput(profile, context={"request": request})
         return Response(output.data)
 
 
@@ -351,5 +365,5 @@ class PlatformSettingsView(APIView):
             request=request,
         )
 
-        output = PlatformAccountOutput(platform, context={'request': request})
+        output = PlatformAccountOutput(platform, context={"request": request})
         return Response(output.data)

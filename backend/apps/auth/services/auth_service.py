@@ -18,32 +18,31 @@ Security:
     - JTI blacklist for immediate access token revocation
 """
 
-from dataclasses import dataclass
-from typing import Optional, Tuple, TYPE_CHECKING
 import uuid
+from dataclasses import dataclass
+from typing import Tuple
 
 from django.conf import settings
 from django.db import transaction
 from django.http import HttpRequest
 from django.utils import timezone
 
+from apps.auth.models import DeviceSession, RefreshToken
 from apps.core.exceptions import (
     AccountInactive,
+    AccountLocked,
     AccountNotVerified,
     InvalidCredentials,
-    SessionLimitExceeded,
     TokenExpired,
     TokenInvalid,
 )
-from apps.core.utils.jwt import encode_token, decode_token
-from apps.core.utils.password import verify_password
-from apps.users.selectors import UserSelector
-
-from apps.auth.models import RefreshToken, DeviceSession
 
 # Observability
 from apps.core.observability import get_logger
-from apps.core.observability.audit import AuditService, AuditLog
+from apps.core.observability.audit import AuditLog, AuditService
+from apps.core.utils.jwt import decode_token, encode_token
+from apps.core.utils.password import verify_password
+from apps.users.selectors import UserSelector
 
 logger = get_logger(__name__)
 
@@ -52,9 +51,11 @@ logger = get_logger(__name__)
 # DATA CLASSES
 # =============================================================================
 
+
 @dataclass
 class TokenPair:
     """Response containing access and refresh tokens."""
+
     access_token: str
     refresh_token: str
     access_expires_in: int
@@ -64,16 +65,18 @@ class TokenPair:
 @dataclass
 class DeviceInfo:
     """Information about the client device."""
+
     device_id: str
-    device_type: str = 'unknown'
-    device_name: str = ''
-    user_agent: str = ''
-    ip_address: Optional[str] = None
+    device_type: str = "unknown"
+    device_name: str = ""
+    user_agent: str = ""
+    ip_address: str | None = None
 
 
 # =============================================================================
 # AUTH SERVICE
 # =============================================================================
+
 
 class AuthService:
     """
@@ -91,8 +94,8 @@ class AuthService:
         password: str,
         device_info: DeviceInfo,
         require_verified: bool = False,
-        request: Optional[HttpRequest] = None
-    ) -> Tuple['User', TokenPair, DeviceSession]:
+        request: HttpRequest | None = None,
+    ) -> Tuple["User", TokenPair, DeviceSession]:
         """
         Authenticate user and create session.
 
@@ -128,6 +131,22 @@ class AuthService:
             )
             raise InvalidCredentials()
 
+        # Check account lockout (before password check to prevent timing attacks)
+        if user.locked_until and user.locked_until > timezone.now():
+            remaining = int((user.locked_until - timezone.now()).total_seconds())
+            logger.warning(
+                "auth.login.failed",
+                user_id=str(user.id),
+                reason="account_locked",
+            )
+            AuditService.log_failure(
+                action=AuditLog.Action.LOGIN_FAILED,
+                reason="account_locked",
+                actor=user,
+                request=request,
+            )
+            raise AccountLocked(details={"retry_after": remaining})
+
         # Verify password
         if not verify_password(password, user.password):
             logger.warning(
@@ -135,6 +154,21 @@ class AuthService:
                 user_id=str(user.id),
                 reason="invalid_password",
             )
+            # Increment failed attempt counter
+            from datetime import timedelta
+
+            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+            max_attempts = getattr(settings, "AUTH_MAX_FAILED_ATTEMPTS", 10)
+            if user.failed_login_attempts >= max_attempts:
+                lockout_duration = getattr(settings, "AUTH_LOCKOUT_DURATION", 900)
+                user.locked_until = timezone.now() + timedelta(seconds=lockout_duration)
+                logger.warning(
+                    "auth.login.account_locked",
+                    user_id=str(user.id),
+                    attempts=user.failed_login_attempts,
+                )
+            user.save(update_fields=["failed_login_attempts", "locked_until"])
+
             # Audit: Failed login (wrong password)
             AuditService.log_failure(
                 action=AuditLog.Action.LOGIN_FAILED,
@@ -176,6 +210,12 @@ class AuthService:
             )
             raise AccountNotVerified()
 
+        # Reset lockout counter on successful login
+        if user.failed_login_attempts > 0 or user.locked_until:
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            user.save(update_fields=["failed_login_attempts", "locked_until"])
+
         # Create or update device session
         session, is_new_device = AuthService._get_or_create_session(user, device_info)
 
@@ -187,6 +227,7 @@ class AuthService:
 
         # Update last login
         from apps.users.services import UserService
+
         UserService.update_last_login(user=user)
 
         logger.info(
@@ -224,9 +265,12 @@ class AuthService:
                 },
             )
 
-        # Send new device notification (async)
+        # Send new device notification (deferred until transaction commits)
         if is_new_device:
-            AuthService._send_new_login_notification(user, device_info)
+            _user, _di = user, device_info
+            transaction.on_commit(
+                lambda: AuthService._send_new_login_notification(_user, _di)
+            )
 
         return user, tokens, session
 
@@ -235,7 +279,7 @@ class AuthService:
         *,
         refresh_token: str,
         device_info: DeviceInfo,
-        request: Optional[HttpRequest] = None
+        request: HttpRequest | None = None,
     ) -> TokenPair:
         """
         Rotate refresh token and issue new access token.
@@ -258,9 +302,11 @@ class AuthService:
         """
         # --- Security checks (outside transaction so logout_all persists) ---
         token_hash = RefreshToken.hash_token(refresh_token)
-        db_token = RefreshToken.objects.filter(
-            token_hash=token_hash
-        ).select_related('user', 'session').first()
+        db_token = (
+            RefreshToken.objects.filter(token_hash=token_hash)
+            .select_related("user", "session")
+            .first()
+        )
 
         if not db_token:
             logger.warning("auth.refresh.failed", reason="token_not_found")
@@ -282,7 +328,9 @@ class AuthService:
                 request=request,
                 details={"security_incident": True, "action_taken": "logout_all"},
             )
-            AuthService.logout_all(user=db_token.user, reason='token_reuse', request=request)
+            AuthService.logout_all(
+                user=db_token.user, reason="token_reuse", request=request
+            )
             raise TokenInvalid(message="Token has been revoked")
 
         # Check if already rotated (possible replay attack)
@@ -301,7 +349,9 @@ class AuthService:
                 details={"security_incident": True, "action_taken": "logout_all"},
             )
             # Token reuse detected - revoke all user tokens for security
-            AuthService.logout_all(user=db_token.user, reason='token_reuse', request=request)
+            AuthService.logout_all(
+                user=db_token.user, reason="token_reuse", request=request
+            )
             raise TokenInvalid(message="Token has already been used")
 
         # Check expiration
@@ -322,49 +372,53 @@ class AuthService:
             # Note: select_for_update() cannot be combined with
             # select_related() on nullable FKs (causes LEFT OUTER JOIN
             # which PostgreSQL rejects with NotSupportedError).
-            db_token = RefreshToken.objects.select_for_update().filter(
-                pk=db_token.pk, is_revoked=False, replaced_by__isnull=True
-            ).select_related('user').first()
+            db_token = (
+                RefreshToken.objects.select_for_update()
+                .filter(pk=db_token.pk, is_revoked=False, replaced_by__isnull=True)
+                .select_related("user")
+                .first()
+            )
 
             if not db_token:
                 # Race condition: token was revoked/replaced between checks
                 raise TokenInvalid()
 
             # Get session
-            session = getattr(db_token, 'session', None)
+            session = getattr(db_token, "session", None)
 
             # Create new token (rotation)
             new_token, raw_token = RefreshToken.create_token(
                 user=db_token.user,
                 device_id=device_info.device_id,
                 device_info={
-                    'type': device_info.device_type,
-                    'name': device_info.device_name,
-                    'user_agent': device_info.user_agent
+                    "type": device_info.device_type,
+                    "name": device_info.device_name,
+                    "user_agent": device_info.user_agent,
                 },
-                ip_address=device_info.ip_address
+                ip_address=device_info.ip_address,
             )
 
             # Mark old token as replaced
             db_token.replaced_by = new_token
-            db_token.save(update_fields=['replaced_by'])
+            db_token.save(update_fields=["replaced_by"])
 
             # Update session
             if session:
                 session.current_token = new_token
                 session.last_activity = timezone.now()
                 session.ip_address = device_info.ip_address or session.ip_address
-                session.save(update_fields=['current_token', 'last_activity', 'ip_address'])
+                session.save(
+                    update_fields=["current_token", "last_activity", "ip_address"]
+                )
 
             # Generate access token
             access_token = AuthService._create_access_token(
-                db_token.user,
-                new_token.jti
+                db_token.user, new_token.jti
             )
 
-        jwt_auth = getattr(settings, 'JWT_AUTH', {})
-        access_lifetime = jwt_auth.get('ACCESS_TOKEN_LIFETIME', 900)
-        refresh_lifetime = jwt_auth.get('REFRESH_TOKEN_LIFETIME', 604800)
+        jwt_auth = getattr(settings, "JWT_AUTH", {})
+        access_lifetime = jwt_auth.get("ACCESS_TOKEN_LIFETIME", 900)
+        refresh_lifetime = jwt_auth.get("REFRESH_TOKEN_LIFETIME", 604800)
 
         logger.info(
             "auth.refresh.success",
@@ -383,15 +437,12 @@ class AuthService:
             access_token=access_token,
             refresh_token=raw_token,
             access_expires_in=access_lifetime,
-            refresh_expires_in=refresh_lifetime
+            refresh_expires_in=refresh_lifetime,
         )
 
     @staticmethod
     def logout(
-        *,
-        refresh_token: str,
-        user=None,
-        request: Optional[HttpRequest] = None
+        *, refresh_token: str, user=None, request: HttpRequest | None = None
     ) -> bool:
         """
         Revoke a single refresh token.
@@ -407,10 +458,11 @@ class AuthService:
         token_hash = RefreshToken.hash_token(refresh_token)
 
         # Get token first to capture user for audit
-        db_token = RefreshToken.objects.filter(
-            token_hash=token_hash,
-            is_revoked=False
-        ).select_related('user', 'session').first()
+        db_token = (
+            RefreshToken.objects.filter(token_hash=token_hash, is_revoked=False)
+            .select_related("user", "session")
+            .first()
+        )
 
         if not db_token:
             return False
@@ -418,8 +470,8 @@ class AuthService:
         # Revoke token
         db_token.is_revoked = True
         db_token.revoked_at = timezone.now()
-        db_token.revoked_reason = 'logout'
-        db_token.save(update_fields=['is_revoked', 'revoked_at', 'revoked_reason'])
+        db_token.revoked_reason = "logout"
+        db_token.save(update_fields=["is_revoked", "revoked_at", "revoked_reason"])
 
         logger.info("auth.logout.success", user_id=str(db_token.user_id))
 
@@ -436,10 +488,7 @@ class AuthService:
     @staticmethod
     @transaction.atomic
     def logout_all(
-        *,
-        user,
-        reason: str = 'logout_all',
-        request: Optional[HttpRequest] = None
+        *, user, reason: str = "logout_all", request: HttpRequest | None = None
     ) -> int:
         """
         Revoke all refresh tokens for a user.
@@ -454,16 +503,12 @@ class AuthService:
         """
         # Blacklist all active JTIs for immediate access token revocation
         from apps.auth.blacklist import JTIBlacklist
+
         JTIBlacklist.blacklist_user_tokens(user.id)
 
         # Revoke all refresh tokens
-        count = RefreshToken.objects.filter(
-            user=user,
-            is_revoked=False
-        ).update(
-            is_revoked=True,
-            revoked_at=timezone.now(),
-            revoked_reason=reason
+        count = RefreshToken.objects.filter(user=user, is_revoked=False).update(
+            is_revoked=True, revoked_at=timezone.now(), revoked_reason=reason
         )
 
         # Deactivate all sessions
@@ -488,7 +533,7 @@ class AuthService:
         return count
 
     @staticmethod
-    def validate_access_token(token: str) -> Tuple['User', dict]:
+    def validate_access_token(token: str) -> Tuple["User", dict]:
         """
         Validate access token and return user.
 
@@ -506,18 +551,19 @@ class AuthService:
         """
         payload = decode_token(token)
 
-        user_id = payload.get('user_id')
-        jti = payload.get('jti')
-        token_type = payload.get('token_type')
+        user_id = payload.get("user_id")
+        jti = payload.get("jti")
+        token_type = payload.get("token_type")
 
         if not user_id or not jti:
             raise TokenInvalid()
 
-        if token_type != 'access':
+        if token_type != "access":
             raise TokenInvalid(message="Invalid token type")
 
         # Check JTI blacklist in Redis for immediate revocation
         from apps.auth.blacklist import JTIBlacklist
+
         if JTIBlacklist.is_blacklisted(jti):
             raise TokenInvalid(message="Token has been revoked")
 
@@ -533,10 +579,7 @@ class AuthService:
 
     @staticmethod
     def revoke_session(
-        *,
-        user,
-        session_id: str,
-        request: Optional[HttpRequest] = None
+        *, user, session_id: str, request: HttpRequest | None = None
     ) -> bool:
         """
         Revoke a specific device session.
@@ -551,22 +594,21 @@ class AuthService:
         """
         try:
             session = DeviceSession.objects.get(
-                id=session_id,
-                user=user,
-                is_active=True
+                id=session_id, user=user, is_active=True
             )
         except DeviceSession.DoesNotExist:
             return False
 
         # Revoke associated token
         if session.current_token:
-            session.current_token.revoke(reason='security')
+            session.current_token.revoke(reason="security")
             # Blacklist JTI
             from apps.auth.blacklist import JTIBlacklist
+
             JTIBlacklist.blacklist(str(session.current_token.jti))
 
         session.is_active = False
-        session.save(update_fields=['is_active'])
+        session.save(update_fields=["is_active"])
 
         logger.info(
             "auth.session.revoked",
@@ -595,66 +637,70 @@ class AuthService:
     @staticmethod
     def _create_access_token(user, jti: uuid.UUID) -> str:
         """Generate JWT access token."""
-        jwt_auth = getattr(settings, 'JWT_AUTH', {})
-        expires_in = jwt_auth.get('ACCESS_TOKEN_LIFETIME', 900)
+        jwt_auth = getattr(settings, "JWT_AUTH", {})
+        expires_in = jwt_auth.get("ACCESS_TOKEN_LIFETIME", 900)
 
         return encode_token(
             payload={
-                'user_id': str(user.id),
-                'jti': str(jti),
-                'email': user.email,
-                'is_verified': user.is_verified,
-                'token_type': 'access'
+                "user_id": str(user.id),
+                "jti": str(jti),
+                "email": user.email,
+                "is_verified": user.is_verified,
+                "token_type": "access",
             },
-            expires_in=expires_in
+            expires_in=expires_in,
         )
 
     @staticmethod
-    def _create_token_pair(user, session: DeviceSession, device_info: DeviceInfo) -> TokenPair:
+    def _create_token_pair(
+        user, session: DeviceSession, device_info: DeviceInfo
+    ) -> TokenPair:
         """Create access + refresh token pair."""
         # Create refresh token
         refresh_token, raw_refresh = RefreshToken.create_token(
             user=user,
             device_id=device_info.device_id,
             device_info={
-                'type': device_info.device_type,
-                'name': device_info.device_name,
-                'user_agent': device_info.user_agent
+                "type": device_info.device_type,
+                "name": device_info.device_name,
+                "user_agent": device_info.user_agent,
             },
-            ip_address=device_info.ip_address
+            ip_address=device_info.ip_address,
         )
 
         # Link to session
         session.current_token = refresh_token
-        session.save(update_fields=['current_token'])
+        session.save(update_fields=["current_token"])
 
         # Create access token
         access_token = AuthService._create_access_token(user, refresh_token.jti)
 
-        jwt_auth = getattr(settings, 'JWT_AUTH', {})
-        access_lifetime = jwt_auth.get('ACCESS_TOKEN_LIFETIME', 900)
-        refresh_lifetime = jwt_auth.get('REFRESH_TOKEN_LIFETIME', 604800)
+        jwt_auth = getattr(settings, "JWT_AUTH", {})
+        access_lifetime = jwt_auth.get("ACCESS_TOKEN_LIFETIME", 900)
+        refresh_lifetime = jwt_auth.get("REFRESH_TOKEN_LIFETIME", 604800)
 
         return TokenPair(
             access_token=access_token,
             refresh_token=raw_refresh,
             access_expires_in=access_lifetime,
-            refresh_expires_in=refresh_lifetime
+            refresh_expires_in=refresh_lifetime,
         )
 
     @staticmethod
-    def _get_or_create_session(user, device_info: DeviceInfo) -> tuple[DeviceSession, bool]:
+    def _get_or_create_session(
+        user, device_info: DeviceInfo
+    ) -> tuple[DeviceSession, bool]:
         """Get or create device session. Returns (session, created) tuple."""
         session, created = DeviceSession.objects.update_or_create(
             user=user,
             device_id=device_info.device_id,
             defaults={
-                'device_type': device_info.device_type,
-                'device_name': device_info.device_name,
-                'user_agent': device_info.user_agent,
-                'ip_address': device_info.ip_address,
-                'is_active': True
-            }
+                "device_type": device_info.device_type,
+                "device_name": device_info.device_name,
+                "user_agent": device_info.user_agent,
+                "ip_address": device_info.ip_address,
+                "is_active": True,
+            },
         )
         return session, created
 
@@ -664,29 +710,30 @@ class AuthService:
         Enforce max sessions per user.
         Removes oldest sessions if limit exceeded.
         """
-        max_sessions = getattr(settings, 'AUTH_MAX_SESSIONS_PER_USER', 5)
+        max_sessions = getattr(settings, "AUTH_MAX_SESSIONS_PER_USER", 5)
 
-        active_sessions = DeviceSession.objects.filter(
-            user=user,
-            is_active=True
-        ).exclude(id=current_session.id).order_by('-last_activity')
+        active_sessions = (
+            DeviceSession.objects.filter(user=user, is_active=True)
+            .exclude(id=current_session.id)
+            .order_by("-last_activity")
+        )
 
         if active_sessions.count() >= max_sessions:
             # Revoke oldest sessions
-            to_revoke = list(active_sessions[max_sessions - 1:])
+            to_revoke = list(active_sessions[max_sessions - 1 :])
             for session in to_revoke:
                 if session.current_token:
-                    session.current_token.revoke(reason='session_limit')
+                    session.current_token.revoke(reason="session_limit")
                 session.is_active = False
-                session.save(update_fields=['is_active'])
+                session.save(update_fields=["is_active"])
 
             logger.info(
                 "auth.session_limit.enforced",
                 extra={
-                    'user_id': user.id,
-                    'sessions_revoked': len(to_revoke),
-                    'max_sessions': max_sessions
-                }
+                    "user_id": user.id,
+                    "sessions_revoked": len(to_revoke),
+                    "max_sessions": max_sessions,
+                },
             )
 
     @staticmethod
@@ -697,17 +744,16 @@ class AuthService:
 
             NotificationService.send(
                 user=user,
-                notification_type='new_login',
+                notification_type="new_login",
                 context={
-                    'device': device_info.device_name or device_info.device_type,
-                    'location': '',  # Could derive from IP
-                    'ip': device_info.ip_address or 'Unknown',
-                    'time': timezone.now().isoformat()
-                }
+                    "device": device_info.device_name or device_info.device_type,
+                    "location": "",  # Could derive from IP
+                    "ip": device_info.ip_address or "Unknown",
+                    "time": timezone.now().isoformat(),
+                },
             )
         except Exception as e:
             # Don't fail login due to notification error
             logger.error(
-                "auth.notification.failed",
-                extra={'user_id': user.id, 'error': str(e)}
+                "auth.notification.failed", extra={"user_id": user.id, "error": str(e)}
             )

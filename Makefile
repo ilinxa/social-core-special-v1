@@ -185,7 +185,7 @@ test: ## Run all tests
 .PHONY: test-cov
 test-cov: ## Run tests with coverage report
 	@echo "$(GREEN)Running tests with coverage...$(NC)"
-	cd $(BACKEND_DIR) && pytest --cov --cov-config=.coveragerc --cov-report=term-missing --cov-report=html
+	cd $(BACKEND_DIR) && pytest --cov --cov-config=pyproject.toml --cov-report=term-missing --cov-report=html
 	@echo "$(GREEN)Coverage report: backend/htmlcov/index.html$(NC)"
 
 .PHONY: test-fast
@@ -215,6 +215,11 @@ dev-worker: ## Start Celery worker for async tasks (email, notifications)
 	@echo "$(GREEN)Starting Celery worker...$(NC)"
 	cd $(BACKEND_DIR) && DJANGO_SETTINGS_MODULE=backend_core.settings.local_docker celery -A backend_core worker -l info
 
+.PHONY: dev-beat
+dev-beat: ## Start Celery beat scheduler for periodic tasks
+	@echo "$(GREEN)Starting Celery beat scheduler...$(NC)"
+	cd $(BACKEND_DIR) && DJANGO_SETTINGS_MODULE=backend_core.settings.local_docker celery -A backend_core beat -l info
+
 # =============================================================================
 # LINTING & CODE QUALITY
 # =============================================================================
@@ -242,9 +247,58 @@ isort: ## Run isort (import sorting)
 flake8: ## Run flake8 linter
 	cd $(BACKEND_DIR) && flake8 .
 
+.PHONY: check-types-frontend
+check-types-frontend: ## Run TypeScript type checking (frontend)
+	@echo "$(GREEN)Running frontend type check...$(NC)"
+	cd frontend && npm run typecheck
+
 .PHONY: check
-check: lint test ## Run all checks (lint + test)
+check: lint test check-types-frontend ## Run all checks (lint + test + typecheck)
 	@echo "$(GREEN)All checks passed!$(NC)"
+
+# =============================================================================
+# SECURITY
+# =============================================================================
+
+.PHONY: audit
+audit: ## Scan Python dependencies for known vulnerabilities
+	@echo "$(GREEN)Scanning dependencies for vulnerabilities...$(NC)"
+	cd $(BACKEND_DIR) && pip-audit -r requirements/base.txt
+
+.PHONY: check-deploy
+check-deploy: ## Run Django deployment security checks
+	@echo "$(GREEN)Running deployment security checks...$(NC)"
+	cd $(BACKEND_DIR) && DJANGO_SETTINGS_MODULE=backend_core.settings.production $(MANAGE) check --deploy 2>/dev/null || echo "$(YELLOW)Note: Some checks may fail without production env vars set$(NC)"
+
+.PHONY: secret-scan
+secret-scan: ## Scan codebase for leaked secrets
+	@echo "$(GREEN)Scanning for secrets...$(NC)"
+	cd $(BACKEND_DIR) && detect-secrets scan --all-files
+
+.PHONY: dep-check
+dep-check: ## Check for broken dependency requirements
+	@echo "$(GREEN)Checking dependency integrity...$(NC)"
+	cd $(BACKEND_DIR) && pip check
+
+# =============================================================================
+# DEPENDENCY LOCKFILES
+# =============================================================================
+
+.PHONY: lock
+lock: ## Regenerate all dependency lockfiles (pip-compile)
+	@echo "$(GREEN)Generating dependency lockfiles...$(NC)"
+	cd $(BACKEND_DIR) && pip-compile requirements/base.txt --output-file requirements/base.lock --strip-extras --allow-unsafe --quiet
+	cd $(BACKEND_DIR) && pip-compile requirements/production.txt --output-file requirements/production.lock --strip-extras --allow-unsafe --quiet
+	cd $(BACKEND_DIR) && pip-compile requirements/local.txt --output-file requirements/local.lock --strip-extras --allow-unsafe --quiet
+	@echo "$(GREEN)Lockfiles generated!$(NC)"
+
+.PHONY: lock-upgrade
+lock-upgrade: ## Upgrade all deps and regenerate lockfiles
+	@echo "$(YELLOW)Upgrading dependencies...$(NC)"
+	cd $(BACKEND_DIR) && pip-compile requirements/base.txt --output-file requirements/base.lock --strip-extras --allow-unsafe --upgrade --quiet
+	cd $(BACKEND_DIR) && pip-compile requirements/production.txt --output-file requirements/production.lock --strip-extras --allow-unsafe --upgrade --quiet
+	cd $(BACKEND_DIR) && pip-compile requirements/local.txt --output-file requirements/local.lock --strip-extras --allow-unsafe --upgrade --quiet
+	@echo "$(GREEN)Lockfiles upgraded!$(NC)"
 
 # =============================================================================
 # STATIC FILES
@@ -259,9 +313,10 @@ collectstatic: ## Collect static files
 # =============================================================================
 
 .PHONY: build
-build: ## Build Docker image
+build: ## Build Docker image (tagged with git SHA + latest)
 	@echo "$(GREEN)Building Docker image...$(NC)"
-	docker build -t django-backend:latest ./$(BACKEND_DIR)
+	docker build -t django-backend:$$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -t django-backend:latest ./$(BACKEND_DIR)
+	@echo "$(GREEN)Image built and tagged.$(NC)"
 
 .PHONY: docker-clean
 docker-clean: ## Clean up Docker resources

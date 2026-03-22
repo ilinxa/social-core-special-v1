@@ -10,38 +10,42 @@ Covers:
 - INFO_REQUESTED state transitions
 """
 
-import pytest
 from uuid import uuid4
 
+import pytest
 from django.utils import timezone
 
-from apps.transaction.services import TransactionService
-from apps.transaction.selectors import TransactionSelector
-from apps.transaction.constants import TransactionStatus, TransactionMode, PartyType
-from apps.transaction.types import get_transaction_type
-from apps.transaction.models import TransactionLog
-from apps.forms.services import FormResponseService
+from apps.core.constants import (
+    AccountType,
+    ContextType,
+    FormStatus,
+    OwnerType,
+    ResponseStatus,
+)
+from apps.core.exceptions import ConflictError, PermissionDenied, ValidationError
+from apps.core.types import ActorContext
 from apps.forms.selectors import FormResponseSelector
+from apps.forms.services import FormResponseService
 from apps.forms.tests.factories import (
     ActiveFormTemplateFactory,
     FormFieldFactory,
-    SubmittedFormResponseFactory,
     FormResponseFactory,
-)
-from apps.transaction.tests.factories import TransactionFactory
-from apps.core.types import ActorContext
-from apps.core.constants import OwnerType, FormStatus, ResponseStatus, ContextType
-from apps.core.exceptions import ValidationError, PermissionDenied, ConflictError
-from apps.users.tests.factories import UserFactory
-from apps.rbac.tests.factories import (
-    PlatformAccountFactory,
-    OwnerRoleFactory,
-    MembershipFactory,
+    SubmittedFormResponseFactory,
 )
 from apps.rbac.models import Permission, RolePermission
 from apps.rbac.services import RBACService
-from apps.core.constants import AccountType
-
+from apps.rbac.tests.factories import (
+    MembershipFactory,
+    OwnerRoleFactory,
+    PlatformAccountFactory,
+)
+from apps.transaction.constants import PartyType, TransactionMode, TransactionStatus
+from apps.transaction.models import TransactionLog
+from apps.transaction.selectors import TransactionSelector
+from apps.transaction.services import TransactionService
+from apps.transaction.tests.factories import TransactionFactory
+from apps.transaction.types import get_transaction_type
+from apps.users.tests.factories import UserFactory
 
 # =========================================================================
 # Helpers
@@ -124,7 +128,8 @@ def _create_platform_context_with_verification_perm():
         defaults={"scope": "platform_only"},
     )
     actor_context = RBACService.build_actor_context(
-        membership=membership, request=None,
+        membership=membership,
+        request=None,
     )
     return platform_user, actor_context, platform
 
@@ -297,14 +302,18 @@ class TestBidirectionalLinking:
         # Link to first transaction
         first_txn_id = uuid4()
         FormResponseService.link_to_transaction(
-            response_id=response.id, transaction_id=first_txn_id,
+            response_id=response.id,
+            transaction_id=first_txn_id,
         )
 
         # Try to link to a different transaction
         second_txn_id = uuid4()
-        with pytest.raises(ConflictError, match="already linked to a different transaction"):
+        with pytest.raises(
+            ConflictError, match="already linked to a different transaction"
+        ):
             FormResponseService.link_to_transaction(
-                response_id=response.id, transaction_id=second_txn_id,
+                response_id=response.id,
+                transaction_id=second_txn_id,
             )
 
     def test_link_to_same_transaction_idempotent(self):
@@ -324,12 +333,14 @@ class TestBidirectionalLinking:
 
         txn_id = uuid4()
         FormResponseService.link_to_transaction(
-            response_id=response.id, transaction_id=txn_id,
+            response_id=response.id,
+            transaction_id=txn_id,
         )
 
         # Second link to same transaction - should not raise
         result = FormResponseService.link_to_transaction(
-            response_id=response.id, transaction_id=txn_id,
+            response_id=response.id,
+            transaction_id=txn_id,
         )
         assert result.transaction_id == txn_id
 
@@ -358,7 +369,9 @@ class TestRequestInfo:
             form_response_id=response.id,
         )
 
-        platform_user, platform_ctx, _ = _create_platform_context_with_verification_perm()
+        platform_user, platform_ctx, _ = (
+            _create_platform_context_with_verification_perm()
+        )
 
         txn = TransactionService.request_info(
             transaction_id=txn.id,
@@ -384,7 +397,9 @@ class TestRequestInfo:
             form_response_id=response.id,
         )
 
-        platform_user, platform_ctx, _ = _create_platform_context_with_verification_perm()
+        platform_user, platform_ctx, _ = (
+            _create_platform_context_with_verification_perm()
+        )
 
         txn = TransactionService.request_info(
             transaction_id=txn.id,
@@ -413,7 +428,9 @@ class TestRequestInfo:
             form_response_id=response.id,
         )
 
-        platform_user, platform_ctx, _ = _create_platform_context_with_verification_perm()
+        platform_user, platform_ctx, _ = (
+            _create_platform_context_with_verification_perm()
+        )
 
         TransactionService.request_info(
             transaction_id=txn.id,
@@ -439,7 +456,9 @@ class TestRequestInfo:
             form_response_id=response.id,
         )
 
-        platform_user, platform_ctx, _ = _create_platform_context_with_verification_perm()
+        platform_user, platform_ctx, _ = (
+            _create_platform_context_with_verification_perm()
+        )
 
         # First info request - moves to INFO_REQUESTED
         TransactionService.request_info(
@@ -471,9 +490,10 @@ class TestRequestInfo:
         # Build an actor context that can approve membership requests
         platform_user = UserFactory()
         from apps.rbac.tests.factories import (
-            BusinessAccountFactory,
             BaseMemberRoleFactory,
+            BusinessAccountFactory,
         )
+
         business = BusinessAccountFactory(created_by=platform_user)
         role = OwnerRoleFactory(
             account_type=AccountType.BUSINESS,
@@ -519,7 +539,8 @@ class TestRequestInfo:
         )
 
         approver_ctx = RBACService.build_actor_context(
-            membership=membership, request=None,
+            membership=membership,
+            request=None,
         )
 
         with pytest.raises(ValidationError, match="without form response"):
@@ -544,7 +565,9 @@ class TestRequestInfo:
             form_response_id=response.id,
         )
 
-        platform_user, platform_ctx, _ = _create_platform_context_with_verification_perm()
+        platform_user, platform_ctx, _ = (
+            _create_platform_context_with_verification_perm()
+        )
 
         with pytest.raises(ValidationError, match="Invalid field keys"):
             TransactionService.request_info(
@@ -579,7 +602,9 @@ class TestResubmit:
             form_response_id=response.id,
         )
 
-        platform_user, platform_ctx, _ = _create_platform_context_with_verification_perm()
+        platform_user, platform_ctx, _ = (
+            _create_platform_context_with_verification_perm()
+        )
 
         txn = TransactionService.request_info(
             transaction_id=txn.id,
@@ -656,9 +681,13 @@ class TestResubmit:
 
         assert log_count_after > log_count_before
 
-        latest_log = TransactionLog.objects.filter(
-            transaction=txn,
-        ).order_by("-timestamp").first()
+        latest_log = (
+            TransactionLog.objects.filter(
+                transaction=txn,
+            )
+            .order_by("-timestamp")
+            .first()
+        )
 
         assert latest_log.previous_status == TransactionStatus.INFO_REQUESTED
         assert latest_log.new_status == TransactionStatus.PENDING
@@ -689,7 +718,9 @@ class TestFormResponseUpdate:
             form_response_id=response.id,
         )
 
-        platform_user, platform_ctx, _ = _create_platform_context_with_verification_perm()
+        platform_user, platform_ctx, _ = (
+            _create_platform_context_with_verification_perm()
+        )
 
         txn = TransactionService.request_info(
             transaction_id=txn.id,
@@ -794,7 +825,9 @@ class TestInfoRequestedTransitions:
             form_response_id=response.id,
         )
 
-        platform_user, platform_ctx, _ = _create_platform_context_with_verification_perm()
+        platform_user, platform_ctx, _ = (
+            _create_platform_context_with_verification_perm()
+        )
 
         txn = TransactionService.request_info(
             transaction_id=txn.id,

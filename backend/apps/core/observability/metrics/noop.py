@@ -7,7 +7,7 @@ All methods do nothing with zero overhead, making it safe to call
 metrics methods throughout the codebase without performance impact.
 """
 
-from typing import Dict, Optional
+from typing import Dict
 
 from apps.core.observability.metrics.interface import MetricsInterface
 
@@ -31,7 +31,7 @@ class NoOpMetrics(MetricsInterface):
         self,
         name: str,
         value: float = 1,
-        tags: Optional[Dict[str, str]] = None,
+        tags: Dict[str, str] | None = None,
     ) -> None:
         """Do nothing."""
         pass
@@ -40,7 +40,7 @@ class NoOpMetrics(MetricsInterface):
         self,
         name: str,
         value: float,
-        tags: Optional[Dict[str, str]] = None,
+        tags: Dict[str, str] | None = None,
     ) -> None:
         """Do nothing."""
         pass
@@ -49,7 +49,7 @@ class NoOpMetrics(MetricsInterface):
         self,
         name: str,
         value: float,
-        tags: Optional[Dict[str, str]] = None,
+        tags: Dict[str, str] | None = None,
     ) -> None:
         """Do nothing."""
         pass

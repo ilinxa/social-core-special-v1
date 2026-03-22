@@ -6,20 +6,20 @@ Query helpers for email data.
 All read operations should go through selectors.
 """
 
-from typing import Optional, List
 from datetime import timedelta
 
+from django.db import models
 from django.db.models import QuerySet
 from django.utils import timezone
 
-from apps.email.models import EmailTemplate, EmailLog
+from apps.email.models import EmailLog, EmailTemplate
 
 
 class EmailTemplateSelector:
     """Selectors for EmailTemplate queries."""
 
     @staticmethod
-    def get_by_name(name: str) -> Optional[EmailTemplate]:
+    def get_by_name(name: str) -> EmailTemplate | None:
         """
         Get the current active version of a template by name.
 
@@ -30,9 +30,7 @@ class EmailTemplateSelector:
             EmailTemplate or None
         """
         return EmailTemplate.objects.filter(
-            name=name,
-            is_active=True,
-            is_current=True
+            name=name, is_active=True, is_current=True
         ).first()
 
     @staticmethod
@@ -56,10 +54,7 @@ class EmailTemplateSelector:
         Returns:
             QuerySet of EmailTemplates
         """
-        return EmailTemplate.objects.filter(
-            category=category,
-            is_current=True
-        )
+        return EmailTemplate.objects.filter(category=category, is_current=True)
 
     @staticmethod
     def get_version_history(name: str) -> QuerySet[EmailTemplate]:
@@ -72,9 +67,7 @@ class EmailTemplateSelector:
         Returns:
             QuerySet ordered by version descending
         """
-        return EmailTemplate.objects.filter(
-            name=name
-        ).order_by('-version')
+        return EmailTemplate.objects.filter(name=name).order_by("-version")
 
     @staticmethod
     def template_exists(name: str) -> bool:
@@ -87,17 +80,14 @@ class EmailTemplateSelector:
         Returns:
             True if exists
         """
-        return EmailTemplate.objects.filter(
-            name=name,
-            is_current=True
-        ).exists()
+        return EmailTemplate.objects.filter(name=name, is_current=True).exists()
 
 
 class EmailLogSelector:
     """Selectors for EmailLog queries."""
 
     @staticmethod
-    def get_by_id(log_id: str) -> Optional[EmailLog]:
+    def get_by_id(log_id: str) -> EmailLog | None:
         """
         Get email log by ID.
 
@@ -110,7 +100,7 @@ class EmailLogSelector:
         return EmailLog.objects.filter(id=log_id).first()
 
     @staticmethod
-    def get_by_message_id(message_id: str) -> Optional[EmailLog]:
+    def get_by_message_id(message_id: str) -> EmailLog | None:
         """
         Get email log by provider message ID.
 
@@ -123,11 +113,7 @@ class EmailLogSelector:
         return EmailLog.objects.filter(message_id=message_id).first()
 
     @staticmethod
-    def get_by_email(
-        email: str,
-        *,
-        limit: int = 100
-    ) -> QuerySet[EmailLog]:
+    def get_by_email(email: str, *, limit: int = 100) -> QuerySet[EmailLog]:
         """
         Get email logs for a recipient.
 
@@ -138,9 +124,7 @@ class EmailLogSelector:
         Returns:
             QuerySet ordered by created_at descending
         """
-        return EmailLog.objects.filter(
-            to_email=email
-        ).order_by('-created_at')[:limit]
+        return EmailLog.objects.filter(to_email=email).order_by("-created_at")[:limit]
 
     @staticmethod
     def get_failed_for_retry() -> QuerySet[EmailLog]:
@@ -150,11 +134,13 @@ class EmailLogSelector:
         Returns:
             QuerySet of retryable EmailLogs
         """
-        return EmailLog.objects.filter(
-            status=EmailLog.Status.FAILED,
-        ).exclude(
-            retry_count__gte=models.F('max_retries')
-        ).order_by('next_retry_at')
+        return (
+            EmailLog.objects.filter(
+                status=EmailLog.Status.FAILED,
+            )
+            .exclude(retry_count__gte=models.F("max_retries"))
+            .order_by("next_retry_at")
+        )
 
     @staticmethod
     def get_pending() -> QuerySet[EmailLog]:
@@ -166,14 +152,10 @@ class EmailLogSelector:
         """
         return EmailLog.objects.filter(
             status__in=[EmailLog.Status.PENDING, EmailLog.Status.QUEUED]
-        ).order_by('created_at')
+        ).order_by("created_at")
 
     @staticmethod
-    def get_by_status(
-        status: str,
-        *,
-        days: int = 7
-    ) -> QuerySet[EmailLog]:
+    def get_by_status(status: str, *, days: int = 7) -> QuerySet[EmailLog]:
         """
         Get emails by status within a time range.
 
@@ -185,10 +167,9 @@ class EmailLogSelector:
             QuerySet of EmailLogs
         """
         cutoff = timezone.now() - timedelta(days=days)
-        return EmailLog.objects.filter(
-            status=status,
-            created_at__gte=cutoff
-        ).order_by('-created_at')
+        return EmailLog.objects.filter(status=status, created_at__gte=cutoff).order_by(
+            "-created_at"
+        )
 
     @staticmethod
     def get_bounced(*, days: int = 30) -> QuerySet[EmailLog]:
@@ -203,9 +184,8 @@ class EmailLogSelector:
         """
         cutoff = timezone.now() - timedelta(days=days)
         return EmailLog.objects.filter(
-            status=EmailLog.Status.BOUNCED,
-            created_at__gte=cutoff
-        ).order_by('-bounced_at')
+            status=EmailLog.Status.BOUNCED, created_at__gte=cutoff
+        ).order_by("-bounced_at")
 
     @staticmethod
     def get_complained(*, days: int = 30) -> QuerySet[EmailLog]:
@@ -220,10 +200,5 @@ class EmailLogSelector:
         """
         cutoff = timezone.now() - timedelta(days=days)
         return EmailLog.objects.filter(
-            status=EmailLog.Status.COMPLAINED,
-            created_at__gte=cutoff
-        ).order_by('-complained_at')
-
-
-# Import models at module level for F expression
-from django.db import models
+            status=EmailLog.Status.COMPLAINED, created_at__gte=cutoff
+        ).order_by("-complained_at")

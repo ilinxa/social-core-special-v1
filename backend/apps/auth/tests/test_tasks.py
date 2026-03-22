@@ -14,10 +14,10 @@ import pytest
 from django.utils import timezone
 
 from apps.auth.models import (
-    RefreshToken,
     DeviceSession,
     EmailVerificationToken,
     PasswordResetToken,
+    RefreshToken,
 )
 from apps.auth.tasks import (
     cleanup_expired_tokens,
@@ -25,18 +25,17 @@ from apps.auth.tasks import (
     revoke_user_tokens,
 )
 from apps.auth.tests.factories import (
-    RefreshTokenFactory,
-    ExpiredRefreshTokenFactory,
     DeviceSessionFactory,
     EmailVerificationTokenFactory,
-    ExpiredVerificationTokenFactory,
-    UsedVerificationTokenFactory,
-    PasswordResetTokenFactory,
     ExpiredPasswordResetTokenFactory,
+    ExpiredRefreshTokenFactory,
+    ExpiredVerificationTokenFactory,
+    PasswordResetTokenFactory,
+    RefreshTokenFactory,
     UsedPasswordResetTokenFactory,
+    UsedVerificationTokenFactory,
 )
 from apps.users.tests.factories import UserFactory
-
 
 # =============================================================================
 # cleanup_expired_tokens
@@ -86,7 +85,9 @@ class TestCleanupExpiredTokens:
 
         cleanup_expired_tokens()
 
-        assert not EmailVerificationToken.objects.filter(pk=old_verification.pk).exists()
+        assert not EmailVerificationToken.objects.filter(
+            pk=old_verification.pk
+        ).exists()
 
     @pytest.mark.django_db
     def test_deletes_used_verification_tokens_past_cutoff(self):
@@ -97,7 +98,9 @@ class TestCleanupExpiredTokens:
 
         cleanup_expired_tokens()
 
-        assert not EmailVerificationToken.objects.filter(pk=used_verification.pk).exists()
+        assert not EmailVerificationToken.objects.filter(
+            pk=used_verification.pk
+        ).exists()
 
     @pytest.mark.django_db
     def test_deletes_expired_password_reset_tokens_past_cutoff(self):
@@ -150,9 +153,9 @@ class TestCleanupExpiredTokens:
 
         result = cleanup_expired_tokens()
 
-        assert result['refresh_tokens_deleted'] == 2
-        assert result['verification_tokens_deleted'] == 1
-        assert result['password_reset_tokens_deleted'] == 1
+        assert result["refresh_tokens_deleted"] == 2
+        assert result["verification_tokens_deleted"] == 1
+        assert result["password_reset_tokens_deleted"] == 1
 
 
 # =============================================================================
@@ -217,7 +220,7 @@ class TestCleanupInactiveSessions:
 
         result = cleanup_inactive_sessions()
 
-        assert result['sessions_deleted'] == 2
+        assert result["sessions_deleted"] == 2
 
     @pytest.mark.django_db
     def test_does_not_affect_other_users_sessions(self):
@@ -272,7 +275,7 @@ class TestRevokeUserTokens:
         t1.refresh_from_db()
         t2.refresh_from_db()
         assert t1.is_revoked is True
-        assert t1.revoked_reason == 'security'
+        assert t1.revoked_reason == "security"
         assert t1.revoked_at is not None
         assert t2.is_revoked is True
 
@@ -335,8 +338,8 @@ class TestRevokeUserTokens:
 
         result = revoke_user_tokens(user.id)
 
-        assert result['tokens_revoked'] == 2
-        assert result['sessions_deactivated'] == 2
+        assert result["tokens_revoked"] == 2
+        assert result["sessions_deactivated"] == 2
 
     @pytest.mark.django_db
     def test_handles_user_with_no_tokens_or_sessions(self):
@@ -345,5 +348,5 @@ class TestRevokeUserTokens:
 
         result = revoke_user_tokens(user.id)
 
-        assert result['tokens_revoked'] == 0
-        assert result['sessions_deactivated'] == 0
+        assert result["tokens_revoked"] == 0
+        assert result["sessions_deactivated"] == 0

@@ -15,7 +15,7 @@ Scope meanings:
 - platform_and_global: Both platform-internal and cross-account
 """
 
-from typing import List, Optional
+from typing import List
 
 # Permission definition format:
 # (code, name, description, category, applicable_scopes)
@@ -73,7 +73,6 @@ PERMISSIONS: List[tuple] = [
         "membership",
         ["business", "platform_only", "global_only"],
     ),
-
     # =========================================================================
     # ROLE PERMISSIONS
     # =========================================================================
@@ -98,7 +97,6 @@ PERMISSIONS: List[tuple] = [
         "roles",
         ["business", "platform_only"],
     ),
-
     # =========================================================================
     # SETTINGS PERMISSIONS
     # =========================================================================
@@ -123,7 +121,6 @@ PERMISSIONS: List[tuple] = [
         "settings",
         ["business", "platform_only"],
     ),
-
     # =========================================================================
     # PLATFORM PERMISSIONS (primarily global scope)
     # =========================================================================
@@ -169,7 +166,6 @@ PERMISSIONS: List[tuple] = [
         "platform",
         ["platform_only"],
     ),
-
     # =========================================================================
     # VISIBILITY PERMISSIONS
     # =========================================================================
@@ -180,7 +176,6 @@ PERMISSIONS: List[tuple] = [
         "settings",
         ["business", "global_only"],
     ),
-
     # =========================================================================
     # TRANSACTION PERMISSIONS
     # =========================================================================
@@ -198,7 +193,6 @@ PERMISSIONS: List[tuple] = [
         "transaction",
         ["global_only", "platform_and_global"],
     ),
-
     # =========================================================================
     # AUDIT PERMISSIONS
     # =========================================================================
@@ -209,7 +203,6 @@ PERMISSIONS: List[tuple] = [
         "audit",
         ["business", "platform_only", "global_only", "platform_and_global"],
     ),
-
     # =========================================================================
     # FORMS PERMISSIONS (for Form Builder system)
     # =========================================================================
@@ -255,11 +248,9 @@ PERMISSIONS: List[tuple] = [
         "forms",
         ["business", "platform_only", "global_only"],
     ),
-
     # =========================================================================
     # CMS PERMISSIONS (for Content Management System)
     # =========================================================================
-
     # CMS - Structural (12 permissions, platform_only scope)
     (
         "can_create_cms_site",
@@ -345,7 +336,6 @@ PERMISSIONS: List[tuple] = [
         "cms_structure",
         ["platform_only"],
     ),
-
     # CMS - Content (8 permissions)
     (
         "can_view_cms_content",
@@ -403,7 +393,6 @@ PERMISSIONS: List[tuple] = [
         "cms_content",
         ["platform_only", "business"],
     ),
-
     # CMS - Media (3 permissions)
     (
         "can_upload_cms_media",
@@ -426,7 +415,6 @@ PERMISSIONS: List[tuple] = [
         "cms_media",
         ["platform_only", "business", "global_only"],
     ),
-
     # =========================================================================
     # NETWORK PERMISSIONS (follow / connection management)
     # =========================================================================
@@ -447,7 +435,7 @@ PERMISSIONS: List[tuple] = [
 ]
 
 
-def get_permission_by_code(code: str) -> Optional[tuple]:
+def get_permission_by_code(code: str) -> tuple | None:
     """
     Get a permission definition by its code.
 
@@ -494,8 +482,11 @@ def get_platform_permissions() -> List[tuple]:
         List of permission tuples applicable to platform account
     """
     return [
-        p for p in PERMISSIONS
-        if any(s in p[4] for s in ["platform_only", "global_only", "platform_and_global"])
+        p
+        for p in PERMISSIONS
+        if any(
+            s in p[4] for s in ["platform_only", "global_only", "platform_and_global"]
+        )
     ]
 
 
@@ -507,6 +498,7 @@ def get_global_permissions() -> List[tuple]:
         List of permission tuples with global reach
     """
     return [
-        p for p in PERMISSIONS
+        p
+        for p in PERMISSIONS
         if any(s in p[4] for s in ["global_only", "platform_and_global"])
     ]

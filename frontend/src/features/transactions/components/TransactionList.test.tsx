@@ -9,6 +9,10 @@ import type { TransactionListItem, TransactionListParams } from "@/types/transac
 const mockItem: TransactionListItem = {
   id: "txn-1",
   transaction_type: "business_membership_invitation",
+  initiator_type: "user",
+  initiator_id: "550e8400-e29b-41d4-a716-446655440001",
+  target_type: "account",
+  target_id: "550e8400-e29b-41d4-a716-446655440002",
   mode: "invitation",
   status: "pending",
   category: "membership",

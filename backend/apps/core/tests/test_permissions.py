@@ -37,7 +37,6 @@ from apps.core.permissions.base import (
     IsVerified,
 )
 
-
 # =============================================================================
 # HELPERS
 # =============================================================================
@@ -382,7 +381,10 @@ class TestIsOwner:
     permission = IsOwner()
 
     def test_message(self):
-        assert self.permission.message == "You do not have permission to access this resource"
+        assert (
+            self.permission.message
+            == "You do not have permission to access this resource"
+        )
 
     def test_owner_field_default(self):
         assert self.permission.owner_field == "user"
@@ -521,7 +523,9 @@ class TestIsOwnerOrReadOnly:
     permission = IsOwnerOrReadOnly()
 
     def test_message(self):
-        assert self.permission.message == "You must be the owner to modify this resource"
+        assert (
+            self.permission.message == "You must be the owner to modify this resource"
+        )
 
     # --- Safe methods (anyone) ---
 
@@ -804,9 +808,9 @@ class TestPermissionInheritance:
             DenyAll,
             AllowAny,
         ):
-            assert issubclass(perm_class, BasePermission), (
-                f"{perm_class.__name__} should inherit from BasePermission"
-            )
+            assert issubclass(
+                perm_class, BasePermission
+            ), f"{perm_class.__name__} should inherit from BasePermission"
 
     def test_is_owner_or_staff_uses_parent_owner_field(self):
         """IsOwnerOrStaff inherits owner_field from IsOwner."""

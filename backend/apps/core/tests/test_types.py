@@ -9,15 +9,15 @@ Covers:
 - Factory classmethods (for_user_context, for_anonymous, for_system)
 """
 
-import pytest
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime
+from datetime import timezone as dt_timezone
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
+import pytest
 from django.utils import timezone
 
 from apps.core.types import ActorContext
-
 
 # =============================================================================
 # HELPERS
@@ -184,15 +184,11 @@ class TestHasPermission:
         assert ctx.has_permission("can_view_members") is True
 
     def test_returns_true_regardless_of_scope(self):
-        ctx = _make_context(
-            permissions_snapshot=[("can_delete", "global_only")]
-        )
+        ctx = _make_context(permissions_snapshot=[("can_delete", "global_only")])
         assert ctx.has_permission("can_delete") is True
 
     def test_returns_false_for_non_matching_code(self):
-        ctx = _make_context(
-            permissions_snapshot=[("can_view_members", "business")]
-        )
+        ctx = _make_context(permissions_snapshot=[("can_view_members", "business")])
         assert ctx.has_permission("can_delete_account") is False
 
     def test_returns_false_for_empty_permissions(self):
@@ -209,9 +205,7 @@ class TestHasPermission:
         assert ctx.has_permission("can_view") is True
 
     def test_code_matching_is_exact(self):
-        ctx = _make_context(
-            permissions_snapshot=[("can_view_members", "business")]
-        )
+        ctx = _make_context(permissions_snapshot=[("can_view_members", "business")])
         assert ctx.has_permission("can_view") is False
         assert ctx.has_permission("can_view_members_all") is False
 
@@ -225,21 +219,15 @@ class TestHasPermissionWithScope:
     """Tests for ActorContext.has_permission_with_scope()."""
 
     def test_returns_true_for_exact_match(self):
-        ctx = _make_context(
-            permissions_snapshot=[("can_edit_posts", "business")]
-        )
+        ctx = _make_context(permissions_snapshot=[("can_edit_posts", "business")])
         assert ctx.has_permission_with_scope("can_edit_posts", "business") is True
 
     def test_returns_false_when_code_matches_but_scope_differs(self):
-        ctx = _make_context(
-            permissions_snapshot=[("can_edit_posts", "business")]
-        )
+        ctx = _make_context(permissions_snapshot=[("can_edit_posts", "business")])
         assert ctx.has_permission_with_scope("can_edit_posts", "global_only") is False
 
     def test_returns_false_when_scope_matches_but_code_differs(self):
-        ctx = _make_context(
-            permissions_snapshot=[("can_edit_posts", "business")]
-        )
+        ctx = _make_context(permissions_snapshot=[("can_edit_posts", "business")])
         assert ctx.has_permission_with_scope("can_delete_posts", "business") is False
 
     def test_returns_false_for_empty_permissions(self):
@@ -266,9 +254,7 @@ class TestHasGlobalPermission:
     """Tests for ActorContext.has_global_permission()."""
 
     def test_returns_true_for_global_only_scope(self):
-        ctx = _make_context(
-            permissions_snapshot=[("can_remove_member", "global_only")]
-        )
+        ctx = _make_context(permissions_snapshot=[("can_remove_member", "global_only")])
         assert ctx.has_global_permission("can_remove_member") is True
 
     def test_returns_true_for_platform_and_global_scope(self):
@@ -278,15 +264,11 @@ class TestHasGlobalPermission:
         assert ctx.has_global_permission("can_manage_users") is True
 
     def test_returns_false_for_business_scope(self):
-        ctx = _make_context(
-            permissions_snapshot=[("can_view_members", "business")]
-        )
+        ctx = _make_context(permissions_snapshot=[("can_view_members", "business")])
         assert ctx.has_global_permission("can_view_members") is False
 
     def test_returns_false_for_non_existent_code(self):
-        ctx = _make_context(
-            permissions_snapshot=[("can_remove_member", "global_only")]
-        )
+        ctx = _make_context(permissions_snapshot=[("can_remove_member", "global_only")])
         assert ctx.has_global_permission("can_fly") is False
 
     def test_returns_false_for_empty_permissions(self):
@@ -329,15 +311,11 @@ class TestPermissionCodes:
         assert ctx.permission_codes() == []
 
     def test_single_permission(self):
-        ctx = _make_context(
-            permissions_snapshot=[("can_view", "business")]
-        )
+        ctx = _make_context(permissions_snapshot=[("can_view", "business")])
         assert ctx.permission_codes() == ["can_view"]
 
     def test_returns_list_type(self):
-        ctx = _make_context(
-            permissions_snapshot=[("a", "b"), ("c", "d")]
-        )
+        ctx = _make_context(permissions_snapshot=[("a", "b"), ("c", "d")])
         result = ctx.permission_codes()
         assert isinstance(result, list)
 

@@ -1,13 +1,17 @@
 import uuid
-from django.db import models
+
 from django.conf import settings
+from django.db import models
 from django.utils import timezone
 
-from apps.core.models import UUIDModel, AuditModel
 from apps.core.constants import ContextType
+from apps.core.models import AuditModel, UUIDModel
 from apps.transaction.constants import (
-    TransactionMode, TransactionStatus, PartyType,
-    TERMINAL_STATES, VALID_TRANSITIONS,
+    TERMINAL_STATES,
+    VALID_TRANSITIONS,
+    PartyType,
+    TransactionMode,
+    TransactionStatus,
 )
 from apps.transaction.managers import TransactionManager
 
@@ -36,17 +40,23 @@ class Transaction(UUIDModel, AuditModel):
 
     # Context
     context_type = models.CharField(
-        max_length=20, choices=ContextType.choices, db_index=True,
+        max_length=20,
+        choices=ContextType.choices,
+        db_index=True,
     )
     context_id = models.UUIDField(
-        null=True, blank=True, db_index=True,
+        null=True,
+        blank=True,
+        db_index=True,
         help_text="Account UUID. NULL for user context.",
     )
 
     # State
     status = models.CharField(
-        max_length=20, choices=TransactionStatus.choices,
-        default=TransactionStatus.CREATED, db_index=True,
+        max_length=20,
+        choices=TransactionStatus.choices,
+        default=TransactionStatus.CREATED,
+        db_index=True,
     )
 
     # Payload
@@ -71,8 +81,11 @@ class Transaction(UUIDModel, AuditModel):
     # Resolution
     resolved_at = models.DateTimeField(null=True, blank=True)
     resolved_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="resolved_transactions",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resolved_transactions",
     )
     resolution_reason = models.TextField(blank=True)
 
@@ -87,6 +100,8 @@ class Transaction(UUIDModel, AuditModel):
 
     class Meta:
         db_table = "transaction_transaction"
+        verbose_name = "transaction"
+        verbose_name_plural = "transactions"
         indexes = [
             models.Index(fields=["transaction_type", "status"]),
             models.Index(fields=["context_type", "context_id", "status"]),
@@ -97,7 +112,8 @@ class Transaction(UUIDModel, AuditModel):
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(context_type="user") | models.Q(context_id__isnull=False),
+                check=models.Q(context_type="user")
+                | models.Q(context_id__isnull=False),
                 name="txn_context_id_required_for_account_contexts",
             ),
         ]
@@ -122,23 +138,31 @@ class TransactionLog(models.Model):
     Immutable audit log for transaction state changes.
     Does NOT inherit from base models — standalone with UUID PK.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     transaction = models.ForeignKey(
-        Transaction, on_delete=models.CASCADE, related_name="logs",
+        Transaction,
+        on_delete=models.CASCADE,
+        related_name="logs",
     )
     event_type = models.CharField(max_length=50, db_index=True)
     timestamp = models.DateTimeField(default=timezone.now, db_index=True)
     actor_context = models.JSONField(default=dict)
     previous_status = models.CharField(
-        max_length=20, choices=TransactionStatus.choices, blank=True,
+        max_length=20,
+        choices=TransactionStatus.choices,
+        blank=True,
     )
     new_status = models.CharField(
-        max_length=20, choices=TransactionStatus.choices,
+        max_length=20,
+        choices=TransactionStatus.choices,
     )
     metadata = models.JSONField(default=dict)
 
     class Meta:
         db_table = "transaction_log"
+        verbose_name = "transaction log"
+        verbose_name_plural = "transaction logs"
         ordering = ["-timestamp"]
         indexes = [
             models.Index(fields=["transaction", "timestamp"]),
@@ -155,23 +179,26 @@ class TransactionLog(models.Model):
 
 class TransactionFormMapping(UUIDModel, AuditModel):
     """Maps a transaction type to a custom form template for an account."""
+
     account_type = models.CharField(max_length=20, choices=ContextType.choices)
     account_id = models.UUIDField(db_index=True)
     transaction_type = models.CharField(max_length=100, db_index=True)
     form_template = models.ForeignKey(
-        'forms.FormTemplate',
+        "forms.FormTemplate",
         on_delete=models.CASCADE,
-        related_name='transaction_mappings',
+        related_name="transaction_mappings",
     )
     is_required = models.BooleanField(default=False)
 
     class Meta:
         db_table = "transaction_form_mapping"
+        verbose_name = "transaction form mapping"
+        verbose_name_plural = "transaction form mappings"
         constraints = [
             models.UniqueConstraint(
-                fields=['account_type', 'account_id', 'transaction_type'],
+                fields=["account_type", "account_id", "transaction_type"],
                 condition=models.Q(is_deleted=False),
-                name='unique_active_form_mapping_per_type',
+                name="unique_active_form_mapping_per_type",
             ),
         ]
 

@@ -1,11 +1,14 @@
 # apps/cms/tests/test_policies.py
 import pytest
-from apps.core.exceptions import BusinessRuleViolation
+
 from apps.cms.policies import CMSPolicy
 from apps.cms.tests.factories import (
-    PageFactory, PageSectionPlacementFactory, SectionBlockPlacementFactory,
+    PageFactory,
+    PageSectionPlacementFactory,
+    SectionBlockPlacementFactory,
     SectionTemplateFactory,
 )
+from apps.core.exceptions import BusinessRuleViolation
 
 
 @pytest.mark.django_db

@@ -14,7 +14,9 @@ class TestFollowPolicies:
 
     def test_can_follow_true(self, user):
         result = NetworkPolicy.can_follow(
-            user=user, followee_type="business", followee_id=uuid.uuid4(),
+            user=user,
+            followee_type="business",
+            followee_id=uuid.uuid4(),
         )
         assert result is True
 
@@ -48,21 +50,33 @@ class TestFollowPolicies:
 class TestConnectionPolicies:
 
     def test_can_connect_user(self, user, user_b):
-        assert NetworkPolicy.can_connect_user(
-            user=user, target_user_id=user_b.id,
-        ) is True
+        assert (
+            NetworkPolicy.can_connect_user(
+                user=user,
+                target_user_id=user_b.id,
+            )
+            is True
+        )
 
     def test_can_connect_self(self, user):
-        assert NetworkPolicy.can_connect_user(
-            user=user, target_user_id=user.id,
-        ) is False
+        assert (
+            NetworkPolicy.can_connect_user(
+                user=user,
+                target_user_id=user.id,
+            )
+            is False
+        )
 
     def test_can_connect_already_connected(self, user, user_b):
         a, b = sorted([user, user_b], key=lambda u: str(u.id))
         UserConnectionFactory(user_a=a, user_b=b)
-        assert NetworkPolicy.can_connect_user(
-            user=user, target_user_id=user_b.id,
-        ) is False
+        assert (
+            NetworkPolicy.can_connect_user(
+                user=user,
+                target_user_id=user_b.id,
+            )
+            is False
+        )
 
     def test_can_disconnect_party(self, user, user_b):
         a, b = sorted([user, user_b], key=lambda u: str(u.id))
@@ -80,7 +94,9 @@ class TestPermissionHelpers:
 
     def test_get_follow_permissions_not_following(self, user):
         perms = NetworkPolicy.get_follow_permissions(
-            viewer=user, followee_type="business", followee_id=uuid.uuid4(),
+            viewer=user,
+            followee_type="business",
+            followee_id=uuid.uuid4(),
         )
         assert perms["can_follow"] is True
         assert perms["can_unfollow"] is False
@@ -97,7 +113,8 @@ class TestPermissionHelpers:
 
     def test_get_connection_permissions_not_connected(self, user, user_b):
         perms = NetworkPolicy.get_connection_permissions_for_user(
-            viewer=user, target_user_id=user_b.id,
+            viewer=user,
+            target_user_id=user_b.id,
         )
         assert perms["can_connect"] is True
         assert perms["can_disconnect"] is False
@@ -106,14 +123,16 @@ class TestPermissionHelpers:
         a, b = sorted([user, user_b], key=lambda u: str(u.id))
         UserConnectionFactory(user_a=a, user_b=b)
         perms = NetworkPolicy.get_connection_permissions_for_user(
-            viewer=user, target_user_id=user_b.id,
+            viewer=user,
+            target_user_id=user_b.id,
         )
         assert perms["can_connect"] is False
         assert perms["can_disconnect"] is True
 
     def test_get_connection_permissions_self(self, user):
         perms = NetworkPolicy.get_connection_permissions_for_user(
-            viewer=user, target_user_id=user.id,
+            viewer=user,
+            target_user_id=user.id,
         )
         assert perms["can_connect"] is False
         assert perms["can_disconnect"] is False

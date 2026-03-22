@@ -33,14 +33,12 @@ class SESBackend(BaseEmailBackend):
     def __init__(self):
         """Initialize SES client."""
         self.client = boto3.client(
-            'ses',
-            region_name=getattr(settings, 'AWS_SES_REGION_NAME', 'us-east-1'),
-            aws_access_key_id=getattr(settings, 'AWS_ACCESS_KEY_ID', None),
-            aws_secret_access_key=getattr(settings, 'AWS_SECRET_ACCESS_KEY', None)
+            "ses",
+            region_name=getattr(settings, "AWS_SES_REGION_NAME", "us-east-1"),
+            aws_access_key_id=getattr(settings, "AWS_ACCESS_KEY_ID", None),
+            aws_secret_access_key=getattr(settings, "AWS_SECRET_ACCESS_KEY", None),
         )
-        self.configuration_set = getattr(
-            settings, 'AWS_SES_CONFIGURATION_SET', None
-        )
+        self.configuration_set = getattr(settings, "AWS_SES_CONFIGURATION_SET", None)
 
     def send(
         self,
@@ -49,8 +47,8 @@ class SESBackend(BaseEmailBackend):
         from_email: str,
         subject: str,
         html_body: str,
-        text_body: str = '',
-        reply_to: str = ''
+        text_body: str = "",
+        reply_to: str = "",
     ) -> str:
         """
         Send email via SES.
@@ -71,29 +69,27 @@ class SESBackend(BaseEmailBackend):
         """
         try:
             message = {
-                'Subject': {'Data': subject, 'Charset': 'UTF-8'},
-                'Body': {
-                    'Html': {'Data': html_body, 'Charset': 'UTF-8'}
-                }
+                "Subject": {"Data": subject, "Charset": "UTF-8"},
+                "Body": {"Html": {"Data": html_body, "Charset": "UTF-8"}},
             }
 
             if text_body:
-                message['Body']['Text'] = {'Data': text_body, 'Charset': 'UTF-8'}
+                message["Body"]["Text"] = {"Data": text_body, "Charset": "UTF-8"}
 
             params = {
-                'Source': from_email,
-                'Destination': {'ToAddresses': [to_email]},
-                'Message': message
+                "Source": from_email,
+                "Destination": {"ToAddresses": [to_email]},
+                "Message": message,
             }
 
             if reply_to:
-                params['ReplyToAddresses'] = [reply_to]
+                params["ReplyToAddresses"] = [reply_to]
 
             if self.configuration_set:
-                params['ConfigurationSetName'] = self.configuration_set
+                params["ConfigurationSetName"] = self.configuration_set
 
             response = self.client.send_email(**params)
-            message_id = response['MessageId']
+            message_id = response["MessageId"]
 
             logger.info(
                 "email.ses.sent",
@@ -104,8 +100,8 @@ class SESBackend(BaseEmailBackend):
             return message_id
 
         except ClientError as e:
-            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
-            error_message = e.response.get('Error', {}).get('Message', str(e))
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            error_message = e.response.get("Error", {}).get("Message", str(e))
 
             logger.error(
                 "email.ses.failed",
@@ -116,12 +112,11 @@ class SESBackend(BaseEmailBackend):
 
             raise ServiceUnavailable(
                 message=f"Failed to send email via SES: {error_message}",
-                service='AWS SES'
-            )
+                service="AWS SES",
+            ) from e
 
         except Exception as e:
             logger.error("email.ses.unexpected_error", error=str(e))
             raise ServiceUnavailable(
-                message=f"Failed to send email via SES: {str(e)}",
-                service='AWS SES'
-            )
+                message=f"Failed to send email via SES: {str(e)}", service="AWS SES"
+            ) from e

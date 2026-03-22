@@ -156,6 +156,16 @@ export interface UserMinimal {
   avatar_url: string | null;
 }
 
+export type ApprovedCreatorItem = {
+  id: string;
+  email: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  can_create_business: boolean;
+  date_joined: string;
+};
+
 // =============================================================================
 // AUTH
 // =============================================================================

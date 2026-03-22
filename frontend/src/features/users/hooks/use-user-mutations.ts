@@ -149,13 +149,13 @@ export function useDeleteCoverImage() {
 // =============================================================================
 
 export function useDeactivateAccount() {
-  const logout = useAuthStore((s) => s.logout);
+  const clearUser = useAuthStore((s) => s.clearUser);
 
   return useMutation({
     mutationFn: deactivateAccountApi,
     onSuccess: () => {
       toast.success("Account deactivated");
-      logout();
+      clearUser();
     },
   });
 }

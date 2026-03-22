@@ -11,10 +11,10 @@ import uuid
 
 import pytest
 
-
 # =============================================================================
 # B01–B08: BUSINESS ACCOUNT CRUD
 # =============================================================================
+
 
 class TestBusinessCRUD:
     """Test business account creation, listing, and management."""
@@ -22,11 +22,14 @@ class TestBusinessCRUD:
     def test_b01_create_business(self, api, state, db_helper):
         """POST /business/ creates a new business account."""
         api.set_token(state.get_token("alice"))
-        r = api.post("business/", json={
-            "legal_name": "Alice Corp",
-            "country": "US",
-            "slug": "alice-corp",
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": "Alice Corp",
+                "country": "US",
+                "slug": "alice-corp",
+            },
+        )
         assert r.status_code == 201, f"Create business failed: {r.text}"
         data = r.json()
         assert data["legal_name"] == "Alice Corp"
@@ -41,11 +44,14 @@ class TestBusinessCRUD:
     def test_b02_create_second_business(self, api, state, db_helper):
         """Create a second business for cross-business tests."""
         api.set_token(state.get_token("bob"))
-        r = api.post("business/", json={
-            "legal_name": "Bob LLC",
-            "country": "GB",
-            "slug": "bob-llc",
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": "Bob LLC",
+                "country": "GB",
+                "slug": "bob-llc",
+            },
+        )
         assert r.status_code == 201
         data = r.json()
         state.businesses["bob_llc"] = {
@@ -96,10 +102,13 @@ class TestBusinessCRUD:
         """PATCH /business/<slug>/ updates business fields."""
         api.set_token(state.get_token("alice"))
         slug = state.businesses["alice_corp"]["slug"]
-        r = api.patch(f"business/{slug}/", json={
-            "legal_name": "Alice Corp Updated",
-            "registration_number": "REG-001",
-        })
+        r = api.patch(
+            f"business/{slug}/",
+            json={
+                "legal_name": "Alice Corp Updated",
+                "registration_number": "REG-001",
+            },
+        )
         assert r.status_code == 200
         data = r.json()
         assert data["legal_name"] == "Alice Corp Updated"
@@ -107,17 +116,21 @@ class TestBusinessCRUD:
     def test_b08_duplicate_slug(self, api, state):
         """POST /business/ with duplicate slug returns 400/409."""
         api.set_token(state.get_token("alice"))
-        r = api.post("business/", json={
-            "legal_name": "Duplicate Corp",
-            "country": "US",
-            "slug": "alice-corp",
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": "Duplicate Corp",
+                "country": "US",
+                "slug": "alice-corp",
+            },
+        )
         assert r.status_code in (400, 409)
 
 
 # =============================================================================
 # B09–B11: BUSINESS PROFILE & SLUG
 # =============================================================================
+
 
 class TestBusinessProfile:
     """Test business profile CRUD and slug changes."""
@@ -135,11 +148,14 @@ class TestBusinessProfile:
         """PATCH /business/<slug>/profile/ updates profile."""
         api.set_token(state.get_token("alice"))
         slug = state.businesses["alice_corp"]["slug"]
-        r = api.patch(f"business/{slug}/profile/", json={
-            "display_name": "Alice Corporation",
-            "tagline": "Building the future",
-            "website": "https://alice-corp.example.com",
-        })
+        r = api.patch(
+            f"business/{slug}/profile/",
+            json={
+                "display_name": "Alice Corporation",
+                "tagline": "Building the future",
+                "website": "https://alice-corp.example.com",
+            },
+        )
         assert r.status_code == 200
 
     def test_b11_change_slug(self, api, state):
@@ -147,9 +163,12 @@ class TestBusinessProfile:
         api.set_token(state.get_token("alice"))
         old_slug = state.businesses["alice_corp"]["slug"]
         new_slug = "alice-corporation"
-        r = api.patch(f"business/{old_slug}/slug/", json={
-            "slug": new_slug,
-        })
+        r = api.patch(
+            f"business/{old_slug}/slug/",
+            json={
+                "slug": new_slug,
+            },
+        )
         assert r.status_code == 200
         state.businesses["alice_corp"]["slug"] = new_slug
 
@@ -167,6 +186,7 @@ class TestBusinessProfile:
 # B12–B18: BUSINESS LIFECYCLE & ACCESS CONTROL
 # =============================================================================
 
+
 class TestBusinessLifecycle:
     """Test suspend/reactivate/archive and access control."""
 
@@ -174,9 +194,12 @@ class TestBusinessLifecycle:
         """Non-member cannot update business."""
         api.set_token(state.get_token("nobody"))
         slug = state.businesses["alice_corp"]["slug"]
-        r = api.patch(f"business/{slug}/", json={
-            "legal_name": "Hacked!",
-        })
+        r = api.patch(
+            f"business/{slug}/",
+            json={
+                "legal_name": "Hacked!",
+            },
+        )
         assert r.status_code == 403
 
     def test_b13_non_owner_actions(self, api, state):
@@ -184,29 +207,38 @@ class TestBusinessLifecycle:
         # Bob is not a member of alice_corp — should be 403
         api.set_token(state.get_token("bob"))
         slug = state.businesses["alice_corp"]["slug"]
-        r = api.post(f"business/{slug}/suspend/", json={
-            "reason": "Unauthorized",
-        })
+        r = api.post(
+            f"business/{slug}/suspend/",
+            json={
+                "reason": "Unauthorized",
+            },
+        )
         assert r.status_code == 403
 
     def test_b14_suspend_business(self, api, state):
         """POST /business/<slug>/suspend/ suspends the business."""
         # Create a disposable business for lifecycle testing
         api.set_token(state.get_token("alice"))
-        r = api.post("business/", json={
-            "legal_name": "Lifecycle Corp",
-            "country": "US",
-            "slug": "lifecycle-corp",
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": "Lifecycle Corp",
+                "country": "US",
+                "slug": "lifecycle-corp",
+            },
+        )
         assert r.status_code == 201
         state.businesses["lifecycle"] = {
             "id": r.json()["id"],
             "slug": "lifecycle-corp",
         }
 
-        r = api.post("business/lifecycle-corp/suspend/", json={
-            "reason": "Testing suspension",
-        })
+        r = api.post(
+            "business/lifecycle-corp/suspend/",
+            json={
+                "reason": "Testing suspension",
+            },
+        )
         assert r.status_code == 200
 
     def test_b15_reactivate_business(self, api, state):
@@ -239,6 +271,7 @@ class TestBusinessLifecycle:
 # RB01–RB07: BUSINESS ROLES
 # =============================================================================
 
+
 class TestBusinessRoles:
     """Test business-scoped role CRUD and permission management."""
 
@@ -257,11 +290,14 @@ class TestBusinessRoles:
         """POST /business/<slug>/roles/ creates a custom role."""
         api.set_token(state.get_token("alice"))
         slug = state.businesses["alice_corp"]["slug"]
-        r = api.post(f"business/{slug}/roles/", json={
-            "name": "Editor",
-            "level": 5,
-            "description": "Content editor role",
-        })
+        r = api.post(
+            f"business/{slug}/roles/",
+            json={
+                "name": "Editor",
+                "level": 5,
+                "description": "Content editor role",
+            },
+        )
         assert r.status_code == 201, f"Create role failed: {r.text}"
         data = r.json()
         state.roles["biz:editor"] = {"id": data["id"]}
@@ -281,9 +317,12 @@ class TestBusinessRoles:
         api.set_token(state.get_token("alice"))
         slug = state.businesses["alice_corp"]["slug"]
         role_id = state.roles["biz:editor"]["id"]
-        r = api.patch(f"business/{slug}/roles/{role_id}/", json={
-            "description": "Content editor with review permissions",
-        })
+        r = api.patch(
+            f"business/{slug}/roles/{role_id}/",
+            json={
+                "description": "Content editor with review permissions",
+            },
+        )
         assert r.status_code == 200
 
     def test_rb05_assign_permission(self, api, state):
@@ -294,7 +333,11 @@ class TestBusinessRoles:
         r = api.get("rbac/permissions/")
         assert r.status_code == 200
         perms_data = r.json()
-        perms = perms_data if isinstance(perms_data, list) else perms_data.get("results", [])
+        perms = (
+            perms_data
+            if isinstance(perms_data, list)
+            else perms_data.get("results", [])
+        )
         if not perms:
             pytest.skip("No permissions found")
 
@@ -305,10 +348,13 @@ class TestBusinessRoles:
         perm = perms[0]
         slug = state.businesses["alice_corp"]["slug"]
         role_id = state.roles["biz:editor"]["id"]
-        r = api.post(f"business/{slug}/roles/{role_id}/permissions/", json={
-            "permission_id": perm["id"],
-            "scope": "business",
-        })
+        r = api.post(
+            f"business/{slug}/roles/{role_id}/permissions/",
+            json={
+                "permission_id": perm["id"],
+                "scope": "business",
+            },
+        )
         assert r.status_code in (200, 201), f"Assign permission failed: {r.text}"
 
     def test_rb06_remove_permission(self, api, state):
@@ -320,9 +366,12 @@ class TestBusinessRoles:
         perm = state.permissions[0]
         slug = state.businesses["alice_corp"]["slug"]
         role_id = state.roles["biz:editor"]["id"]
-        r = api.delete(f"business/{slug}/roles/{role_id}/permissions/", json={
-            "permission_id": perm["id"],
-        })
+        r = api.delete(
+            f"business/{slug}/roles/{role_id}/permissions/",
+            json={
+                "permission_id": perm["id"],
+            },
+        )
         assert r.status_code in (200, 204)
 
     def test_rb07_delete_role(self, api, state):
@@ -330,10 +379,13 @@ class TestBusinessRoles:
         # Create a disposable role to delete
         api.set_token(state.get_token("alice"))
         slug = state.businesses["alice_corp"]["slug"]
-        r = api.post(f"business/{slug}/roles/", json={
-            "name": "Disposable",
-            "level": 8,
-        })
+        r = api.post(
+            f"business/{slug}/roles/",
+            json={
+                "name": "Disposable",
+                "level": 8,
+            },
+        )
         assert r.status_code == 201
         disposable_id = r.json()["id"]
 
@@ -344,6 +396,7 @@ class TestBusinessRoles:
 # =============================================================================
 # RB08–RB14: BUSINESS MEMBERS
 # =============================================================================
+
 
 class TestBusinessMembers:
     """Test business membership management."""
@@ -364,7 +417,11 @@ class TestBusinessMembers:
             if user.get("email") == "alice@test.com":
                 state.memberships["biz:alice"] = {
                     "id": m["id"],
-                    "role_id": m.get("role", {}).get("id") if isinstance(m.get("role"), dict) else m.get("role_name"),
+                    "role_id": (
+                        m.get("role", {}).get("id")
+                        if isinstance(m.get("role"), dict)
+                        else m.get("role_name")
+                    ),
                 }
 
     def test_rb09_member_detail(self, api, state):
@@ -413,6 +470,7 @@ class TestBusinessMembers:
         slug = state.businesses["alice_corp"]["slug"]
         r = api.post(f"business/{slug}/members/leave/")
         # Owner should be rejected — 400 or 403
-        assert r.status_code in (400, 403), (
-            f"Owner should not be able to leave, got {r.status_code}: {r.text}"
-        )
+        assert r.status_code in (
+            400,
+            403,
+        ), f"Owner should not be able to leave, got {r.status_code}: {r.text}"

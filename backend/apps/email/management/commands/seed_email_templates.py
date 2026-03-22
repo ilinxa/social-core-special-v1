@@ -11,7 +11,6 @@ from django.core.management.base import BaseCommand
 
 from apps.email.models import EmailTemplate
 
-
 TEMPLATES = [
     {
         "name": "verify_email",
@@ -21,7 +20,7 @@ TEMPLATES = [
             "<p>Hi {{ user_name }},</p>"
             "<p>Your verification code is: <strong>{{ code }}</strong></p>"
             "<p>Or click the link below to verify your email:</p>"
-            "<p><a href=\"{{ verification_link }}\">Verify Email</a></p>"
+            '<p><a href="{{ verification_link }}">Verify Email</a></p>'
             "<p>This code expires in 15 minutes.</p>"
         ),
         "text_body": (
@@ -67,7 +66,7 @@ TEMPLATES = [
             "<h2>Password Reset</h2>"
             "<p>Hi {{ user_name }},</p>"
             "<p>Click the link below to reset your password:</p>"
-            "<p><a href=\"{{ reset_link }}\">Reset Password</a></p>"
+            '<p><a href="{{ reset_link }}">Reset Password</a></p>'
             "<p>This link expires in 1 hour. "
             "If you didn't request this, ignore this email.</p>"
         ),
@@ -136,7 +135,5 @@ class Command(BaseCommand):
                 created += 1
 
         self.stdout.write(
-            self.style.SUCCESS(
-                f"\nDone — {created} created, {skipped} skipped."
-            )
+            self.style.SUCCESS(f"\nDone — {created} created, {skipped} skipped.")
         )

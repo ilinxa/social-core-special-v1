@@ -16,22 +16,28 @@ Tests cover:
 - remove_permission_from_role: Remove permission from role
 """
 
-import pytest
 from uuid import uuid4
 
+import pytest
 from django.core.cache import cache
 
-from apps.core.constants import AccountType, PermissionScope, MembershipStatus
+from apps.core.constants import AccountType, MembershipStatus, PermissionScope
 from apps.core.exceptions import (
-    NotFound, ConflictError, PermissionDenied, BusinessRuleViolation, ValidationError
+    BusinessRuleViolation,
+    ConflictError,
+    NotFound,
+    PermissionDenied,
+    ValidationError,
 )
 from apps.core.types import ActorContext
-from apps.rbac.models import Permission, Role, RolePermission, Membership
+from apps.rbac.models import Membership, Permission, Role, RolePermission
+from apps.rbac.selectors import MembershipSelector, RoleSelector
 from apps.rbac.services import RBACService
-from apps.rbac.selectors import RoleSelector, MembershipSelector
-from apps.rbac.tests.conftest import skip_if_sqlite, skip_if_locmem_cache
+from apps.rbac.tests.conftest import skip_if_locmem_cache, skip_if_sqlite
 from apps.rbac.tests.factories import (
-    BusinessAccountFactory, PlatformAccountFactory, UserFactory,
+    BusinessAccountFactory,
+    PlatformAccountFactory,
+    UserFactory,
 )
 
 
@@ -212,7 +218,9 @@ class TestInitializePlatformAccount:
 class TestCreateMembership:
     """Tests for RBACService.create_membership."""
 
-    def test_create_membership_with_role(self, business, role, base_member_role, another_user):
+    def test_create_membership_with_role(
+        self, business, role, base_member_role, another_user
+    ):
         """Test creating a membership with a specific role."""
         membership = RBACService.create_membership(
             user=another_user,
@@ -226,7 +234,9 @@ class TestCreateMembership:
         assert membership.is_owner is False
         assert membership.status == MembershipStatus.ACTIVE
 
-    def test_create_membership_fallback_to_base_member(self, business, base_member_role, another_user):
+    def test_create_membership_fallback_to_base_member(
+        self, business, base_member_role, another_user
+    ):
         """Test that membership falls back to Base Member role when role_id is None."""
         membership = RBACService.create_membership(
             user=another_user,
@@ -247,7 +257,9 @@ class TestCreateMembership:
             )
         assert "already a member" in str(exc_info.value.message)
 
-    def test_create_membership_reactivates_removed(self, business, base_member_role, another_user):
+    def test_create_membership_reactivates_removed(
+        self, business, base_member_role, another_user
+    ):
         """Test that creating membership for a removed member reactivates them."""
         # Create and then remove the membership
         membership = RBACService.create_membership(
@@ -269,7 +281,9 @@ class TestCreateMembership:
         assert reactivated.status == MembershipStatus.ACTIVE
         assert reactivated.role == base_member_role
 
-    def test_create_membership_suspended_still_conflicts(self, business, base_member_role, another_user):
+    def test_create_membership_suspended_still_conflicts(
+        self, business, base_member_role, another_user
+    ):
         """Test that suspended members still raise ConflictError."""
         membership = RBACService.create_membership(
             user=another_user,
@@ -292,8 +306,7 @@ class TestChangeMemberRole:
     """Tests for RBACService.change_member_role."""
 
     def test_change_member_role_success(
-        self, business_with_members, admin_role,
-        can_change_member_role_permission
+        self, business_with_members, admin_role, can_change_member_role_permission
     ):
         """Test changing a member's role."""
         owner = business_with_members["owner_membership"]
@@ -317,7 +330,9 @@ class TestChangeMemberRole:
 
         assert membership.role == admin_role
 
-    def test_change_member_role_without_permission(self, business_with_members, admin_role):
+    def test_change_member_role_without_permission(
+        self, business_with_members, admin_role
+    ):
         """Test changing role without permission fails."""
         owner = business_with_members["owner_membership"]
         target = business_with_members["member1_membership"]
@@ -337,9 +352,7 @@ class TestChangeMemberRole:
 class TestUpdateMembershipStatus:
     """Tests for RBACService.update_membership_status."""
 
-    def test_suspend_member(
-        self, business_with_members, can_suspend_member_permission
-    ):
+    def test_suspend_member(self, business_with_members, can_suspend_member_permission):
         """Test suspending a member."""
         owner = business_with_members["owner_membership"]
         target = business_with_members["member1_membership"]
@@ -365,9 +378,7 @@ class TestUpdateMembershipStatus:
         assert membership.status_reason == "Violation of terms"
         assert membership.status_changed_by_id == owner.user_id
 
-    def test_ban_member(
-        self, business_with_members, can_ban_member_permission
-    ):
+    def test_ban_member(self, business_with_members, can_ban_member_permission):
         """Test banning a member."""
         owner = business_with_members["owner_membership"]
         target = business_with_members["member1_membership"]
@@ -461,7 +472,9 @@ class TestMemberLeave:
 class TestCreateCustomRole:
     """Tests for RBACService.create_custom_role."""
 
-    def test_create_custom_role(self, business, owner_membership, can_create_role_permission):
+    def test_create_custom_role(
+        self, business, owner_membership, can_create_role_permission
+    ):
         """Test creating a custom role."""
         # Grant the owner the permission to create roles
         RolePermission.objects.create(
@@ -487,7 +500,9 @@ class TestCreateCustomRole:
         assert role.is_system_role is False
         assert role.description == "Manager role"
 
-    def test_cannot_create_level_0_role(self, business, owner_membership, can_create_role_permission):
+    def test_cannot_create_level_0_role(
+        self, business, owner_membership, can_create_role_permission
+    ):
         """Test that level 0 is reserved."""
         # Grant the owner the permission to create roles
         RolePermission.objects.create(
@@ -509,7 +524,9 @@ class TestCreateCustomRole:
             )
         assert "reserved" in str(exc_info.value.message)
 
-    def test_duplicate_role_name_denied(self, business, role, owner_membership, can_create_role_permission):
+    def test_duplicate_role_name_denied(
+        self, business, role, owner_membership, can_create_role_permission
+    ):
         """Test that duplicate role name is denied."""
         # Grant the owner the permission to create roles
         RolePermission.objects.create(
@@ -551,7 +568,9 @@ class TestCreateCustomRole:
 class TestDeleteRole:
     """Tests for RBACService.delete_role."""
 
-    def test_delete_custom_role(self, business, owner_membership, can_delete_role_permission):
+    def test_delete_custom_role(
+        self, business, owner_membership, can_delete_role_permission
+    ):
         """Test deleting a custom role."""
         # Grant the owner the permission to delete roles
         RolePermission.objects.create(
@@ -581,7 +600,9 @@ class TestDeleteRole:
         custom_role.refresh_from_db()
         assert custom_role.is_deleted is True
 
-    def test_cannot_delete_system_role(self, business, owner_role, owner_membership, can_delete_role_permission):
+    def test_cannot_delete_system_role(
+        self, business, owner_role, owner_membership, can_delete_role_permission
+    ):
         """Test that system roles cannot be deleted."""
         # Grant the owner the permission to delete roles
         RolePermission.objects.create(
@@ -601,7 +622,12 @@ class TestDeleteRole:
         assert "System roles" in str(exc_info.value.message)
 
     def test_cannot_delete_role_with_members(
-        self, business, manager_role, owner_membership, another_user, can_delete_role_permission
+        self,
+        business,
+        manager_role,
+        owner_membership,
+        another_user,
+        can_delete_role_permission,
     ):
         """Test that role with active members cannot be deleted."""
         # Grant the owner the permission to delete roles
@@ -931,9 +957,7 @@ class TestUpdateRole:
 
         assert role.description == "New description"
 
-    def test_update_role_without_permission_denied(
-        self, business, owner_membership
-    ):
+    def test_update_role_without_permission_denied(self, business, owner_membership):
         """Test that updating a role without permission is denied."""
         # Create a custom role
         custom_role = Role.objects.create(
@@ -983,22 +1007,34 @@ class TestCreateMembershipQuota:
     """Tests for member quota enforcement in RBACService.create_membership."""
 
     def test_create_membership_blocked_when_business_at_quota(
-        self, user, another_user, base_member_role,
+        self,
+        user,
+        another_user,
+        base_member_role,
     ):
         """Test that creating a membership fails when business is at max_members."""
         business = BusinessAccountFactory(max_members=1, created_by=user)
         owner_role = Role.objects.create(
-            name="Owner", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=0, is_system_role=True,
+            name="Owner",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=0,
+            is_system_role=True,
         )
         Role.objects.create(
-            name="Base Member", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=10, is_system_role=True,
+            name="Base Member",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=10,
+            is_system_role=True,
         )
         Membership.objects.create(
-            user=user, account_type=AccountType.BUSINESS,
-            account_id=business.id, role=owner_role,
-            is_owner=True, status=MembershipStatus.ACTIVE,
+            user=user,
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            role=owner_role,
+            is_owner=True,
+            status=MembershipStatus.ACTIVE,
         )
 
         with pytest.raises(BusinessRuleViolation) as exc_info:
@@ -1010,22 +1046,33 @@ class TestCreateMembershipQuota:
         assert exc_info.value.details["rule"] == "member_quota_exceeded"
 
     def test_create_membership_allowed_when_business_below_quota(
-        self, user, another_user,
+        self,
+        user,
+        another_user,
     ):
         """Test that creating a membership succeeds when below max_members."""
         business = BusinessAccountFactory(max_members=6, created_by=user)
         owner_role = Role.objects.create(
-            name="Owner", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=0, is_system_role=True,
+            name="Owner",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=0,
+            is_system_role=True,
         )
         Role.objects.create(
-            name="Base Member", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=10, is_system_role=True,
+            name="Base Member",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=10,
+            is_system_role=True,
         )
         Membership.objects.create(
-            user=user, account_type=AccountType.BUSINESS,
-            account_id=business.id, role=owner_role,
-            is_owner=True, status=MembershipStatus.ACTIVE,
+            user=user,
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            role=owner_role,
+            is_owner=True,
+            status=MembershipStatus.ACTIVE,
         )
 
         membership = RBACService.create_membership(
@@ -1037,27 +1084,42 @@ class TestCreateMembershipQuota:
         assert membership.status == MembershipStatus.ACTIVE
 
     def test_create_membership_blocked_when_exactly_at_quota(
-        self, user, another_user, third_user,
+        self,
+        user,
+        another_user,
+        third_user,
     ):
         """Test that membership is blocked when count equals max_members."""
         business = BusinessAccountFactory(max_members=2, created_by=user)
         owner_role = Role.objects.create(
-            name="Owner", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=0, is_system_role=True,
+            name="Owner",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=0,
+            is_system_role=True,
         )
         base_role = Role.objects.create(
-            name="Base Member", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=10, is_system_role=True,
+            name="Base Member",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=10,
+            is_system_role=True,
         )
         Membership.objects.create(
-            user=user, account_type=AccountType.BUSINESS,
-            account_id=business.id, role=owner_role,
-            is_owner=True, status=MembershipStatus.ACTIVE,
+            user=user,
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            role=owner_role,
+            is_owner=True,
+            status=MembershipStatus.ACTIVE,
         )
         Membership.objects.create(
-            user=another_user, account_type=AccountType.BUSINESS,
-            account_id=business.id, role=base_role,
-            is_owner=False, status=MembershipStatus.ACTIVE,
+            user=another_user,
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            role=base_role,
+            is_owner=False,
+            status=MembershipStatus.ACTIVE,
         )
 
         with pytest.raises(BusinessRuleViolation) as exc_info:
@@ -1069,22 +1131,33 @@ class TestCreateMembershipQuota:
         assert exc_info.value.details["rule"] == "member_quota_exceeded"
 
     def test_create_membership_unlimited_when_zero(
-        self, user, another_user,
+        self,
+        user,
+        another_user,
     ):
         """Test that max_members=0 means unlimited."""
         business = BusinessAccountFactory(max_members=0, created_by=user)
         owner_role = Role.objects.create(
-            name="Owner", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=0, is_system_role=True,
+            name="Owner",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=0,
+            is_system_role=True,
         )
         Role.objects.create(
-            name="Base Member", account_type=AccountType.BUSINESS,
-            account_id=business.id, level=10, is_system_role=True,
+            name="Base Member",
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            level=10,
+            is_system_role=True,
         )
         Membership.objects.create(
-            user=user, account_type=AccountType.BUSINESS,
-            account_id=business.id, role=owner_role,
-            is_owner=True, status=MembershipStatus.ACTIVE,
+            user=user,
+            account_type=AccountType.BUSINESS,
+            account_id=business.id,
+            role=owner_role,
+            is_owner=True,
+            status=MembershipStatus.ACTIVE,
         )
 
         membership = RBACService.create_membership(
@@ -1095,33 +1168,50 @@ class TestCreateMembershipQuota:
         assert membership.user == another_user
 
     def test_create_membership_blocked_when_platform_at_quota(
-        self, user, another_user,
+        self,
+        user,
+        another_user,
     ):
         """Test that platform membership is blocked when at max_members."""
         platform = PlatformAccountFactory()
         platform.max_members = 2
         platform.save()
         owner_role = Role.objects.create(
-            name="Platform Owner", account_type=AccountType.PLATFORM,
-            account_id=platform.id, level=0, is_system_role=True,
+            name="Platform Owner",
+            account_type=AccountType.PLATFORM,
+            account_id=platform.id,
+            level=0,
+            is_system_role=True,
         )
         Role.objects.create(
-            name="Platform Admin", account_type=AccountType.PLATFORM,
-            account_id=platform.id, level=2, is_system_role=True,
+            name="Platform Admin",
+            account_type=AccountType.PLATFORM,
+            account_id=platform.id,
+            level=2,
+            is_system_role=True,
         )
         Membership.objects.create(
-            user=user, account_type=AccountType.PLATFORM,
-            account_id=platform.id, role=owner_role,
-            is_owner=True, status=MembershipStatus.ACTIVE,
+            user=user,
+            account_type=AccountType.PLATFORM,
+            account_id=platform.id,
+            role=owner_role,
+            is_owner=True,
+            status=MembershipStatus.ACTIVE,
         )
         admin_role = Role.objects.create(
-            name="Admin Role", account_type=AccountType.PLATFORM,
-            account_id=platform.id, level=3, is_system_role=False,
+            name="Admin Role",
+            account_type=AccountType.PLATFORM,
+            account_id=platform.id,
+            level=3,
+            is_system_role=False,
         )
         Membership.objects.create(
-            user=another_user, account_type=AccountType.PLATFORM,
-            account_id=platform.id, role=admin_role,
-            is_owner=False, status=MembershipStatus.ACTIVE,
+            user=another_user,
+            account_type=AccountType.PLATFORM,
+            account_id=platform.id,
+            role=admin_role,
+            is_owner=False,
+            status=MembershipStatus.ACTIVE,
         )
 
         third = UserFactory(is_verified=True)
@@ -1135,22 +1225,33 @@ class TestCreateMembershipQuota:
         assert exc_info.value.details["rule"] == "member_quota_exceeded"
 
     def test_create_membership_allowed_when_platform_below_quota(
-        self, user, another_user,
+        self,
+        user,
+        another_user,
     ):
         """Test that platform membership succeeds below max_members."""
         platform = PlatformAccountFactory()  # factory default max_members=5
         owner_role = Role.objects.create(
-            name="Platform Owner", account_type=AccountType.PLATFORM,
-            account_id=platform.id, level=0, is_system_role=True,
+            name="Platform Owner",
+            account_type=AccountType.PLATFORM,
+            account_id=platform.id,
+            level=0,
+            is_system_role=True,
         )
         admin_role = Role.objects.create(
-            name="Platform Admin", account_type=AccountType.PLATFORM,
-            account_id=platform.id, level=2, is_system_role=True,
+            name="Platform Admin",
+            account_type=AccountType.PLATFORM,
+            account_id=platform.id,
+            level=2,
+            is_system_role=True,
         )
         Membership.objects.create(
-            user=user, account_type=AccountType.PLATFORM,
-            account_id=platform.id, role=owner_role,
-            is_owner=True, status=MembershipStatus.ACTIVE,
+            user=user,
+            account_type=AccountType.PLATFORM,
+            account_id=platform.id,
+            role=owner_role,
+            is_owner=True,
+            status=MembershipStatus.ACTIVE,
         )
 
         membership = RBACService.create_membership(
@@ -1191,7 +1292,9 @@ class TestPlatformBuildActorContext:
         assert context.role_name == "Platform Admin"
 
     def test_build_platform_context_with_permissions(
-        self, platform_owner_membership, platform_owner_role,
+        self,
+        platform_owner_membership,
+        platform_owner_role,
     ):
         """Platform membership with permissions builds correct snapshot."""
         perm = Permission.objects.create(
@@ -1212,7 +1315,9 @@ class TestPlatformBuildActorContext:
         codes = [p[0] for p in context.permissions_snapshot]
         assert "test_plat_ctx_perm" in codes
 
-    def test_suspended_platform_membership_denied(self, platform, platform_admin_role, another_user):
+    def test_suspended_platform_membership_denied(
+        self, platform, platform_admin_role, another_user
+    ):
         """Suspended platform membership cannot build context."""
         suspended = Membership.objects.create(
             user=another_user,
@@ -1232,7 +1337,11 @@ class TestPlatformCreateMembership:
     """Tests for RBACService.create_membership with platform accounts."""
 
     def test_create_platform_membership_with_role(
-        self, platform, platform_admin_role, platform_base_member_role, another_user,
+        self,
+        platform,
+        platform_admin_role,
+        platform_base_member_role,
+        another_user,
     ):
         """Create a platform membership with specific role."""
         membership = RBACService.create_membership(
@@ -1249,7 +1358,10 @@ class TestPlatformCreateMembership:
         assert membership.status == MembershipStatus.ACTIVE
 
     def test_create_platform_membership_fallback_to_base(
-        self, platform, platform_base_member_role, another_user,
+        self,
+        platform,
+        platform_base_member_role,
+        another_user,
     ):
         """Falls back to Base Member role when role_id is None."""
         membership = RBACService.create_membership(
@@ -1262,7 +1374,8 @@ class TestPlatformCreateMembership:
         assert membership.role == platform_base_member_role
 
     def test_create_platform_membership_duplicate_denied(
-        self, platform_owner_membership,
+        self,
+        platform_owner_membership,
     ):
         """Duplicate platform membership is denied."""
         with pytest.raises(ConflictError) as exc_info:
@@ -1274,7 +1387,10 @@ class TestPlatformCreateMembership:
         assert "already a member" in str(exc_info.value.message)
 
     def test_create_platform_membership_reactivates_removed(
-        self, platform, platform_base_member_role, another_user,
+        self,
+        platform,
+        platform_base_member_role,
+        another_user,
     ):
         """Removed platform members are reactivated on re-create."""
         membership = RBACService.create_membership(
@@ -1300,7 +1416,10 @@ class TestPlatformChangeMemberRole:
     """Tests for RBACService.change_member_role with platform accounts."""
 
     def test_change_platform_member_role(
-        self, platform_with_members, global_moderator_role, can_change_member_role_permission,
+        self,
+        platform_with_members,
+        global_moderator_role,
+        can_change_member_role_permission,
     ):
         """Platform owner can change platform member's role."""
         owner = platform_with_members["owner_membership"]
@@ -1324,7 +1443,8 @@ class TestPlatformChangeMemberRole:
         assert membership.role == platform_with_members["admin_role"]
 
     def test_change_platform_member_role_without_permission(
-        self, platform_with_members,
+        self,
+        platform_with_members,
     ):
         """Changing platform role without permission fails."""
         owner = platform_with_members["owner_membership"]
@@ -1346,7 +1466,9 @@ class TestPlatformUpdateMembershipStatus:
     """Tests for RBACService.update_membership_status with platform accounts."""
 
     def test_suspend_platform_member(
-        self, platform_with_members, can_suspend_member_permission,
+        self,
+        platform_with_members,
+        can_suspend_member_permission,
     ):
         """Platform owner can suspend platform member."""
         owner = platform_with_members["owner_membership"]
@@ -1372,7 +1494,9 @@ class TestPlatformUpdateMembershipStatus:
         assert membership.status_reason == "Platform violation"
 
     def test_ban_platform_member(
-        self, platform_with_members, can_ban_member_permission,
+        self,
+        platform_with_members,
+        can_ban_member_permission,
     ):
         """Platform owner can ban platform member."""
         owner = platform_with_members["owner_membership"]
@@ -1396,7 +1520,9 @@ class TestPlatformUpdateMembershipStatus:
         assert membership.status == MembershipStatus.BANNED
 
     def test_reactivate_platform_member(
-        self, platform_with_members, can_suspend_member_permission,
+        self,
+        platform_with_members,
+        can_suspend_member_permission,
     ):
         """Platform owner can reactivate suspended member."""
         owner = platform_with_members["owner_membership"]
@@ -1448,7 +1574,9 @@ class TestPlatformMemberLeave:
             )
         assert "owner" in str(exc_info.value.message).lower()
 
-    def test_platform_cannot_leave_other_membership(self, platform_with_members, user_factory):
+    def test_platform_cannot_leave_other_membership(
+        self, platform_with_members, user_factory
+    ):
         """User cannot leave another user's platform membership."""
         member = platform_with_members["member_membership"]
         random_user = user_factory()
@@ -1466,7 +1594,10 @@ class TestPlatformCreateCustomRole:
     """Tests for RBACService.create_custom_role with platform accounts."""
 
     def test_create_custom_platform_role(
-        self, platform, platform_owner_membership, can_create_role_permission,
+        self,
+        platform,
+        platform_owner_membership,
+        can_create_role_permission,
     ):
         """Create custom platform role."""
         RolePermission.objects.create(
@@ -1476,7 +1607,9 @@ class TestPlatformCreateCustomRole:
         )
 
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         role = RBACService.create_custom_role(
             account_type=AccountType.PLATFORM,
@@ -1493,11 +1626,15 @@ class TestPlatformCreateCustomRole:
         assert role.account_type == AccountType.PLATFORM
 
     def test_create_platform_role_without_permission(
-        self, platform, platform_owner_membership,
+        self,
+        platform,
+        platform_owner_membership,
     ):
         """Creating platform role without permission is denied."""
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         with pytest.raises(PermissionDenied) as exc_info:
             RBACService.create_custom_role(
@@ -1510,7 +1647,11 @@ class TestPlatformCreateCustomRole:
         assert "can_create_role" in str(exc_info.value.message)
 
     def test_duplicate_platform_role_name(
-        self, platform, platform_owner_membership, platform_admin_role, can_create_role_permission,
+        self,
+        platform,
+        platform_owner_membership,
+        platform_admin_role,
+        can_create_role_permission,
     ):
         """Duplicate platform role name is denied."""
         RolePermission.objects.create(
@@ -1520,7 +1661,9 @@ class TestPlatformCreateCustomRole:
         )
 
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         with pytest.raises(ConflictError) as exc_info:
             RBACService.create_custom_role(
@@ -1538,7 +1681,10 @@ class TestPlatformDeleteRole:
     """Tests for RBACService.delete_role with platform accounts."""
 
     def test_delete_custom_platform_role(
-        self, platform, platform_owner_membership, can_delete_role_permission,
+        self,
+        platform,
+        platform_owner_membership,
+        can_delete_role_permission,
     ):
         """Delete custom platform role."""
         RolePermission.objects.create(
@@ -1556,7 +1702,9 @@ class TestPlatformDeleteRole:
         )
 
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         RBACService.delete_role(
             role_id=custom_role.id,
@@ -1567,7 +1715,10 @@ class TestPlatformDeleteRole:
         assert custom_role.is_deleted is True
 
     def test_cannot_delete_system_platform_role(
-        self, platform_owner_membership, platform_owner_role, can_delete_role_permission,
+        self,
+        platform_owner_membership,
+        platform_owner_role,
+        can_delete_role_permission,
     ):
         """System platform roles cannot be deleted."""
         RolePermission.objects.create(
@@ -1577,7 +1728,9 @@ class TestPlatformDeleteRole:
         )
 
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         with pytest.raises(PermissionDenied) as exc_info:
             RBACService.delete_role(
@@ -1587,7 +1740,9 @@ class TestPlatformDeleteRole:
         assert "System roles" in str(exc_info.value.message)
 
     def test_cannot_delete_platform_role_with_members(
-        self, platform_with_members, can_delete_role_permission,
+        self,
+        platform_with_members,
+        can_delete_role_permission,
     ):
         """Platform role with active members cannot be deleted."""
         owner = platform_with_members["owner_membership"]
@@ -1615,7 +1770,10 @@ class TestPlatformUpdateRole:
     """Tests for RBACService.update_role with platform accounts."""
 
     def test_update_platform_role_name(
-        self, platform, platform_owner_membership, can_edit_role_permission,
+        self,
+        platform,
+        platform_owner_membership,
+        can_edit_role_permission,
     ):
         """Update platform role name."""
         RolePermission.objects.create(
@@ -1633,7 +1791,9 @@ class TestPlatformUpdateRole:
         )
 
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         role = RBACService.update_role(
             role_id=custom_role.id,
@@ -1644,7 +1804,10 @@ class TestPlatformUpdateRole:
         assert role.name == "Senior Content Mod"
 
     def test_update_platform_system_role_denied(
-        self, platform_owner_membership, platform_owner_role, can_edit_role_permission,
+        self,
+        platform_owner_membership,
+        platform_owner_role,
+        can_edit_role_permission,
     ):
         """System platform roles cannot be updated."""
         RolePermission.objects.create(
@@ -1654,7 +1817,9 @@ class TestPlatformUpdateRole:
         )
 
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         with pytest.raises(PermissionDenied) as exc_info:
             RBACService.update_role(
@@ -1711,7 +1876,9 @@ class TestPlatformRestoreMembership:
     """Tests for RBACService.restore_membership with platform accounts."""
 
     def test_restore_platform_membership(
-        self, platform_with_members, can_remove_member_permission,
+        self,
+        platform_with_members,
+        can_remove_member_permission,
     ):
         """Restore deleted platform membership."""
         owner = platform_with_members["owner_membership"]

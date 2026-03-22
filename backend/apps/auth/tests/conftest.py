@@ -8,28 +8,46 @@ These fixtures are available to all tests in the auth app.
 import pytest
 from rest_framework.test import APIClient
 
-from apps.users.tests.factories import (
-    UserFactory,
-    VerifiedUserFactory,
-    StaffUserFactory,
-    SuperuserFactory,
-    InactiveUserFactory,
-)
 from apps.auth.tests.factories import (
-    RefreshTokenFactory,
-    ExpiredRefreshTokenFactory,
-    RevokedRefreshTokenFactory,
+    AppleOAuthConnectionFactory,
     DeviceSessionFactory,
     EmailVerificationTokenFactory,
-    ExpiredVerificationTokenFactory,
-    UsedVerificationTokenFactory,
-    PasswordResetTokenFactory,
     ExpiredPasswordResetTokenFactory,
-    UsedPasswordResetTokenFactory,
-    OAuthConnectionFactory,
+    ExpiredRefreshTokenFactory,
+    ExpiredVerificationTokenFactory,
     GoogleOAuthConnectionFactory,
-    AppleOAuthConnectionFactory,
+    OAuthConnectionFactory,
+    PasswordResetTokenFactory,
+    RefreshTokenFactory,
+    RevokedRefreshTokenFactory,
+    UsedPasswordResetTokenFactory,
+    UsedVerificationTokenFactory,
 )
+from apps.users.tests.factories import (
+    InactiveUserFactory,
+    StaffUserFactory,
+    SuperuserFactory,
+    UserFactory,
+    VerifiedUserFactory,
+)
+
+# =============================================================================
+# ON-COMMIT FIXTURE
+# =============================================================================
+
+
+@pytest.fixture
+def immediate_on_commit(monkeypatch):
+    """Execute transaction.on_commit() callbacks immediately.
+
+    Needed because pytest-django wraps tests in a transaction that never
+    commits, so on_commit callbacks registered inside nested atomic blocks
+    are deferred indefinitely. This fixture makes them fire synchronously.
+    """
+    monkeypatch.setattr(
+        "django.db.transaction.on_commit",
+        lambda func, using=None, robust=False: func(),
+    )
 
 
 # =============================================================================

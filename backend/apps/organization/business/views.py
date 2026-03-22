@@ -17,23 +17,20 @@ Endpoints:
 
 from uuid import UUID
 
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.exceptions import PermissionDenied
-from apps.core.permissions import AllowAny, IsAuthenticated
 from apps.core.pagination import StandardPagination
+from apps.core.permissions import AllowAny, IsAuthenticated
 from apps.core.views import PermissionInjectMixin, RelationshipInjectMixin
 from apps.core.visibility.resolver import VisibilityResolver
 from apps.core.visibility.serializers import VisibilityOverrideInput
 from apps.organization.business.policies import BusinessPolicy
-from apps.organization.business.selectors import (
-    BusinessAccountSelector,
-    BusinessProfileSelector,
-)
+from apps.organization.business.selectors import BusinessAccountSelector
 from apps.organization.business.serializers import (
     BusinessAccountListOutput,
     BusinessAccountOutput,
@@ -53,9 +50,9 @@ from apps.organization.business.services import (
 def _build_business_relationship(user, business) -> dict:
     """Compute _relationship data for an authenticated user + business."""
     from apps.core.constants import AccountType
+    from apps.network.selectors import FollowSelector
     from apps.rbac.selectors import MembershipSelector
     from apps.transaction.selectors import TransactionSelector
-    from apps.network.selectors import FollowSelector
 
     membership = MembershipSelector.get_membership_for_user_account(
         user=user,
@@ -85,22 +82,36 @@ def _build_business_relationship(user, business) -> dict:
 
     return {
         "membership_status": membership.status if membership else None,
-        "active_transaction": {
-            "id": str(active_txn.id),
-            "type": active_txn.transaction_type,
-            "status": active_txn.status,
-            "mode": active_txn.mode,
-            "viewer_role": "initiator" if active_txn.initiator_id == user.id else "target",
-        } if active_txn else None,
+        "active_transaction": (
+            {
+                "id": str(active_txn.id),
+                "type": active_txn.transaction_type,
+                "status": active_txn.status,
+                "mode": active_txn.mode,
+                "viewer_role": (
+                    "initiator" if active_txn.initiator_id == user.id else "target"
+                ),
+            }
+            if active_txn
+            else None
+        ),
         "follow_status": follow.status if follow else None,
         "follow_id": str(follow.id) if follow else None,
-        "active_follow_transaction": {
-            "id": str(active_follow_txn.id),
-            "type": active_follow_txn.transaction_type,
-            "status": active_follow_txn.status,
-            "mode": active_follow_txn.mode,
-            "viewer_role": "initiator" if active_follow_txn.initiator_id == user.id else "target",
-        } if active_follow_txn else None,
+        "active_follow_transaction": (
+            {
+                "id": str(active_follow_txn.id),
+                "type": active_follow_txn.transaction_type,
+                "status": active_follow_txn.status,
+                "mode": active_follow_txn.mode,
+                "viewer_role": (
+                    "initiator"
+                    if active_follow_txn.initiator_id == user.id
+                    else "target"
+                ),
+            }
+            if active_follow_txn
+            else None
+        ),
     }
 
 
@@ -145,10 +156,14 @@ class BusinessListCreateView(APIView):
         page = paginator.paginate_queryset(businesses, request)
 
         if page is not None:
-            serializer = BusinessAccountListOutput(page, many=True, context={'request': request})
+            serializer = BusinessAccountListOutput(
+                page, many=True, context={"request": request}
+            )
             return paginator.get_paginated_response(serializer.data)
 
-        serializer = BusinessAccountListOutput(businesses, many=True, context={'request': request})
+        serializer = BusinessAccountListOutput(
+            businesses, many=True, context={"request": request}
+        )
         return Response(serializer.data)
 
     @extend_schema(
@@ -177,7 +192,9 @@ class BusinessListCreateView(APIView):
             ),
             400: OpenApiResponse(description="Validation error"),
             401: OpenApiResponse(description="Not authenticated"),
-            403: OpenApiResponse(description="Business creation requires platform approval"),
+            403: OpenApiResponse(
+                description="Business creation requires platform approval"
+            ),
             409: OpenApiResponse(description="Slug already in use"),
         },
     )
@@ -186,7 +203,7 @@ class BusinessListCreateView(APIView):
         if not BusinessPolicy.can_create(user=request.user):
             raise PermissionDenied(
                 message="Business creation requires platform approval. "
-                        "Submit a business creation permission request first.",
+                "Submit a business creation permission request first.",
                 action="create",
                 resource="BusinessAccount",
             )
@@ -200,7 +217,7 @@ class BusinessListCreateView(APIView):
             **serializer.validated_data,
         )
 
-        output = BusinessAccountOutput(business, context={'request': request})
+        output = BusinessAccountOutput(business, context={"request": request})
         return Response(output.data, status=status.HTTP_201_CREATED)
 
 
@@ -238,10 +255,14 @@ class MyBusinessListView(APIView):
         page = paginator.paginate_queryset(businesses, request)
 
         if page is not None:
-            serializer = BusinessAccountListOutput(page, many=True, context={'request': request})
+            serializer = BusinessAccountListOutput(
+                page, many=True, context={"request": request}
+            )
             return paginator.get_paginated_response(serializer.data)
 
-        serializer = BusinessAccountListOutput(businesses, many=True, context={'request': request})
+        serializer = BusinessAccountListOutput(
+            businesses, many=True, context={"request": request}
+        )
         return Response(serializer.data)
 
 
@@ -300,20 +321,27 @@ class BusinessByIdView(RelationshipInjectMixin, PermissionInjectMixin, APIView):
         self._inject_relationship = True
 
         viewer_access = VisibilityResolver.compute_viewer_access(
-            viewer=request.user, account_type="business", account_id=business.id,
+            viewer=request.user,
+            account_type="business",
+            account_id=business.id,
         )
         profile = getattr(business, "profile", None)
-        serializer = BusinessAccountOutput(business, context={
-            'request': request,
-            'visibility': {
-                'viewer_access': viewer_access,
-                'visibility_overrides': profile.visibility_overrides if profile else None,
-                'is_public': profile.is_public if profile else True,
+        serializer = BusinessAccountOutput(
+            business,
+            context={
+                "request": request,
+                "visibility": {
+                    "viewer_access": viewer_access,
+                    "visibility_overrides": (
+                        profile.visibility_overrides if profile else None
+                    ),
+                    "is_public": profile.is_public if profile else True,
+                },
             },
-        })
+        )
         response_data = serializer.data
         if not viewer_access.is_member and profile and not profile.is_public:
-            response_data['is_limited'] = True
+            response_data["is_limited"] = True
         return Response(response_data)
 
 
@@ -393,20 +421,27 @@ class BusinessDetailView(RelationshipInjectMixin, PermissionInjectMixin, APIView
         self._inject_relationship = True
 
         viewer_access = VisibilityResolver.compute_viewer_access(
-            viewer=request.user, account_type="business", account_id=business.id,
+            viewer=request.user,
+            account_type="business",
+            account_id=business.id,
         )
         profile = getattr(business, "profile", None)
-        serializer = BusinessAccountOutput(business, context={
-            'request': request,
-            'visibility': {
-                'viewer_access': viewer_access,
-                'visibility_overrides': profile.visibility_overrides if profile else None,
-                'is_public': profile.is_public if profile else True,
+        serializer = BusinessAccountOutput(
+            business,
+            context={
+                "request": request,
+                "visibility": {
+                    "viewer_access": viewer_access,
+                    "visibility_overrides": (
+                        profile.visibility_overrides if profile else None
+                    ),
+                    "is_public": profile.is_public if profile else True,
+                },
             },
-        })
+        )
         response_data = serializer.data
         if not viewer_access.is_member and profile and not profile.is_public:
-            response_data['is_limited'] = True
+            response_data["is_limited"] = True
         return Response(response_data)
 
     @extend_schema(
@@ -455,7 +490,7 @@ class BusinessDetailView(RelationshipInjectMixin, PermissionInjectMixin, APIView
             **serializer.validated_data,
         )
 
-        output = BusinessAccountOutput(business, context={'request': request})
+        output = BusinessAccountOutput(business, context={"request": request})
         return Response(output.data)
 
     @extend_schema(
@@ -547,7 +582,7 @@ class BusinessSlugUpdateView(APIView):
             request=request,
         )
 
-        output = BusinessAccountOutput(business, context={'request': request})
+        output = BusinessAccountOutput(business, context={"request": request})
         return Response(output.data)
 
 
@@ -601,16 +636,21 @@ class BusinessProfileView(PermissionInjectMixin, APIView):
         self._inject_permissions = True
 
         viewer_access = VisibilityResolver.compute_viewer_access(
-            viewer=request.user, account_type="business", account_id=business.id,
+            viewer=request.user,
+            account_type="business",
+            account_id=business.id,
         )
-        serializer = BusinessProfileOutput(profile, context={
-            'request': request,
-            'visibility': {
-                'viewer_access': viewer_access,
-                'visibility_overrides': profile.visibility_overrides,
-                'is_public': profile.is_public,
+        serializer = BusinessProfileOutput(
+            profile,
+            context={
+                "request": request,
+                "visibility": {
+                    "viewer_access": viewer_access,
+                    "visibility_overrides": profile.visibility_overrides,
+                    "is_public": profile.is_public,
+                },
             },
-        })
+        )
         return Response(serializer.data)
 
     @extend_schema(
@@ -659,7 +699,7 @@ class BusinessProfileView(PermissionInjectMixin, APIView):
             **serializer.validated_data,
         )
 
-        output = BusinessProfileOutput(profile, context={'request': request})
+        output = BusinessProfileOutput(profile, context={"request": request})
         return Response(output.data)
 
 
@@ -716,7 +756,7 @@ class BusinessSuspendView(APIView):
             request=request,
         )
 
-        output = BusinessAccountOutput(business, context={'request': request})
+        output = BusinessAccountOutput(business, context={"request": request})
         return Response(output.data)
 
 
@@ -766,7 +806,7 @@ class BusinessReactivateView(APIView):
             request=request,
         )
 
-        output = BusinessAccountOutput(business, context={'request': request})
+        output = BusinessAccountOutput(business, context={"request": request})
         return Response(output.data)
 
 
@@ -817,7 +857,7 @@ class BusinessArchiveView(APIView):
             request=request,
         )
 
-        output = BusinessAccountOutput(business, context={'request': request})
+        output = BusinessAccountOutput(business, context={"request": request})
         return Response(output.data)
 
 

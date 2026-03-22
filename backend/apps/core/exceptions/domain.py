@@ -26,7 +26,7 @@ Usage:
         return product
 """
 
-from typing import Any, Optional
+from typing import Any
 
 
 class DomainException(Exception):
@@ -54,9 +54,9 @@ class DomainException(Exception):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        code: Optional[str] = None,
-        details: Optional[dict] = None
+        message: str | None = None,
+        code: str | None = None,
+        details: dict | None = None,
     ):
         self.message = message or self.default_message
         self.code = code or self.default_code
@@ -86,6 +86,7 @@ class DomainException(Exception):
 # NOT FOUND EXCEPTIONS
 # =============================================================================
 
+
 class NotFound(DomainException):
     """
     Raised when a requested resource does not exist.
@@ -109,9 +110,9 @@ class NotFound(DomainException):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        resource: Optional[str] = None,
-        resource_id: Optional[Any] = None
+        message: str | None = None,
+        resource: str | None = None,
+        resource_id: Any | None = None,
     ):
         details = {}
         if resource:
@@ -120,15 +121,17 @@ class NotFound(DomainException):
             details["resource_id"] = str(resource_id)
 
         super().__init__(
-            message=message or (f"{resource} not found" if resource else self.default_message),
+            message=message
+            or (f"{resource} not found" if resource else self.default_message),
             code=self.default_code,
-            details=details
+            details=details,
         )
 
 
 # =============================================================================
 # PERMISSION EXCEPTIONS
 # =============================================================================
+
 
 class PermissionDenied(DomainException):
     """
@@ -153,9 +156,9 @@ class PermissionDenied(DomainException):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        action: Optional[str] = None,
-        resource: Optional[str] = None
+        message: str | None = None,
+        action: str | None = None,
+        resource: str | None = None,
     ):
         details = {}
         if action:
@@ -163,16 +166,13 @@ class PermissionDenied(DomainException):
         if resource:
             details["resource"] = resource
 
-        super().__init__(
-            message=message,
-            code=self.default_code,
-            details=details
-        )
+        super().__init__(message=message, code=self.default_code, details=details)
 
 
 # =============================================================================
 # VALIDATION EXCEPTIONS
 # =============================================================================
+
 
 class ValidationError(DomainException):
     """
@@ -199,9 +199,9 @@ class ValidationError(DomainException):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        field: Optional[str] = None,
-        value: Optional[Any] = None
+        message: str | None = None,
+        field: str | None = None,
+        value: Any | None = None,
     ):
         details = {}
         if field:
@@ -209,16 +209,13 @@ class ValidationError(DomainException):
         if value is not None:
             details["value"] = str(value)
 
-        super().__init__(
-            message=message,
-            code=self.default_code,
-            details=details
-        )
+        super().__init__(message=message, code=self.default_code, details=details)
 
 
 # =============================================================================
 # CONFLICT EXCEPTIONS
 # =============================================================================
+
 
 class ConflictError(DomainException):
     """
@@ -244,9 +241,9 @@ class ConflictError(DomainException):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        resource: Optional[str] = None,
-        conflict_type: Optional[str] = None
+        message: str | None = None,
+        resource: str | None = None,
+        conflict_type: str | None = None,
     ):
         details = {}
         if resource:
@@ -254,16 +251,13 @@ class ConflictError(DomainException):
         if conflict_type:
             details["conflict_type"] = conflict_type
 
-        super().__init__(
-            message=message,
-            code=self.default_code,
-            details=details
-        )
+        super().__init__(message=message, code=self.default_code, details=details)
 
 
 # =============================================================================
 # AUTHENTICATION EXCEPTIONS
 # =============================================================================
+
 
 class AuthenticationError(DomainException):
     """
@@ -321,6 +315,7 @@ class TokenInvalid(AuthenticationError):
 # BUSINESS LOGIC EXCEPTIONS
 # =============================================================================
 
+
 class BusinessRuleViolation(DomainException):
     """
     Raised when a business rule is violated.
@@ -341,20 +336,12 @@ class BusinessRuleViolation(DomainException):
     default_message = "Business rule violation"
     default_code = "business_rule_violation"
 
-    def __init__(
-        self,
-        message: Optional[str] = None,
-        rule: Optional[str] = None
-    ):
+    def __init__(self, message: str | None = None, rule: str | None = None):
         details = {}
         if rule:
             details["rule"] = rule
 
-        super().__init__(
-            message=message,
-            code=self.default_code,
-            details=details
-        )
+        super().__init__(message=message, code=self.default_code, details=details)
 
 
 class RateLimitExceeded(DomainException):
@@ -374,20 +361,12 @@ class RateLimitExceeded(DomainException):
     default_message = "Rate limit exceeded"
     default_code = "rate_limit_exceeded"
 
-    def __init__(
-        self,
-        message: Optional[str] = None,
-        retry_after: Optional[int] = None
-    ):
+    def __init__(self, message: str | None = None, retry_after: int | None = None):
         details = {}
         if retry_after:
             details["retry_after"] = retry_after
 
-        super().__init__(
-            message=message,
-            code=self.default_code,
-            details=details
-        )
+        super().__init__(message=message, code=self.default_code, details=details)
 
 
 class ServiceUnavailable(DomainException):
@@ -407,9 +386,9 @@ class ServiceUnavailable(DomainException):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        service: Optional[str] = None,
-        retry_after: Optional[int] = None
+        message: str | None = None,
+        service: str | None = None,
+        retry_after: int | None = None,
     ):
         details = {}
         if service:
@@ -417,16 +396,13 @@ class ServiceUnavailable(DomainException):
         if retry_after:
             details["retry_after"] = retry_after
 
-        super().__init__(
-            message=message,
-            code=self.default_code,
-            details=details
-        )
+        super().__init__(message=message, code=self.default_code, details=details)
 
 
 # =============================================================================
 # ADDITIONAL AUTHENTICATION EXCEPTIONS
 # =============================================================================
+
 
 class AccountNotVerified(AuthenticationError):
     """
@@ -448,6 +424,18 @@ class AccountInactive(AuthenticationError):
 
     default_message = "Account is inactive"
     default_code = "account_inactive"
+
+
+class AccountLocked(AuthenticationError):
+    """
+    Raised when a locked user tries to authenticate.
+
+    Maps to HTTP 401 in the exception handler.
+    Account is locked after too many failed login attempts.
+    """
+
+    default_message = "Account temporarily locked due to too many failed attempts"
+    default_code = "account_locked"
 
 
 class SessionLimitExceeded(BusinessRuleViolation):
@@ -489,9 +477,9 @@ class OAuthError(DomainException):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        provider: Optional[str] = None,
-        oauth_error: Optional[str] = None
+        message: str | None = None,
+        provider: str | None = None,
+        oauth_error: str | None = None,
     ):
         details = {}
         if provider:
@@ -499,8 +487,4 @@ class OAuthError(DomainException):
         if oauth_error:
             details["oauth_error"] = oauth_error
 
-        super().__init__(
-            message=message,
-            code=self.default_code,
-            details=details
-        )
+        super().__init__(message=message, code=self.default_code, details=details)

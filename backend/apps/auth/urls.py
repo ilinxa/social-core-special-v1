@@ -35,35 +35,62 @@ Endpoints:
 """
 
 from django.urls import path
+
 from apps.auth import views
 
-app_name = 'authentication'
+app_name = "authentication"
 
 urlpatterns = [
     # Core auth
-    path('register/', views.RegisterView.as_view(), name='register'),
-    path('login/', views.LoginView.as_view(), name='login'),
-    path('logout/', views.LogoutView.as_view(), name='logout'),
-    path('logout-all/', views.LogoutAllView.as_view(), name='logout-all'),
-    path('refresh/', views.RefreshView.as_view(), name='refresh'),
-
+    path("register/", views.RegisterView.as_view(), name="register"),
+    path("login/", views.LoginView.as_view(), name="login"),
+    path("logout/", views.LogoutView.as_view(), name="logout"),
+    path("logout-all/", views.LogoutAllView.as_view(), name="logout-all"),
+    path("refresh/", views.RefreshView.as_view(), name="refresh"),
     # Email verification
-    path('verify-email/', views.VerifyEmailCodeView.as_view(), name='verify-email-code'),
-    path('verify-email/<uuid:token>/', views.VerifyEmailLinkView.as_view(), name='verify-email-link'),
-    path('resend-verification/', views.ResendVerificationView.as_view(), name='resend-verification'),
-
+    path(
+        "verify-email/", views.VerifyEmailCodeView.as_view(), name="verify-email-code"
+    ),
+    path(
+        "verify-email/<uuid:token>/",
+        views.VerifyEmailLinkView.as_view(),
+        name="verify-email-link",
+    ),
+    path(
+        "resend-verification/",
+        views.ResendVerificationView.as_view(),
+        name="resend-verification",
+    ),
     # Password
-    path('password/reset/', views.PasswordResetRequestView.as_view(), name='password-reset'),
-    path('password/reset/confirm/', views.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
-    path('password/change/', views.PasswordChangeView.as_view(), name='password-change'),
-
+    path(
+        "password/reset/",
+        views.PasswordResetRequestView.as_view(),
+        name="password-reset",
+    ),
+    path(
+        "password/reset/confirm/",
+        views.PasswordResetConfirmView.as_view(),
+        name="password-reset-confirm",
+    ),
+    path(
+        "password/change/", views.PasswordChangeView.as_view(), name="password-change"
+    ),
     # Sessions
-    path('sessions/', views.SessionListView.as_view(), name='sessions'),
-    path('sessions/<uuid:pk>/', views.SessionRevokeView.as_view(), name='session-revoke'),
-
+    path("sessions/", views.SessionListView.as_view(), name="sessions"),
+    path(
+        "sessions/<uuid:pk>/", views.SessionRevokeView.as_view(), name="session-revoke"
+    ),
     # OAuth
-    path('oauth/google/', views.GoogleOAuthView.as_view(), name='oauth-google'),
-    path('oauth/google/callback/', views.GoogleOAuthCallbackView.as_view(), name='oauth-google-callback'),
-    path('oauth/apple/', views.AppleOAuthView.as_view(), name='oauth-apple'),
-    path('oauth/apple/callback/', views.AppleOAuthCallbackView.as_view(), name='oauth-apple-callback'),
+    path("oauth/google/", views.GoogleOAuthView.as_view(), name="oauth-google"),
+    path(
+        "oauth/google/callback/",
+        views.GoogleOAuthCallbackView.as_view(),
+        name="oauth-google-callback",
+    ),
+    path("oauth/apple/", views.AppleOAuthView.as_view(), name="oauth-apple"),
+    path(
+        "oauth/apple/callback/",
+        views.AppleOAuthCallbackView.as_view(),
+        name="oauth-apple-callback",
+    ),
 ]

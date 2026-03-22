@@ -9,36 +9,36 @@ Covers:
 - FormResponseSelector: get_by_transaction_id
 """
 
-import pytest
 from uuid import uuid4
 
-from apps.forms.services import FormResponseService
-from apps.forms.selectors import FormTemplateSelector, FormResponseSelector
+import pytest
+
+from apps.core.constants import (
+    FieldType,
+    FormScope,
+    FormStatus,
+    OwnerType,
+    ResponseStatus,
+)
+from apps.core.exceptions import (
+    BusinessRuleViolation,
+    ConflictError,
+    PermissionDenied,
+    ValidationError,
+)
+from apps.core.types import ActorContext
 from apps.forms.models import TextFieldIndex
+from apps.forms.selectors import FormResponseSelector, FormTemplateSelector
+from apps.forms.services import FormResponseService
 from apps.forms.tests.factories import (
     ActiveFormTemplateFactory,
     FormFieldFactory,
     FormResponseFactory,
     SubmittedFormResponseFactory,
 )
-from apps.transaction.tests.factories import TransactionFactory
 from apps.transaction.constants import TransactionStatus
-from apps.core.types import ActorContext
-from apps.core.constants import (
-    ResponseStatus,
-    FormStatus,
-    OwnerType,
-    FormScope,
-    FieldType,
-)
-from apps.core.exceptions import (
-    ValidationError,
-    ConflictError,
-    PermissionDenied,
-    BusinessRuleViolation,
-)
+from apps.transaction.tests.factories import TransactionFactory
 from apps.users.tests.factories import UserFactory
-
 
 # =============================================================================
 # Helpers
@@ -58,7 +58,9 @@ def _make_active_template_with_fields(user, *, required_keys=None, indexed_keys=
     """
     required_keys = required_keys or []
     indexed_keys = indexed_keys or []
-    all_keys = list(dict.fromkeys(required_keys + indexed_keys))  # deduplicate, preserve order
+    all_keys = list(
+        dict.fromkeys(required_keys + indexed_keys)
+    )  # deduplicate, preserve order
 
     template = ActiveFormTemplateFactory(created_by=user)
 
@@ -89,7 +91,9 @@ class TestCreateAndSubmit:
         """Creates response with SUBMITTED status, data populated, IndexService called."""
         user = UserFactory()
         template = _make_active_template_with_fields(
-            user, required_keys=["name"], indexed_keys=["name"],
+            user,
+            required_keys=["name"],
+            indexed_keys=["name"],
         )
         actor_context = ActorContext.for_user_context(user)
 
@@ -107,14 +111,17 @@ class TestCreateAndSubmit:
         assert response.revision == 1
         # Index entry created for the indexed field
         assert TextFieldIndex.objects.filter(
-            response=response, field_key="name", value="Alice",
+            response=response,
+            field_key="name",
+            value="Alice",
         ).exists()
 
     def test_create_and_submit_validates_required_fields(self):
         """Missing required field raises ValidationError."""
         user = UserFactory()
         template = _make_active_template_with_fields(
-            user, required_keys=["email"],
+            user,
+            required_keys=["email"],
         )
         actor_context = ActorContext.for_user_context(user)
 
@@ -131,8 +138,11 @@ class TestCreateAndSubmit:
         user = UserFactory()
         # Draft form does not accept responses (accepts_responses = ACTIVE + is_current)
         from apps.forms.tests.factories import FormTemplateFactory
+
         draft_template = FormTemplateFactory(
-            status=FormStatus.DRAFT, is_current=True, created_by=user,
+            status=FormStatus.DRAFT,
+            is_current=True,
+            created_by=user,
         )
         actor_context = ActorContext.for_user_context(user)
 
@@ -167,7 +177,8 @@ class TestCreateAndSubmit:
         """Indexed fields are extracted after creation."""
         user = UserFactory()
         template = _make_active_template_with_fields(
-            user, indexed_keys=["company", "city"],
+            user,
+            indexed_keys=["company", "city"],
         )
         actor_context = ActorContext.for_user_context(user)
 
@@ -180,10 +191,14 @@ class TestCreateAndSubmit:
 
         assert TextFieldIndex.objects.filter(response=response).count() == 2
         assert TextFieldIndex.objects.filter(
-            response=response, field_key="company", value="Acme",
+            response=response,
+            field_key="company",
+            value="Acme",
         ).exists()
         assert TextFieldIndex.objects.filter(
-            response=response, field_key="city", value="Denver",
+            response=response,
+            field_key="city",
+            value="Denver",
         ).exists()
 
 
@@ -301,7 +316,9 @@ class TestUpdateAfterInfoRequest:
         """
         user = user or UserFactory()
         template = _make_active_template_with_fields(
-            user, required_keys=["name"], indexed_keys=["name"],
+            user,
+            required_keys=["name"],
+            indexed_keys=["name"],
         )
         actor_context = ActorContext.for_user_context(user)
 
@@ -369,7 +386,9 @@ class TestUpdateAfterInfoRequest:
 
         # Verify old index exists
         assert TextFieldIndex.objects.filter(
-            response=response, field_key="name", value="OldValue",
+            response=response,
+            field_key="name",
+            value="OldValue",
         ).exists()
 
         FormResponseService.update_after_info_request(
@@ -381,17 +400,22 @@ class TestUpdateAfterInfoRequest:
 
         # Old index gone, new index present
         assert not TextFieldIndex.objects.filter(
-            response=response, field_key="name", value="OldValue",
+            response=response,
+            field_key="name",
+            value="OldValue",
         ).exists()
         assert TextFieldIndex.objects.filter(
-            response=response, field_key="name", value="NewValue",
+            response=response,
+            field_key="name",
+            value="NewValue",
         ).exists()
 
     def test_update_validates_transaction_status(self):
         """Transaction not in INFO_REQUESTED raises ValidationError."""
         user = UserFactory()
         template = _make_active_template_with_fields(
-            user, required_keys=["name"],
+            user,
+            required_keys=["name"],
         )
         actor_context = ActorContext.for_user_context(user)
 

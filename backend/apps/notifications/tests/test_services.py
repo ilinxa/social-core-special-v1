@@ -11,22 +11,21 @@ Covers:
     - PreferenceService.reset_preference() — revert to defaults
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from apps.notifications.services.notification_service import NotificationService
-from apps.notifications.services.preference_service import PreferenceService
-from apps.notifications.models import NotificationLog, NotificationPreference
-from apps.notifications.tests.factories import (
-    NotificationPreferenceFactory,
-    NotificationLogFactory,
-    DisabledPreferenceFactory,
-)
-from apps.users.tests.factories import UserFactory
+import pytest
+
 from apps.core.exceptions import NotFound, ValidationError
 from apps.core.observability.audit.models import AuditLog
-
-
+from apps.notifications.models import NotificationLog, NotificationPreference
+from apps.notifications.services.notification_service import NotificationService
+from apps.notifications.services.preference_service import PreferenceService
+from apps.notifications.tests.factories import (
+    DisabledPreferenceFactory,
+    NotificationLogFactory,
+    NotificationPreferenceFactory,
+)
+from apps.users.tests.factories import UserFactory
 
 # =============================================================================
 # NotificationService.send()
@@ -39,13 +38,16 @@ class TestNotificationServiceSend:
 
     def test_send_creates_log_with_pending_status(self, user):
         """Happy path: send() creates a NotificationLog with PENDING status."""
-        with patch(
-            "apps.notifications.services.notification_service.PreferenceService"
-            ".get_enabled_channels",
-            return_value=["email"],
-        ), patch(
-            "apps.notifications.tasks.dispatch_notification_task.delay"
-        ) as mock_delay:
+        with (
+            patch(
+                "apps.notifications.services.notification_service.PreferenceService"
+                ".get_enabled_channels",
+                return_value=["email"],
+            ),
+            patch(
+                "apps.notifications.tasks.dispatch_notification_task.delay"
+            ) as mock_delay,
+        ):
             log = NotificationService.send(
                 user=user,
                 notification_type="welcome",
@@ -78,12 +80,13 @@ class TestNotificationServiceSend:
 
     def test_send_passes_with_valid_context(self, user):
         """send() succeeds when all required context keys are provided."""
-        with patch(
-            "apps.notifications.services.notification_service.PreferenceService"
-            ".get_enabled_channels",
-            return_value=["email"],
-        ), patch(
-            "apps.notifications.tasks.dispatch_notification_task.delay"
+        with (
+            patch(
+                "apps.notifications.services.notification_service.PreferenceService"
+                ".get_enabled_channels",
+                return_value=["email"],
+            ),
+            patch("apps.notifications.tasks.dispatch_notification_task.delay"),
         ):
             log = NotificationService.send(
                 user=user,
@@ -95,13 +98,16 @@ class TestNotificationServiceSend:
 
     def test_send_async_queues_task(self, user):
         """send() with async_dispatch=True calls dispatch_notification_task.delay()."""
-        with patch(
-            "apps.notifications.services.notification_service.PreferenceService"
-            ".get_enabled_channels",
-            return_value=["email"],
-        ), patch(
-            "apps.notifications.tasks.dispatch_notification_task.delay"
-        ) as mock_delay:
+        with (
+            patch(
+                "apps.notifications.services.notification_service.PreferenceService"
+                ".get_enabled_channels",
+                return_value=["email"],
+            ),
+            patch(
+                "apps.notifications.tasks.dispatch_notification_task.delay"
+            ) as mock_delay,
+        ):
             log = NotificationService.send(
                 user=user,
                 notification_type="welcome",
@@ -113,13 +119,14 @@ class TestNotificationServiceSend:
 
     def test_send_sync_calls_dispatch_now(self, user):
         """send() with async_dispatch=False calls _dispatch_now() directly."""
-        with patch(
-            "apps.notifications.services.notification_service.PreferenceService"
-            ".get_enabled_channels",
-            return_value=["email"],
-        ), patch.object(
-            NotificationService, "_dispatch_now"
-        ) as mock_dispatch:
+        with (
+            patch(
+                "apps.notifications.services.notification_service.PreferenceService"
+                ".get_enabled_channels",
+                return_value=["email"],
+            ),
+            patch.object(NotificationService, "_dispatch_now") as mock_dispatch,
+        ):
             log = NotificationService.send(
                 user=user,
                 notification_type="welcome",
@@ -140,9 +147,7 @@ class TestNotificationServiceSend:
             sms_enabled=False,
         )
 
-        with patch(
-            "apps.notifications.tasks.dispatch_notification_task.delay"
-        ):
+        with patch("apps.notifications.tasks.dispatch_notification_task.delay"):
             log = NotificationService.send(
                 user=user,
                 notification_type="new_login",
@@ -170,12 +175,13 @@ class TestNotificationServiceSend:
         """send() persists the context dict to the NotificationLog."""
         context = {"device": "Pixel", "location": "London", "time": "14:00"}
 
-        with patch(
-            "apps.notifications.services.notification_service.PreferenceService"
-            ".get_enabled_channels",
-            return_value=["email"],
-        ), patch(
-            "apps.notifications.tasks.dispatch_notification_task.delay"
+        with (
+            patch(
+                "apps.notifications.services.notification_service.PreferenceService"
+                ".get_enabled_channels",
+                return_value=["email"],
+            ),
+            patch("apps.notifications.tasks.dispatch_notification_task.delay"),
         ):
             log = NotificationService.send(
                 user=user,
@@ -188,12 +194,13 @@ class TestNotificationServiceSend:
 
     def test_send_stores_channels_in_log(self, user):
         """send() records the resolved channels list on the log."""
-        with patch(
-            "apps.notifications.services.notification_service.PreferenceService"
-            ".get_enabled_channels",
-            return_value=["email", "push"],
-        ), patch(
-            "apps.notifications.tasks.dispatch_notification_task.delay"
+        with (
+            patch(
+                "apps.notifications.services.notification_service.PreferenceService"
+                ".get_enabled_channels",
+                return_value=["email", "push"],
+            ),
+            patch("apps.notifications.tasks.dispatch_notification_task.delay"),
         ):
             log = NotificationService.send(
                 user=user,
@@ -224,12 +231,13 @@ class TestNotificationServiceSend:
         """send_bulk() returns one NotificationLog per user."""
         users = UserFactory.create_batch(3)
 
-        with patch(
-            "apps.notifications.services.notification_service.PreferenceService"
-            ".get_enabled_channels",
-            return_value=["email"],
-        ), patch(
-            "apps.notifications.tasks.dispatch_notification_task.delay"
+        with (
+            patch(
+                "apps.notifications.services.notification_service.PreferenceService"
+                ".get_enabled_channels",
+                return_value=["email"],
+            ),
+            patch("apps.notifications.tasks.dispatch_notification_task.delay"),
         ):
             logs = NotificationService.send_bulk(
                 users=users,
@@ -285,9 +293,7 @@ class TestNotificationServiceDispatch:
             status=NotificationLog.Status.PROCESSING,
         )
 
-        with patch(
-            "apps.notifications.services.channels.get_channel"
-        ) as mock_get:
+        with patch("apps.notifications.services.channels.get_channel") as mock_get:
             NotificationService._dispatch_now(log)
 
         mock_get.assert_not_called()
@@ -403,9 +409,7 @@ class TestPreferenceServiceUpdate:
             user=user, notification_type="new_login"
         ).exists()
 
-        with patch(
-            "apps.notifications.services.preference_service.AuditService.log"
-        ):
+        with patch("apps.notifications.services.preference_service.AuditService.log"):
             pref = PreferenceService.update_preference(
                 user=user,
                 notification_type="new_login",
@@ -426,9 +430,7 @@ class TestPreferenceServiceUpdate:
             push_enabled=False,
         )
 
-        with patch(
-            "apps.notifications.services.preference_service.AuditService.log"
-        ):
+        with patch("apps.notifications.services.preference_service.AuditService.log"):
             pref = PreferenceService.update_preference(
                 user=user,
                 notification_type="new_login",
@@ -468,9 +470,7 @@ class TestPreferenceServiceUpdate:
             sms_enabled=False,
         )
 
-        with patch(
-            "apps.notifications.services.preference_service.AuditService.log"
-        ):
+        with patch("apps.notifications.services.preference_service.AuditService.log"):
             pref = PreferenceService.update_preference(
                 user=user,
                 notification_type="newsletter",
@@ -481,7 +481,7 @@ class TestPreferenceServiceUpdate:
         pref.refresh_from_db()
         assert pref.email_enabled is False
         assert pref.push_enabled is False  # unchanged
-        assert pref.sms_enabled is False   # unchanged
+        assert pref.sms_enabled is False  # unchanged
 
     def test_update_calls_audit_service_on_change(self, user):
         """AuditService.log() is called when a preference field actually changes."""
@@ -520,17 +520,15 @@ class TestPreferenceServiceUpdate:
             PreferenceService.update_preference(
                 user=user,
                 notification_type="new_login",
-                email_enabled=True,   # same value
-                push_enabled=True,    # same value
+                email_enabled=True,  # same value
+                push_enabled=True,  # same value
             )
 
         mock_audit.assert_not_called()
 
     def test_update_returns_preference_object(self, user):
         """update_preference() returns the NotificationPreference instance."""
-        with patch(
-            "apps.notifications.services.preference_service.AuditService.log"
-        ):
+        with patch("apps.notifications.services.preference_service.AuditService.log"):
             result = PreferenceService.update_preference(
                 user=user,
                 notification_type="new_login",
@@ -559,7 +557,7 @@ class TestPreferenceServiceGet:
         )
 
         assert result["notification_type"] == "welcome"
-        assert result["email_enabled"] is True   # default channel for 'welcome'
+        assert result["email_enabled"] is True  # default channel for 'welcome'
         assert result["push_enabled"] is False
         assert result["sms_enabled"] is False
         assert result["user_configurable"] is False
@@ -717,12 +715,13 @@ class TestNotificationServiceBulk:
         """send_bulk() produces one NotificationLog per user."""
         users = UserFactory.create_batch(4)
 
-        with patch(
-            "apps.notifications.services.notification_service.PreferenceService"
-            ".get_enabled_channels",
-            return_value=["email"],
-        ), patch(
-            "apps.notifications.tasks.dispatch_notification_task.delay"
+        with (
+            patch(
+                "apps.notifications.services.notification_service.PreferenceService"
+                ".get_enabled_channels",
+                return_value=["email"],
+            ),
+            patch("apps.notifications.tasks.dispatch_notification_task.delay"),
         ):
             logs = NotificationService.send_bulk(
                 users=users,
@@ -739,7 +738,14 @@ class TestNotificationServiceBulk:
 
         original_send = NotificationService.send
 
-        def patched_send(*, user, notification_type, context, force_channels=None, async_dispatch=True):
+        def patched_send(
+            *,
+            user,
+            notification_type,
+            context,
+            force_channels=None,
+            async_dispatch=True,
+        ):
             if user == users[1]:
                 raise RuntimeError("Simulated failure for second user")
             return original_send(
@@ -750,14 +756,14 @@ class TestNotificationServiceBulk:
                 async_dispatch=async_dispatch,
             )
 
-        with patch.object(
-            NotificationService, "send", staticmethod(patched_send)
-        ), patch(
-            "apps.notifications.services.notification_service.PreferenceService"
-            ".get_enabled_channels",
-            return_value=["email"],
-        ), patch(
-            "apps.notifications.tasks.dispatch_notification_task.delay"
+        with (
+            patch.object(NotificationService, "send", staticmethod(patched_send)),
+            patch(
+                "apps.notifications.services.notification_service.PreferenceService"
+                ".get_enabled_channels",
+                return_value=["email"],
+            ),
+            patch("apps.notifications.tasks.dispatch_notification_task.delay"),
         ):
             logs = NotificationService.send_bulk(
                 users=users,

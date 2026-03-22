@@ -20,27 +20,31 @@ Mock strategy:
 """
 
 import uuid
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.test import override_settings
 from rest_framework import status
 
-from apps.users.tests.factories import UserFactory, VerifiedUserFactory, InactiveUserFactory
 from apps.auth.tests.factories import (
-    RefreshTokenFactory,
     DeviceSessionFactory,
     EmailVerificationTokenFactory,
+    ExpiredPasswordResetTokenFactory,
     ExpiredVerificationTokenFactory,
     PasswordResetTokenFactory,
-    ExpiredPasswordResetTokenFactory,
+    RefreshTokenFactory,
     UsedPasswordResetTokenFactory,
 )
-
+from apps.users.tests.factories import (
+    InactiveUserFactory,
+    UserFactory,
+    VerifiedUserFactory,
+)
 
 # =============================================================================
 # MODULE-LEVEL AUTOUSE FIXTURES
 # =============================================================================
+
 
 @pytest.fixture(autouse=True)
 def mock_notifications():
@@ -152,14 +156,22 @@ class TestRegisterView:
 
     def test_register_invalid_email_format(self, api_client, register_url):
         """Invalid email format returns 400."""
-        data = {"email": "not-an-email", "username": "badmail", "password": "SecurePass123!"}
+        data = {
+            "email": "not-an-email",
+            "username": "badmail",
+            "password": "SecurePass123!",
+        }
         response = api_client.post(register_url, data, format="json")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_register_invalid_username_format(self, api_client, register_url):
         """Invalid username format returns 400."""
-        data = {"email": "user@example.com", "username": "a b", "password": "SecurePass123!"}
+        data = {
+            "email": "user@example.com",
+            "username": "a b",
+            "password": "SecurePass123!",
+        }
         response = api_client.post(register_url, data, format="json")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -251,7 +263,9 @@ class TestLoginView:
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_login_wrong_email_same_error_as_wrong_password(self, api_client, login_url):
+    def test_login_wrong_email_same_error_as_wrong_password(
+        self, api_client, login_url
+    ):
         """
         SECURITY: Wrong email returns the same error code as wrong password.
         This prevents email enumeration.
@@ -356,8 +370,9 @@ class TestRefreshView:
         # Create an expired token using factory
         token_obj, raw_token = RefreshTokenFactory.create_with_raw_token(user=user)
         # Manually expire it
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
 
         token_obj.expires_at = timezone.now() - timedelta(hours=1)
         token_obj.save(update_fields=["expires_at"])
@@ -721,9 +736,7 @@ class TestPasswordResetRequestView:
 
         assert resp_real.status_code == resp_fake.status_code == 200
 
-    def test_password_reset_request_missing_email(
-        self, api_client, password_reset_url
-    ):
+    def test_password_reset_request_missing_email(self, api_client, password_reset_url):
         """Missing email returns 400."""
         response = api_client.post(password_reset_url, {}, format="json")
 
@@ -1036,7 +1049,7 @@ class TestGoogleOAuthView:
         mock_google_backend.get_authorization_url.return_value = "https://google.com"
 
         response = api_client.get(
-            oauth_google_url, {"redirect_to": "https://myapp.com/callback"}
+            oauth_google_url, {"redirect_to": "http://localhost:3000/callback"}
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -1105,17 +1118,13 @@ class TestGoogleOAuthCallbackView:
 
     def test_google_callback_missing_code(self, api_client, oauth_google_callback_url):
         """Missing code returns 400."""
-        response = api_client.get(
-            oauth_google_callback_url, {"state": "some_state"}
-        )
+        response = api_client.get(oauth_google_callback_url, {"state": "some_state"})
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_google_callback_missing_state(self, api_client, oauth_google_callback_url):
         """Missing state returns 400."""
-        response = api_client.get(
-            oauth_google_callback_url, {"code": "some_code"}
-        )
+        response = api_client.get(oauth_google_callback_url, {"code": "some_code"})
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 

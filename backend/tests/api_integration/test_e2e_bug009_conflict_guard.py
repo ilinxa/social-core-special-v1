@@ -9,6 +9,8 @@ Requires:
     make dev-up && make dev-migrate && make dev  (in separate terminal)
 """
 
+import os
+
 import pytest
 import requests
 
@@ -39,15 +41,24 @@ class Client:
 
     def register(self, email, username):
         self.clear_token()
-        return self.session.post(self._url("auth/register/"), json={
-            "email": email, "username": username, "password": PASSWORD,
-        })
+        return self.session.post(
+            self._url("auth/register/"),
+            json={
+                "email": email,
+                "username": username,
+                "password": PASSWORD,
+            },
+        )
 
     def login(self, email):
         self.clear_token()
-        r = self.session.post(self._url("auth/login/"), json={
-            "email": email, "password": PASSWORD,
-        })
+        r = self.session.post(
+            self._url("auth/login/"),
+            json={
+                "email": email,
+                "password": PASSWORD,
+            },
+        )
         if r.status_code == 200:
             self.set_token(r.json()["tokens"]["access_token"])
         return r
@@ -65,9 +76,13 @@ class Client:
 def db_execute(sql, params=None, fetch=True):
     """Direct PostgreSQL query."""
     import psycopg2
+
     conn = psycopg2.connect(
-        dbname="backend_core_db", user="django_user",
-        password="postgres_dev_password", host="localhost", port=5432,
+        dbname=os.getenv("POSTGRES_DB", "backend_core_db"),
+        user=os.getenv("POSTGRES_USER", "django_user"),
+        password=os.getenv("POSTGRES_PASSWORD", "postgres_dev_password"),
+        host=os.getenv("POSTGRES_HOST", "localhost"),
+        port=int(os.getenv("POSTGRES_PORT", "5432")),
     )
     try:
         conn.autocommit = True
@@ -81,27 +96,32 @@ def db_execute(sql, params=None, fetch=True):
 
 
 def verify_user(email):
-    db_execute("UPDATE users SET is_verified = TRUE WHERE email = %s", (email,), fetch=False)
+    db_execute(
+        "UPDATE users SET is_verified = TRUE WHERE email = %s", (email,), fetch=False
+    )
 
 
 def grant_business_creation(email):
     db_execute(
         "UPDATE users SET can_create_business = TRUE WHERE email = %s",
-        (email,), fetch=False,
+        (email,),
+        fetch=False,
     )
 
 
 def set_max_members(biz_id, n):
     db_execute(
         "UPDATE business_account SET max_members = %s WHERE id = %s::uuid",
-        (n, str(biz_id)), fetch=False,
+        (n, str(biz_id)),
+        fetch=False,
     )
 
 
 def set_open_member_request(biz_id, value):
     db_execute(
         "UPDATE business_account SET open_member_request = %s WHERE id = %s::uuid",
-        (value, str(biz_id)), fetch=False,
+        (value, str(biz_id)),
+        fetch=False,
     )
 
 
@@ -145,10 +165,13 @@ class TestBug009ConflictGuard:
         assert r.status_code == 200, f"User login failed: {r.text}"
 
         # --- Create business ---
-        r = owner.post("business/", json={
-            "legal_name": f"Bug009 Corp {tag}",
-            "country": "US",
-        })
+        r = owner.post(
+            "business/",
+            json={
+                "legal_name": f"Bug009 Corp {tag}",
+                "country": "US",
+            },
+        )
         assert r.status_code == 201, f"Create business failed: {r.text}"
         biz = r.json()
         biz_id = biz["id"]
@@ -189,31 +212,38 @@ class TestBug009ConflictGuard:
     def test_b88_pending_request_blocks_invitation(self):
         """B-88: User sends request → Owner tries to invite same user → 409."""
         # User sends a membership request
-        r = self.user.post("transactions/request/", json={
-            "transaction_type": "business_membership_request",
-            "target_account_type": "business",
-            "target_account_id": self.biz_id,
-        })
+        r = self.user.post(
+            "transactions/request/",
+            json={
+                "transaction_type": "business_membership_request",
+                "target_account_type": "business",
+                "target_account_id": self.biz_id,
+            },
+        )
         assert r.status_code == 201, f"Create request failed: {r.text}"
         request_txn_id = r.json()["id"]
 
         try:
             # Owner tries to invite the same user → should be blocked
-            r = self.owner.post("transactions/invitation/", json={
-                "transaction_type": "business_membership_invitation",
-                "target_user_id": self.user_id,
-                "context_type": "business",
-                "context_id": self.biz_id,
-                "payload": {"role_id": self.base_role_id},
-            })
-            assert r.status_code == 409, (
-                f"Expected 409 (cross-type conflict), got {r.status_code}: {r.text}"
+            r = self.owner.post(
+                "transactions/invitation/",
+                json={
+                    "transaction_type": "business_membership_invitation",
+                    "target_user_id": self.user_id,
+                    "context_type": "business",
+                    "context_id": self.biz_id,
+                    "payload": {"role_id": self.base_role_id},
+                },
             )
+            assert (
+                r.status_code == 409
+            ), f"Expected 409 (cross-type conflict), got {r.status_code}: {r.text}"
             data = r.json()
-            assert "conflict" in data.get("error", {}).get("code", "").lower() or \
-                   "duplicate" in str(data).lower() or \
-                   "already" in str(data).lower(), \
-                f"Expected conflict error, got: {data}"
+            assert (
+                "conflict" in data.get("error", {}).get("code", "").lower()
+                or "duplicate" in str(data).lower()
+                or "already" in str(data).lower()
+            ), f"Expected conflict error, got: {data}"
         finally:
             # Clean up: cancel the request
             self._cancel_transaction(self.user, request_txn_id)
@@ -225,31 +255,38 @@ class TestBug009ConflictGuard:
     def test_b89_pending_invitation_blocks_request(self):
         """B-89: Owner sends invitation → User tries to request → 409."""
         # Owner sends invitation to user
-        r = self.owner.post("transactions/invitation/", json={
-            "transaction_type": "business_membership_invitation",
-            "target_user_id": self.user_id,
-            "context_type": "business",
-            "context_id": self.biz_id,
-            "payload": {"role_id": self.base_role_id},
-        })
+        r = self.owner.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "business_membership_invitation",
+                "target_user_id": self.user_id,
+                "context_type": "business",
+                "context_id": self.biz_id,
+                "payload": {"role_id": self.base_role_id},
+            },
+        )
         assert r.status_code == 201, f"Create invitation failed: {r.text}"
         invitation_txn_id = r.json()["id"]
 
         try:
             # User tries to send a request to the same business → should be blocked
-            r = self.user.post("transactions/request/", json={
-                "transaction_type": "business_membership_request",
-                "target_account_type": "business",
-                "target_account_id": self.biz_id,
-            })
-            assert r.status_code == 409, (
-                f"Expected 409 (cross-type conflict), got {r.status_code}: {r.text}"
+            r = self.user.post(
+                "transactions/request/",
+                json={
+                    "transaction_type": "business_membership_request",
+                    "target_account_type": "business",
+                    "target_account_id": self.biz_id,
+                },
             )
+            assert (
+                r.status_code == 409
+            ), f"Expected 409 (cross-type conflict), got {r.status_code}: {r.text}"
             data = r.json()
-            assert "conflict" in data.get("error", {}).get("code", "").lower() or \
-                   "duplicate" in str(data).lower() or \
-                   "already" in str(data).lower(), \
-                f"Expected conflict error, got: {data}"
+            assert (
+                "conflict" in data.get("error", {}).get("code", "").lower()
+                or "duplicate" in str(data).lower()
+                or "already" in str(data).lower()
+            ), f"Expected conflict error, got: {data}"
         finally:
             # Clean up: cancel the invitation
             self._cancel_transaction(self.owner, invitation_txn_id)
@@ -261,13 +298,16 @@ class TestBug009ConflictGuard:
     def test_request_succeeds_after_invitation_cancelled(self):
         """After invitation is cancelled, user can send a request."""
         # Owner sends invitation
-        r = self.owner.post("transactions/invitation/", json={
-            "transaction_type": "business_membership_invitation",
-            "target_user_id": self.user_id,
-            "context_type": "business",
-            "context_id": self.biz_id,
-            "payload": {"role_id": self.base_role_id},
-        })
+        r = self.owner.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "business_membership_invitation",
+                "target_user_id": self.user_id,
+                "context_type": "business",
+                "context_id": self.biz_id,
+                "payload": {"role_id": self.base_role_id},
+            },
+        )
         assert r.status_code == 201, f"Create invitation failed: {r.text}"
         inv_id = r.json()["id"]
 
@@ -275,11 +315,14 @@ class TestBug009ConflictGuard:
         self._cancel_transaction(self.owner, inv_id)
 
         # Now user can request
-        r = self.user.post("transactions/request/", json={
-            "transaction_type": "business_membership_request",
-            "target_account_type": "business",
-            "target_account_id": self.biz_id,
-        })
+        r = self.user.post(
+            "transactions/request/",
+            json={
+                "transaction_type": "business_membership_request",
+                "target_account_type": "business",
+                "target_account_id": self.biz_id,
+            },
+        )
         assert r.status_code == 201, f"Request should succeed after cancel: {r.text}"
         req_id = r.json()["id"]
 
@@ -293,11 +336,14 @@ class TestBug009ConflictGuard:
     def test_relationship_shows_active_transaction(self):
         """Business detail shows _relationship with active transaction for authenticated user."""
         # User sends a request
-        r = self.user.post("transactions/request/", json={
-            "transaction_type": "business_membership_request",
-            "target_account_type": "business",
-            "target_account_id": self.biz_id,
-        })
+        r = self.user.post(
+            "transactions/request/",
+            json={
+                "transaction_type": "business_membership_request",
+                "target_account_type": "business",
+                "target_account_id": self.biz_id,
+            },
+        )
         assert r.status_code == 201, f"Create request failed: {r.text}"
         req_id = r.json()["id"]
 
@@ -307,10 +353,16 @@ class TestBug009ConflictGuard:
             assert r.status_code == 200, f"Get business failed: {r.text}"
             data = r.json()
 
-            assert "_relationship" in data, f"Missing _relationship in response: {list(data.keys())}"
+            assert (
+                "_relationship" in data
+            ), f"Missing _relationship in response: {list(data.keys())}"
             rel = data["_relationship"]
-            assert rel["membership_status"] is None, f"Should be non-member, got: {rel['membership_status']}"
-            assert rel["active_transaction"] is not None, f"Should have active transaction"
+            assert (
+                rel["membership_status"] is None
+            ), f"Should be non-member, got: {rel['membership_status']}"
+            assert (
+                rel["active_transaction"] is not None
+            ), f"Should have active transaction"
             assert rel["active_transaction"]["id"] == req_id
             assert rel["active_transaction"]["mode"] == "request"
             assert rel["active_transaction"]["status"] == "pending"
@@ -324,7 +376,9 @@ class TestBug009ConflictGuard:
         assert r.status_code == 200, f"Get business failed: {r.text}"
         data = r.json()
 
-        assert "_relationship" not in data, f"Anonymous should not get _relationship: {list(data.keys())}"
+        assert (
+            "_relationship" not in data
+        ), f"Anonymous should not get _relationship: {list(data.keys())}"
 
 
 # =============================================================================
@@ -333,7 +387,13 @@ class TestBug009ConflictGuard:
 
 
 def _ensure_platform_owner_membership(owner_email, platform_id):
-    """Ensure a user has an owner membership on the platform."""
+    """Ensure a user has an owner membership on the platform.
+
+    The platform is a singleton that may already have an owner from
+    initialization.  We soft-delete the existing owner membership (if
+    owned by a different user) to satisfy the unique_owner_per_account
+    constraint before inserting a new one.
+    """
     user_id = get_user_id(owner_email)
     existing = db_execute(
         "SELECT id FROM rbac_membership WHERE user_id = %s::uuid "
@@ -351,7 +411,17 @@ def _ensure_platform_owner_membership(owner_email, platform_id):
     if not role_row:
         return None
 
+    # Soft-delete any existing owner membership to avoid unique constraint
+    db_execute(
+        "UPDATE rbac_membership SET is_deleted = TRUE, deleted_at = NOW() "
+        "WHERE account_type = 'platform' AND account_id = %s::uuid "
+        "AND is_owner = TRUE AND is_deleted = FALSE",
+        (platform_id,),
+        fetch=False,
+    )
+
     import uuid as uuid_mod
+
     mid = str(uuid_mod.uuid4())
     db_execute(
         "INSERT INTO rbac_membership (id, user_id, account_type, account_id, "
@@ -388,7 +458,8 @@ class TestPlatformConflictGuard:
         verify_user(owner_email)
         db_execute(
             "UPDATE users SET is_superuser = TRUE, is_staff = TRUE WHERE email = %s",
-            (owner_email,), fetch=False,
+            (owner_email,),
+            fetch=False,
         )
         r = owner.login(owner_email)
         assert r.status_code == 200, f"Owner login failed: {r.text}"
@@ -404,15 +475,22 @@ class TestPlatformConflictGuard:
         # Get platform ID
         r = owner.get("platform/account/")
         assert r.status_code == 200, f"Get platform failed: {r.text}"
-        platform_id = r.json()["id"]
+        platform_data = r.json()
+        platform_id = platform_data["id"]
+
+        # Configure platform if not already configured (creates roles)
+        if not platform_data.get("is_configured"):
+            r = owner.post("platform/account/", json={"name": "Test Platform"})
+            assert r.status_code == 201, f"Configure platform failed: {r.text}"
 
         # Enable open member requests
         db_execute(
             "UPDATE platform_account SET open_member_request = TRUE WHERE id = %s::uuid",
-            (platform_id,), fetch=False,
+            (platform_id,),
+            fetch=False,
         )
 
-        # Ensure owner has platform membership
+        # Ensure owner has platform membership (roles now exist from configure)
         _ensure_platform_owner_membership(owner_email, platform_id)
 
         # Get base member role
@@ -439,25 +517,31 @@ class TestPlatformConflictGuard:
 
     def test_platform_pending_request_blocks_invitation(self):
         """User sends platform request → Owner tries to invite → 409."""
-        r = self.user.post("transactions/request/", json={
-            "transaction_type": "platform_membership_request",
-            "target_account_type": "platform",
-            "target_account_id": self.platform_id,
-        })
+        r = self.user.post(
+            "transactions/request/",
+            json={
+                "transaction_type": "platform_membership_request",
+                "target_account_type": "platform",
+                "target_account_id": self.platform_id,
+            },
+        )
         assert r.status_code == 201, f"Create request failed: {r.text}"
         request_txn_id = r.json()["id"]
 
         try:
-            r = self.owner.post("transactions/invitation/", json={
-                "transaction_type": "platform_membership_invitation",
-                "target_user_id": self.user_id,
-                "context_type": "platform",
-                "context_id": self.platform_id,
-                "payload": {"role_id": self.base_role_id},
-            })
-            assert r.status_code == 409, (
-                f"Expected 409 (cross-type conflict), got {r.status_code}: {r.text}"
+            r = self.owner.post(
+                "transactions/invitation/",
+                json={
+                    "transaction_type": "platform_membership_invitation",
+                    "target_user_id": self.user_id,
+                    "context_type": "platform",
+                    "context_id": self.platform_id,
+                    "payload": {"role_id": self.base_role_id},
+                },
             )
+            assert (
+                r.status_code == 409
+            ), f"Expected 409 (cross-type conflict), got {r.status_code}: {r.text}"
         finally:
             self._cancel_transaction(self.user, request_txn_id)
 
@@ -467,25 +551,31 @@ class TestPlatformConflictGuard:
 
     def test_platform_pending_invitation_blocks_request(self):
         """Owner sends platform invitation → User tries to request → 409."""
-        r = self.owner.post("transactions/invitation/", json={
-            "transaction_type": "platform_membership_invitation",
-            "target_user_id": self.user_id,
-            "context_type": "platform",
-            "context_id": self.platform_id,
-            "payload": {"role_id": self.base_role_id},
-        })
+        r = self.owner.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "platform_membership_invitation",
+                "target_user_id": self.user_id,
+                "context_type": "platform",
+                "context_id": self.platform_id,
+                "payload": {"role_id": self.base_role_id},
+            },
+        )
         assert r.status_code == 201, f"Create invitation failed: {r.text}"
         invitation_txn_id = r.json()["id"]
 
         try:
-            r = self.user.post("transactions/request/", json={
-                "transaction_type": "platform_membership_request",
-                "target_account_type": "platform",
-                "target_account_id": self.platform_id,
-            })
-            assert r.status_code == 409, (
-                f"Expected 409 (cross-type conflict), got {r.status_code}: {r.text}"
+            r = self.user.post(
+                "transactions/request/",
+                json={
+                    "transaction_type": "platform_membership_request",
+                    "target_account_type": "platform",
+                    "target_account_id": self.platform_id,
+                },
             )
+            assert (
+                r.status_code == 409
+            ), f"Expected 409 (cross-type conflict), got {r.status_code}: {r.text}"
         finally:
             self._cancel_transaction(self.owner, invitation_txn_id)
 
@@ -495,23 +585,29 @@ class TestPlatformConflictGuard:
 
     def test_platform_request_succeeds_after_cancellation(self):
         """After platform invitation is cancelled, user can request."""
-        r = self.owner.post("transactions/invitation/", json={
-            "transaction_type": "platform_membership_invitation",
-            "target_user_id": self.user_id,
-            "context_type": "platform",
-            "context_id": self.platform_id,
-            "payload": {"role_id": self.base_role_id},
-        })
+        r = self.owner.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "platform_membership_invitation",
+                "target_user_id": self.user_id,
+                "context_type": "platform",
+                "context_id": self.platform_id,
+                "payload": {"role_id": self.base_role_id},
+            },
+        )
         assert r.status_code == 201
         inv_id = r.json()["id"]
 
         self._cancel_transaction(self.owner, inv_id)
 
-        r = self.user.post("transactions/request/", json={
-            "transaction_type": "platform_membership_request",
-            "target_account_type": "platform",
-            "target_account_id": self.platform_id,
-        })
+        r = self.user.post(
+            "transactions/request/",
+            json={
+                "transaction_type": "platform_membership_request",
+                "target_account_type": "platform",
+                "target_account_id": self.platform_id,
+            },
+        )
         assert r.status_code == 201, f"Request should succeed after cancel: {r.text}"
         req_id = r.json()["id"]
         self._cancel_transaction(self.user, req_id)
@@ -522,11 +618,14 @@ class TestPlatformConflictGuard:
 
     def test_platform_relationship_shows_active_transaction(self):
         """Platform detail shows _relationship with active transaction."""
-        r = self.user.post("transactions/request/", json={
-            "transaction_type": "platform_membership_request",
-            "target_account_type": "platform",
-            "target_account_id": self.platform_id,
-        })
+        r = self.user.post(
+            "transactions/request/",
+            json={
+                "transaction_type": "platform_membership_request",
+                "target_account_type": "platform",
+                "target_account_id": self.platform_id,
+            },
+        )
         assert r.status_code == 201, f"Create request failed: {r.text}"
         req_id = r.json()["id"]
 
@@ -535,9 +634,9 @@ class TestPlatformConflictGuard:
             assert r.status_code == 200
             data = r.json()
 
-            assert "_relationship" in data, (
-                f"Missing _relationship: {list(data.keys())}"
-            )
+            assert (
+                "_relationship" in data
+            ), f"Missing _relationship: {list(data.keys())}"
             rel = data["_relationship"]
             assert rel["membership_status"] is None
             assert rel["active_transaction"] is not None
@@ -554,6 +653,6 @@ class TestPlatformConflictGuard:
         assert r.status_code == 200
         data = r.json()
 
-        assert "_relationship" not in data, (
-            f"Anonymous should not get _relationship: {list(data.keys())}"
-        )
+        assert (
+            "_relationship" not in data
+        ), f"Anonymous should not get _relationship: {list(data.keys())}"

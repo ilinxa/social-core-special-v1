@@ -90,4 +90,18 @@ describe("FormTextarea", () => {
 
     expect(screen.getByRole("textbox")).toHaveAttribute("id", "custom-id");
   });
+
+  it("shows asterisk and aria-required when required", () => {
+    render(<FormTextarea label="Bio" name="bio" required />);
+
+    expect(screen.getByText("*")).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-required", "true");
+  });
+
+  it("does not show asterisk or aria-required when not required", () => {
+    render(<FormTextarea label="Bio" name="bio" />);
+
+    expect(screen.queryByText("*")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox")).not.toHaveAttribute("aria-required");
+  });
 });

@@ -12,6 +12,8 @@ Tasks:
 from datetime import timedelta
 
 from celery import shared_task
+from celery.exceptions import SoftTimeLimitExceeded
+from django.db import models
 from django.utils import timezone
 
 from apps.core.observability import get_logger
@@ -26,8 +28,10 @@ logger = get_logger(__name__)
     autoretry_for=(Exception,),
     retry_backoff=True,
     retry_backoff_max=300,  # Max 5 minutes between retries
+    soft_time_limit=120,
+    time_limit=180,
 )
-def send_email_task(self, log_id: str, priority: str = 'normal'):
+def send_email_task(self, log_id: str, priority: str = "normal"):
     """
     Async task to send an email.
 
@@ -55,7 +59,7 @@ def send_email_task(self, log_id: str, priority: str = 'normal'):
         EmailService._send_now(log)
         logger.info("email.task.sent", log_id=log_id)
 
-    except Exception as exc:
+    except Exception:
         # Update retry tracking
         log.refresh_from_db()
         log.retry_count += 1
@@ -64,7 +68,7 @@ def send_email_task(self, log_id: str, priority: str = 'normal'):
             # Calculate next retry time with exponential backoff
             delay_minutes = 5 * (2 ** (log.retry_count - 1))  # 5, 10, 20 minutes
             log.next_retry_at = timezone.now() + timedelta(minutes=delay_minutes)
-            log.save(update_fields=['retry_count', 'next_retry_at'])
+            log.save(update_fields=["retry_count", "next_retry_at"])
             logger.warning(
                 "email.task.retry_scheduled",
                 log_id=log_id,
@@ -73,7 +77,7 @@ def send_email_task(self, log_id: str, priority: str = 'normal'):
                 next_retry_at=str(log.next_retry_at),
             )
         else:
-            log.save(update_fields=['retry_count'])
+            log.save(update_fields=["retry_count"])
             logger.error(
                 "email.task.failed_permanently",
                 log_id=log_id,
@@ -84,7 +88,7 @@ def send_email_task(self, log_id: str, priority: str = 'normal'):
         raise
 
 
-@shared_task
+@shared_task(soft_time_limit=120, time_limit=180)
 def retry_failed_emails_task():
     """
     Retry emails that have failed but haven't exceeded max retries.
@@ -97,9 +101,11 @@ def retry_failed_emails_task():
     # Find failed emails that can be retried and are due
     failed_logs = EmailLog.objects.filter(
         status=EmailLog.Status.FAILED,
-        retry_count__lt=models.F('max_retries'),
-        next_retry_at__lte=timezone.now()
-    ).values_list('id', flat=True)[:100]  # Limit batch size
+        retry_count__lt=models.F("max_retries"),
+        next_retry_at__lte=timezone.now(),
+    ).values_list("id", flat=True)[
+        :100
+    ]  # Limit batch size
 
     count = 0
     for log_id in failed_logs:
@@ -112,7 +118,7 @@ def retry_failed_emails_task():
     return f"Queued {count} emails for retry"
 
 
-@shared_task
+@shared_task(soft_time_limit=300, time_limit=600)
 def cleanup_old_email_logs():
     """
     Clean up email logs older than retention period.
@@ -121,30 +127,38 @@ def cleanup_old_email_logs():
     Default retention: 90 days (configurable via EMAIL_LOG_RETENTION_DAYS setting)
     """
     from django.conf import settings
+
     from apps.email.models import EmailLog
 
-    retention_days = getattr(settings, 'EMAIL_LOG_RETENTION_DAYS', 90)
+    retention_days = getattr(settings, "EMAIL_LOG_RETENTION_DAYS", 90)
     cutoff = timezone.now() - timedelta(days=retention_days)
 
     # Delete in batches to avoid long-running transactions
     total_deleted = 0
     batch_size = 1000
 
-    while True:
-        # Get IDs to delete
-        ids_to_delete = list(
-            EmailLog.objects.filter(
-                created_at__lt=cutoff
-            ).values_list('id', flat=True)[:batch_size]
+    try:
+        while True:
+            # Get IDs to delete
+            ids_to_delete = list(
+                EmailLog.objects.filter(created_at__lt=cutoff).values_list(
+                    "id", flat=True
+                )[:batch_size]
+            )
+
+            if not ids_to_delete:
+                break
+
+            deleted, _ = EmailLog.objects.filter(id__in=ids_to_delete).delete()
+            total_deleted += deleted
+
+            logger.info("email.task.cleanup_batch", deleted=deleted)
+    except SoftTimeLimitExceeded:
+        logger.warning(
+            "email.task.cleanup_time_limit",
+            total_deleted=total_deleted,
+            retention_days=retention_days,
         )
-
-        if not ids_to_delete:
-            break
-
-        deleted, _ = EmailLog.objects.filter(id__in=ids_to_delete).delete()
-        total_deleted += deleted
-
-        logger.info("email.task.cleanup_batch", deleted=deleted)
 
     logger.info(
         "email.task.cleanup_complete",
@@ -152,7 +166,3 @@ def cleanup_old_email_logs():
         retention_days=retention_days,
     )
     return f"Deleted {total_deleted} old email logs"
-
-
-# Import models for F expression
-from django.db import models

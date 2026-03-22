@@ -1,5 +1,12 @@
 import { apiClient } from "@/lib/api-client";
-import type { User, UserProfile, UserPublicWithRelationship, UserLimited } from "@/types";
+import type {
+  ApprovedCreatorItem,
+  PaginatedResponse,
+  User,
+  UserProfile,
+  UserPublicWithRelationship,
+  UserLimited,
+} from "@/types";
 
 // =============================================================================
 // INPUT TYPES
@@ -93,4 +100,14 @@ export async function fetchUserByUsernameApi(
 
 export async function deactivateAccountApi(): Promise<void> {
   await apiClient.delete("/users/me/");
+}
+
+export async function fetchApprovedCreatorsApi(
+  params?: Record<string, unknown>,
+): Promise<PaginatedResponse<ApprovedCreatorItem>> {
+  const response = await apiClient.get<PaginatedResponse<ApprovedCreatorItem>>(
+    "/platform/approved-creators/",
+    { params },
+  );
+  return response.data;
 }

@@ -8,7 +8,6 @@ Categories: 'user', 'business', 'both'.
 from django.db import migrations
 from django.utils.text import slugify
 
-
 TAGS = [
     # Both (user + business)
     ("technology", "both"),

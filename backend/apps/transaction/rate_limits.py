@@ -1,4 +1,5 @@
 from django.core.cache import cache
+
 from apps.core.exceptions import RateLimitExceeded
 
 RATE_LIMITS = {

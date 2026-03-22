@@ -264,7 +264,9 @@ class TestBusinessProfileService:
 
         assert profile.is_public is False
 
-    def test_update_profile_updates_business_updated_by(self, business_with_profile, user):
+    def test_update_profile_updates_business_updated_by(
+        self, business_with_profile, user
+    ):
         """Test that updating profile updates business.updated_by."""
         original_updated_by = business_with_profile.updated_by
 

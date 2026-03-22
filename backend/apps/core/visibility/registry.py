@@ -10,15 +10,9 @@ Fields NOT in the registry are passed through unchanged (default-include).
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-from apps.core.visibility.enums import (
-    BusinessVisibility,
-    ContentTier,
-    PlatformVisibility,
-    UserVisibility,
-    VISIBILITY_ENUMS,
-)
+from apps.core.visibility.enums import VISIBILITY_ENUMS, BusinessVisibility, ContentTier
 
 T1 = ContentTier.ALWAYS_PUBLIC
 T2 = ContentTier.CONDITIONAL
@@ -30,8 +24,8 @@ class FieldVisibilityConfig:
     """Configuration for a single field's visibility behaviour."""
 
     tier: str  # ContentTier value ("T1", "T2", "T3")
-    default_level: Optional[int] = None  # Only for T2 — default visibility level
-    required_permission: Optional[str] = None  # Only for T3 — RBAC gate within members
+    default_level: int | None = None  # Only for T2 — default visibility level
+    required_permission: str | None = None  # Only for T3 — RBAC gate within members
 
 
 # =============================================================================
@@ -86,15 +80,11 @@ BUSINESS_ACCOUNT_FIELDS: Dict[str, FieldVisibilityConfig] = {
     "registration_number": FieldVisibilityConfig(
         tier=T3, required_permission="can_view_legal_info"
     ),
-    "tax_id": FieldVisibilityConfig(
-        tier=T3, required_permission="can_view_legal_info"
-    ),
+    "tax_id": FieldVisibilityConfig(tier=T3, required_permission="can_view_legal_info"),
     "legal_address": FieldVisibilityConfig(
         tier=T3, required_permission="can_view_legal_info"
     ),
-    "settings": FieldVisibilityConfig(
-        tier=T3, required_permission="can_edit_business"
-    ),
+    "settings": FieldVisibilityConfig(tier=T3, required_permission="can_edit_business"),
     "max_members": FieldVisibilityConfig(
         tier=T3, required_permission="can_view_members"
     ),
@@ -171,11 +161,7 @@ def get_registry(registry_key: str) -> Dict[str, FieldVisibilityConfig]:
 def get_t2_fields(registry_key: str) -> Dict[str, FieldVisibilityConfig]:
     """Get only T2 (CONDITIONAL) fields from a registry."""
     registry = get_registry(registry_key)
-    return {
-        name: config
-        for name, config in registry.items()
-        if config.tier == T2
-    }
+    return {name: config for name, config in registry.items() if config.tier == T2}
 
 
 def get_visibility_choices(account_type: str) -> List:
@@ -189,6 +175,6 @@ def get_visibility_choices(account_type: str) -> List:
     return list(enum_class)
 
 
-def get_account_type_for_registry(registry_key: str) -> Optional[str]:
+def get_account_type_for_registry(registry_key: str) -> str | None:
     """Get the account_type string for a registry key."""
     return _REGISTRY_TO_ACCOUNT_TYPE.get(registry_key)

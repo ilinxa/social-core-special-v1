@@ -4,18 +4,18 @@ Preference Service
 Manage user notification preferences.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from django.http import HttpRequest
 
 from apps.core.exceptions import NotFound, ValidationError
 from apps.core.observability import get_logger
-from apps.core.observability.audit import AuditService, AuditLog
+from apps.core.observability.audit import AuditLog, AuditService
 from apps.notifications.models import NotificationPreference
 from apps.notifications.types import (
     Channel,
-    get_notification_type,
     get_configurable_types,
+    get_notification_type,
 )
 
 logger = get_logger(__name__)
@@ -27,11 +27,7 @@ class PreferenceService:
     """
 
     @staticmethod
-    def get_enabled_channels(
-        *,
-        user,
-        notification_type: str
-    ) -> List[str]:
+    def get_enabled_channels(*, user, notification_type: str) -> List[str]:
         """
         Get enabled channels for a user and notification type.
 
@@ -46,8 +42,7 @@ class PreferenceService:
 
         # Check if user has preference override
         preference = NotificationPreference.objects.filter(
-            user=user,
-            notification_type=notification_type
+            user=user, notification_type=notification_type
         ).first()
 
         if preference:
@@ -61,10 +56,10 @@ class PreferenceService:
         *,
         user,
         notification_type: str,
-        email_enabled: Optional[bool] = None,
-        push_enabled: Optional[bool] = None,
-        sms_enabled: Optional[bool] = None,
-        request: Optional[HttpRequest] = None
+        email_enabled: bool | None = None,
+        push_enabled: bool | None = None,
+        sms_enabled: bool | None = None,
+        request: HttpRequest | None = None,
     ) -> NotificationPreference:
         """
         Update user's preference for a notification type.
@@ -85,7 +80,7 @@ class PreferenceService:
         if not type_config:
             raise NotFound(
                 message=f"Unknown notification type: {notification_type}",
-                resource='NotificationType'
+                resource="NotificationType",
             )
 
         if not type_config.user_configurable:
@@ -97,22 +92,28 @@ class PreferenceService:
             user=user,
             notification_type=notification_type,
             defaults={
-                'email_enabled': Channel.EMAIL in type_config.default_channels,
-                'push_enabled': Channel.PUSH in type_config.default_channels,
-                'sms_enabled': Channel.SMS in type_config.default_channels,
-            }
+                "email_enabled": Channel.EMAIL in type_config.default_channels,
+                "push_enabled": Channel.PUSH in type_config.default_channels,
+                "sms_enabled": Channel.SMS in type_config.default_channels,
+            },
         )
 
         changes = {}
 
         if email_enabled is not None and preference.email_enabled != email_enabled:
-            changes['email_enabled'] = {'old': preference.email_enabled, 'new': email_enabled}
+            changes["email_enabled"] = {
+                "old": preference.email_enabled,
+                "new": email_enabled,
+            }
             preference.email_enabled = email_enabled
         if push_enabled is not None and preference.push_enabled != push_enabled:
-            changes['push_enabled'] = {'old': preference.push_enabled, 'new': push_enabled}
+            changes["push_enabled"] = {
+                "old": preference.push_enabled,
+                "new": push_enabled,
+            }
             preference.push_enabled = push_enabled
         if sms_enabled is not None and preference.sms_enabled != sms_enabled:
-            changes['sms_enabled'] = {'old': preference.sms_enabled, 'new': sms_enabled}
+            changes["sms_enabled"] = {"old": preference.sms_enabled, "new": sms_enabled}
             preference.sms_enabled = sms_enabled
 
         preference.save()
@@ -140,11 +141,7 @@ class PreferenceService:
         return preference
 
     @staticmethod
-    def get_preference(
-        *,
-        user,
-        notification_type: str
-    ) -> Dict:
+    def get_preference(*, user, notification_type: str) -> Dict:
         """
         Get preference for a specific notification type.
 
@@ -154,13 +151,12 @@ class PreferenceService:
         if not type_config:
             raise NotFound(
                 message=f"Unknown notification type: {notification_type}",
-                resource='NotificationType'
+                resource="NotificationType",
             )
 
         # Get user's override if exists
         preference = NotificationPreference.objects.filter(
-            user=user,
-            notification_type=notification_type
+            user=user, notification_type=notification_type
         ).first()
 
         if preference:
@@ -169,14 +165,14 @@ class PreferenceService:
             channels = [c.value for c in type_config.default_channels]
 
         return {
-            'notification_type': type_config.name,
-            'display_name': type_config.display_name,
-            'description': type_config.description,
-            'category': type_config.category.value,
-            'user_configurable': type_config.user_configurable,
-            'email_enabled': 'email' in channels,
-            'push_enabled': 'push' in channels,
-            'sms_enabled': 'sms' in channels,
+            "notification_type": type_config.name,
+            "display_name": type_config.display_name,
+            "description": type_config.description,
+            "category": type_config.category.value,
+            "user_configurable": type_config.user_configurable,
+            "email_enabled": "email" in channels,
+            "push_enabled": "push" in channels,
+            "sms_enabled": "sms" in channels,
         }
 
     @staticmethod
@@ -201,22 +197,18 @@ class PreferenceService:
                 channels = [c.value for c in type_config.default_channels]
 
             result[type_config.name] = {
-                'display_name': type_config.display_name,
-                'description': type_config.description,
-                'category': type_config.category.value,
-                'email_enabled': 'email' in channels,
-                'push_enabled': 'push' in channels,
-                'sms_enabled': 'sms' in channels,
+                "display_name": type_config.display_name,
+                "description": type_config.description,
+                "category": type_config.category.value,
+                "email_enabled": "email" in channels,
+                "push_enabled": "push" in channels,
+                "sms_enabled": "sms" in channels,
             }
 
         return result
 
     @staticmethod
-    def reset_preference(
-        *,
-        user,
-        notification_type: str
-    ) -> None:
+    def reset_preference(*, user, notification_type: str) -> None:
         """
         Reset preference to defaults by deleting the override.
         """
@@ -224,12 +216,11 @@ class PreferenceService:
         if not type_config:
             raise NotFound(
                 message=f"Unknown notification type: {notification_type}",
-                resource='NotificationType'
+                resource="NotificationType",
             )
 
         NotificationPreference.objects.filter(
-            user=user,
-            notification_type=notification_type
+            user=user, notification_type=notification_type
         ).delete()
 
         logger.info(
@@ -241,5 +232,8 @@ class PreferenceService:
             action=AuditLog.Action.NOTIFICATION_PREFERENCE_UPDATED,
             actor=user,
             resource=user,
-            details={"notification_type": notification_type, "action": "reset_to_defaults"},
+            details={
+                "notification_type": notification_type,
+                "action": "reset_to_defaults",
+            },
         )

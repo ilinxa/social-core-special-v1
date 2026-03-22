@@ -7,8 +7,8 @@ Data models for notification preferences and logging.
 import uuid
 from typing import List
 
-from django.db import models
 from django.conf import settings
+from django.db import models
 
 from apps.core.models import TimeStampedModel
 
@@ -24,13 +24,11 @@ class NotificationPreference(TimeStampedModel):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='notification_preferences'
+        related_name="notification_preferences",
     )
 
     notification_type = models.CharField(
-        max_length=100,
-        db_index=True,
-        help_text="NotificationTypeConfig.name"
+        max_length=100, db_index=True, help_text="NotificationTypeConfig.name"
     )
 
     # Channel preferences (True = enabled, False = disabled)
@@ -39,12 +37,18 @@ class NotificationPreference(TimeStampedModel):
     sms_enabled = models.BooleanField(default=False)
 
     class Meta:
-        db_table = 'notification_preferences'
-        unique_together = ['user', 'notification_type']
+        db_table = "notification_preferences"
+        verbose_name = "notification preference"
+        verbose_name_plural = "notification preferences"
         indexes = [
             models.Index(
-                fields=['user', 'notification_type'],
-                name='notifpref_user_type_idx'
+                fields=["user", "notification_type"], name="notifpref_user_type_idx"
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "notification_type"],
+                name="notifpref_user_type_uniq",
             ),
         ]
 
@@ -55,11 +59,11 @@ class NotificationPreference(TimeStampedModel):
         """Return list of enabled channels."""
         channels = []
         if self.email_enabled:
-            channels.append('email')
+            channels.append("email")
         if self.push_enabled:
-            channels.append('push')
+            channels.append("push")
         if self.sms_enabled:
-            channels.append('sms')
+            channels.append("sms")
         return channels
 
 
@@ -70,48 +74,35 @@ class NotificationLog(TimeStampedModel):
     """
 
     class Status(models.TextChoices):
-        PENDING = 'pending', 'Pending'
-        PROCESSING = 'processing', 'Processing'
-        SENT = 'sent', 'Sent'
-        PARTIAL = 'partial', 'Partially Sent'  # Some channels failed
-        RETRYING = 'retrying', 'Retrying'
-        FAILED = 'failed', 'Failed'
+        PENDING = "pending", "Pending"
+        PROCESSING = "processing", "Processing"
+        SENT = "sent", "Sent"
+        PARTIAL = "partial", "Partially Sent"  # Some channels failed
+        RETRYING = "retrying", "Retrying"
+        FAILED = "failed", "Failed"
 
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='notification_logs'
+        related_name="notification_logs",
     )
 
-    notification_type = models.CharField(
-        max_length=100,
-        db_index=True
-    )
+    notification_type = models.CharField(max_length=100, db_index=True)
 
     # Channels used for this notification
     channels = models.JSONField(
-        default=list,
-        help_text="List of channels used: ['email', 'push']"
+        default=list, help_text="List of channels used: ['email', 'push']"
     )
 
     # Context used for rendering
-    context = models.JSONField(
-        default=dict
-    )
+    context = models.JSONField(default=dict)
 
     # Status
     status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING,
-        db_index=True
+        max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True
     )
 
     # Retry tracking
@@ -120,30 +111,30 @@ class NotificationLog(TimeStampedModel):
     # Per-channel results
     channel_results = models.JSONField(
         default=dict,
-        help_text="Per-channel status: {'email': {'status': 'sent', 'email_log_id': '...'}, ...}"
+        help_text="Per-channel status: {'email': {'status': 'sent', 'email_log_id': '...'}, ...}",
     )
 
     # Error tracking
     error_message = models.TextField(blank=True)
 
     class Meta:
-        db_table = 'notification_logs'
-        ordering = ['-created_at']
+        db_table = "notification_logs"
+        verbose_name = "notification log"
+        verbose_name_plural = "notification logs"
+        ordering = ["-created_at"]
         indexes = [
             models.Index(
-                fields=['user', 'created_at'],
-                name='notiflog_user_created_idx'
+                fields=["user", "created_at"], name="notiflog_user_created_idx"
             ),
             models.Index(
-                fields=['notification_type', 'created_at'],
-                name='notiflog_type_created_idx'
+                fields=["notification_type", "created_at"],
+                name="notiflog_type_created_idx",
             ),
             models.Index(
-                fields=['status', 'created_at'],
-                name='notiflog_status_created_idx'
+                fields=["status", "created_at"], name="notiflog_status_created_idx"
             ),
         ]
 
     def __str__(self):
-        user_str = self.user.email if self.user else 'Unknown'
+        user_str = self.user.email if self.user else "Unknown"
         return f"{self.notification_type} → {user_str} ({self.status})"

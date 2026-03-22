@@ -1,8 +1,10 @@
 from typing import Callable, Dict
+
 from django.db import transaction as db_transaction
+
+from apps.core.constants import AccountType
 from apps.core.observability import get_logger
 from apps.core.types import ActorContext
-from apps.core.constants import AccountType
 from apps.transaction.models import Transaction
 
 logger = get_logger(__name__)
@@ -17,13 +19,17 @@ class OutcomeHandlerRegistry:
 
     @classmethod
     def execute(
-        cls, *, transaction: Transaction, actor_context: ActorContext,
+        cls,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         acceptance_payload: dict = None,
     ):
         handler = cls._handlers.get(transaction.transaction_type)
         if handler:
             handler(
-                transaction=transaction, actor_context=actor_context,
+                transaction=transaction,
+                actor_context=actor_context,
                 acceptance_payload=acceptance_payload or {},
             )
 
@@ -33,11 +39,15 @@ class MembershipOutcomeHandler:
     @staticmethod
     @db_transaction.atomic
     def handle_invitation_accepted(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         acceptance_payload: dict = None,
     ):
-        from apps.rbac.services import RBACService
         from django.contrib.auth import get_user_model
+
+        from apps.rbac.services import RBACService
+
         User = get_user_model()
 
         user = User.objects.get(id=actor_context.user_id)
@@ -59,12 +69,16 @@ class MembershipOutcomeHandler:
     @staticmethod
     @db_transaction.atomic
     def handle_request_approved(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         acceptance_payload: dict = None,
     ):
-        from apps.rbac.services import RBACService
-        from apps.rbac.selectors import RoleSelector
         from django.contrib.auth import get_user_model
+
+        from apps.rbac.selectors import RoleSelector
+        from apps.rbac.services import RBACService
+
         User = get_user_model()
 
         user = User.objects.get(id=transaction.initiator_id)
@@ -100,6 +114,7 @@ class VerificationOutcomeHandler:
     @staticmethod
     def _resolve_business(transaction: Transaction):
         from apps.organization.business.selectors import BusinessAccountSelector
+
         initiator_ctx = ActorContext.from_dict(transaction.initiator_context)
         return BusinessAccountSelector.get_by_id(
             business_id=initiator_ctx.account_id,
@@ -108,12 +123,16 @@ class VerificationOutcomeHandler:
     @staticmethod
     @db_transaction.atomic
     def handle_created(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
     ):
         """Set business verification_status to PENDING when request is created."""
-        from apps.organization.business.services import BusinessAccountService
-        from apps.core.constants import VerificationStatus
         from django.contrib.auth import get_user_model
+
+        from apps.core.constants import VerificationStatus
+        from apps.organization.business.services import BusinessAccountService
+
         User = get_user_model()
 
         business = VerificationOutcomeHandler._resolve_business(transaction)
@@ -133,14 +152,18 @@ class VerificationOutcomeHandler:
     @staticmethod
     @db_transaction.atomic
     def handle_closed(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         terminal_status: str,
     ):
         """Revert business verification_status when request is denied/cancelled/dismissed."""
-        from apps.organization.business.services import BusinessAccountService
-        from apps.core.constants import VerificationStatus
-        from apps.transaction.constants import TransactionStatus
         from django.contrib.auth import get_user_model
+
+        from apps.core.constants import VerificationStatus
+        from apps.organization.business.services import BusinessAccountService
+        from apps.transaction.constants import TransactionStatus
+
         User = get_user_model()
 
         business = VerificationOutcomeHandler._resolve_business(transaction)
@@ -166,12 +189,16 @@ class VerificationOutcomeHandler:
     @staticmethod
     @db_transaction.atomic
     def handle_accepted(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         acceptance_payload: dict = None,
     ):
-        from apps.organization.business.services import BusinessAccountService
-        from apps.core.constants import VerificationStatus
         from django.contrib.auth import get_user_model
+
+        from apps.core.constants import VerificationStatus
+        from apps.organization.business.services import BusinessAccountService
+
         User = get_user_model()
 
         business = VerificationOutcomeHandler._resolve_business(transaction)
@@ -193,11 +220,15 @@ class OwnershipOutcomeHandler:
     @staticmethod
     @db_transaction.atomic
     def handle_accepted(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         acceptance_payload: dict = None,
     ):
-        from apps.rbac.services import RBACService
         from django.contrib.auth import get_user_model
+
+        from apps.rbac.services import RBACService
+
         User = get_user_model()
 
         new_owner = User.objects.get(id=actor_context.user_id)
@@ -219,12 +250,16 @@ class PermissionOutcomeHandler:
     @staticmethod
     @db_transaction.atomic
     def handle_business_creation_approved(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         acceptance_payload: dict = None,
     ):
         from django.contrib.auth import get_user_model
+
         from apps.core.observability import AuditService
         from apps.core.observability.audit.models import AuditLog
+
         User = get_user_model()
 
         user = User.objects.get(id=transaction.initiator_id)
@@ -251,23 +286,37 @@ class PermissionOutcomeHandler:
 
 def register_all_handlers():
     from apps.network.outcome_handlers import (
-        FollowOutcomeHandler as NetworkFollowHandler,
         ConnectionOutcomeHandler as NetworkConnectionHandler,
+    )
+    from apps.network.outcome_handlers import (
+        FollowOutcomeHandler as NetworkFollowHandler,
     )
 
     r = OutcomeHandlerRegistry.register
-    r("platform_membership_invitation", MembershipOutcomeHandler.handle_invitation_accepted)
+    r(
+        "platform_membership_invitation",
+        MembershipOutcomeHandler.handle_invitation_accepted,
+    )
     r("platform_membership_request", MembershipOutcomeHandler.handle_request_approved)
-    r("business_membership_invitation", MembershipOutcomeHandler.handle_invitation_accepted)
+    r(
+        "business_membership_invitation",
+        MembershipOutcomeHandler.handle_invitation_accepted,
+    )
     r("business_membership_request", MembershipOutcomeHandler.handle_request_approved)
     r("business_verification_request", VerificationOutcomeHandler.handle_accepted)
     r("platform_ownership_transfer", OwnershipOutcomeHandler.handle_accepted)
     r("business_ownership_transfer", OwnershipOutcomeHandler.handle_accepted)
-    r("business_creation_permission_request", PermissionOutcomeHandler.handle_business_creation_approved)
+    r(
+        "business_creation_permission_request",
+        PermissionOutcomeHandler.handle_business_creation_approved,
+    )
     # Network handlers
     r("business_follow_request", NetworkFollowHandler.handle_accepted)
     r("business_follow_approval_request", NetworkFollowHandler.handle_accepted)
     r("platform_follow_request", NetworkFollowHandler.handle_accepted)
     r("user_connection_request", NetworkConnectionHandler.handle_user_accepted)
     r("business_connection_request", NetworkConnectionHandler.handle_account_accepted)
-    r("business_platform_connection_request", NetworkConnectionHandler.handle_account_accepted)
+    r(
+        "business_platform_connection_request",
+        NetworkConnectionHandler.handle_account_accepted,
+    )

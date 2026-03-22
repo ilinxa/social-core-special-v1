@@ -16,7 +16,7 @@ Dependencies:
     pip install PyJWT
 
 Configuration:
-    Uses settings.SECRET_KEY for signing by default.
+    Uses settings.JWT_SECRET_KEY for signing by default.
     Override by passing a custom secret to functions.
 
 Usage:
@@ -39,13 +39,11 @@ Usage:
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
 
 import jwt
 from django.conf import settings
 
 from apps.core.exceptions import TokenExpired, TokenInvalid
-
 
 # =============================================================================
 # CONFIGURATION
@@ -62,10 +60,11 @@ ALLOWED_ALGORITHMS = ["HS256"]
 # ENCODING
 # =============================================================================
 
+
 def encode_token(
     payload: dict,
     expires_in: int = 900,
-    secret: Optional[str] = None,
+    secret: str | None = None,
     algorithm: str = DEFAULT_ALGORITHM,
 ) -> str:
     """
@@ -74,7 +73,7 @@ def encode_token(
     Args:
         payload: Dictionary of claims to encode (user_id, type, etc.)
         expires_in: Seconds until token expires (default: 900 = 15 min)
-        secret: Signing secret (default: settings.SECRET_KEY)
+        secret: Signing secret (default: settings.JWT_SECRET_KEY)
         algorithm: JWT algorithm (default: HS256)
 
     Returns:
@@ -96,12 +95,12 @@ def encode_token(
         **payload,
         "exp": now + timedelta(seconds=expires_in),
         "iat": now,
+        "iss": getattr(settings, "JWT_ISSUER", "socialmedia-adv-api"),
+        "aud": getattr(settings, "JWT_AUDIENCE", "socialmedia-adv-client"),
     }
 
     return jwt.encode(
-        token_payload,
-        secret or settings.SECRET_KEY,
-        algorithm=algorithm
+        token_payload, secret or settings.JWT_SECRET_KEY, algorithm=algorithm
     )
 
 
@@ -109,10 +108,11 @@ def encode_token(
 # DECODING
 # =============================================================================
 
+
 def decode_token(
     token: str,
-    secret: Optional[str] = None,
-    algorithms: Optional[list] = None,
+    secret: str | None = None,
+    algorithms: list | None = None,
     verify_exp: bool = True,
 ) -> dict:
     """
@@ -120,7 +120,7 @@ def decode_token(
 
     Args:
         token: JWT string to decode
-        secret: Signing secret (default: settings.SECRET_KEY)
+        secret: Signing secret (default: settings.JWT_SECRET_KEY)
         algorithms: Allowed algorithms (default: ["HS256"])
         verify_exp: Whether to verify expiration (default: True)
 
@@ -145,19 +145,22 @@ def decode_token(
     try:
         return jwt.decode(
             token,
-            secret or settings.SECRET_KEY,
+            secret or settings.JWT_SECRET_KEY,
             algorithms=algorithms or ALLOWED_ALGORITHMS,
-            options={"verify_exp": verify_exp}
+            options={"verify_exp": verify_exp},
+            issuer=getattr(settings, "JWT_ISSUER", "socialmedia-adv-api"),
+            audience=getattr(settings, "JWT_AUDIENCE", "socialmedia-adv-client"),
         )
     except jwt.ExpiredSignatureError:
-        raise TokenExpired()
+        raise TokenExpired() from None
     except jwt.InvalidTokenError as e:
-        raise TokenInvalid(message=str(e) if settings.DEBUG else None)
+        raise TokenInvalid(message=str(e) if settings.DEBUG else None) from e
 
 
 # =============================================================================
 # UTILITY FUNCTIONS
 # =============================================================================
+
 
 def decode_token_unverified(token: str) -> dict:
     """
@@ -176,14 +179,13 @@ def decode_token_unverified(token: str) -> dict:
     """
     try:
         return jwt.decode(
-            token,
-            options={"verify_signature": False, "verify_exp": False}
+            token, options={"verify_signature": False, "verify_exp": False}
         )
     except jwt.InvalidTokenError:
-        raise TokenInvalid()
+        raise TokenInvalid() from None
 
 
-def get_token_expiry(token: str) -> Optional[datetime]:
+def get_token_expiry(token: str) -> datetime | None:
     """
     Get expiration time from a token without full verification.
 

@@ -23,16 +23,16 @@ Usage:
     local_time = to_user_timezone(now, "America/New_York")
 """
 
-from datetime import datetime, timedelta, date, timezone as _stdlib_tz
-from typing import Optional, Union
+import zoneinfo
+from datetime import date, datetime, timedelta
+from datetime import timezone as _stdlib_tz
 
 from django.utils import timezone
-import zoneinfo
-
 
 # =============================================================================
 # CURRENT TIME
 # =============================================================================
+
 
 def utc_now() -> datetime:
     """
@@ -65,10 +65,8 @@ def today_utc() -> date:
 # TIMEZONE CONVERSION
 # =============================================================================
 
-def to_user_timezone(
-    dt: datetime,
-    user_timezone: str = "UTC"
-) -> datetime:
+
+def to_user_timezone(dt: datetime, user_timezone: str = "UTC") -> datetime:
     """
     Convert a datetime to a specific timezone.
 
@@ -119,7 +117,8 @@ def to_utc(dt: datetime) -> datetime:
 # DATE RANGES
 # =============================================================================
 
-def start_of_day(dt: Optional[datetime] = None) -> datetime:
+
+def start_of_day(dt: datetime | None = None) -> datetime:
     """
     Get the start of day (00:00:00) for a datetime.
 
@@ -138,7 +137,7 @@ def start_of_day(dt: Optional[datetime] = None) -> datetime:
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def end_of_day(dt: Optional[datetime] = None) -> datetime:
+def end_of_day(dt: datetime | None = None) -> datetime:
     """
     Get the end of day (23:59:59.999999) for a datetime.
 
@@ -152,7 +151,7 @@ def end_of_day(dt: Optional[datetime] = None) -> datetime:
     return dt.replace(hour=23, minute=59, second=59, microsecond=999999)
 
 
-def start_of_week(dt: Optional[datetime] = None) -> datetime:
+def start_of_week(dt: datetime | None = None) -> datetime:
     """
     Get the start of the week (Monday 00:00:00) for a datetime.
 
@@ -168,7 +167,7 @@ def start_of_week(dt: Optional[datetime] = None) -> datetime:
     return start_of_day(monday)
 
 
-def start_of_month(dt: Optional[datetime] = None) -> datetime:
+def start_of_month(dt: datetime | None = None) -> datetime:
     """
     Get the start of the month for a datetime.
 
@@ -185,6 +184,7 @@ def start_of_month(dt: Optional[datetime] = None) -> datetime:
 # =============================================================================
 # RELATIVE TIME
 # =============================================================================
+
 
 def days_ago(days: int) -> datetime:
     """
@@ -251,10 +251,8 @@ def days_from_now(days: int) -> datetime:
 # FORMATTING
 # =============================================================================
 
-def format_datetime(
-    dt: datetime,
-    format_string: str = "%Y-%m-%d %H:%M:%S"
-) -> str:
+
+def format_datetime(dt: datetime, format_string: str = "%Y-%m-%d %H:%M:%S") -> str:
     """
     Format a datetime to string.
 
@@ -310,6 +308,7 @@ def parse_iso(iso_string: str) -> datetime:
 # =============================================================================
 # DURATION
 # =============================================================================
+
 
 def time_until(dt: datetime) -> timedelta:
     """

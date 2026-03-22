@@ -18,18 +18,17 @@ import uuid
 from datetime import timedelta
 
 import factory
-from factory.django import DjangoModelFactory
 from django.utils import timezone
+from factory.django import DjangoModelFactory
 
 from apps.auth.models import (
-    RefreshToken,
     DeviceSession,
     EmailVerificationToken,
-    PasswordResetToken,
     OAuthConnection,
+    PasswordResetToken,
+    RefreshToken,
 )
 from apps.users.tests.factories import UserFactory
-
 
 # =============================================================================
 # REFRESH TOKEN FACTORY
@@ -193,9 +192,7 @@ class OAuthConnectionFactory(DjangoModelFactory):
     provider_uid = factory.Sequence(lambda n: f"provider_uid_{n}")
     access_token = factory.LazyFunction(lambda: secrets.token_urlsafe(32))
     refresh_token = factory.LazyFunction(lambda: secrets.token_urlsafe(32))
-    token_expires_at = factory.LazyFunction(
-        lambda: timezone.now() + timedelta(hours=1)
-    )
+    token_expires_at = factory.LazyFunction(lambda: timezone.now() + timedelta(hours=1))
     provider_data = factory.LazyFunction(dict)
     provider_email = factory.LazyAttribute(lambda obj: obj.user.email)
 
@@ -204,20 +201,24 @@ class GoogleOAuthConnectionFactory(OAuthConnectionFactory):
     """Factory for Google OAuth connections."""
 
     provider = OAuthConnection.Provider.GOOGLE
-    provider_data = factory.LazyFunction(lambda: {
-        "sub": "google_123456",
-        "email": "user@gmail.com",
-        "email_verified": True,
-        "name": "Test User",
-    })
+    provider_data = factory.LazyFunction(
+        lambda: {
+            "sub": "google_123456",
+            "email": "user@gmail.com",
+            "email_verified": True,
+            "name": "Test User",
+        }
+    )
 
 
 class AppleOAuthConnectionFactory(OAuthConnectionFactory):
     """Factory for Apple OAuth connections."""
 
     provider = OAuthConnection.Provider.APPLE
-    provider_data = factory.LazyFunction(lambda: {
-        "sub": "apple_123456",
-        "email": "user@privaterelay.appleid.com",
-        "email_verified": True,
-    })
+    provider_data = factory.LazyFunction(
+        lambda: {
+            "sub": "apple_123456",
+            "email": "user@privaterelay.appleid.com",
+            "email_verified": True,
+        }
+    )

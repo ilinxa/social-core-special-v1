@@ -98,7 +98,7 @@ export function CoverImageUpload({ coverImageUrl, hasCoverImage }: CoverImageUpl
 
         {/* Hover overlay when image exists */}
         {displayUrl && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
             {isUploading ? (
               <Loader2 className="h-8 w-8 animate-spin text-white" />
             ) : (

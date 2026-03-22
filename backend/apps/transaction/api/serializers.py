@@ -1,6 +1,11 @@
 from rest_framework import serializers
-from apps.core.serializers import BaseInputSerializer, BaseOutputSerializer, TimestampFieldsMixin
-from apps.transaction.models import Transaction, TransactionLog, TransactionFormMapping
+
+from apps.core.serializers import (
+    BaseInputSerializer,
+    BaseOutputSerializer,
+    TimestampFieldsMixin,
+)
+from apps.transaction.models import Transaction, TransactionFormMapping, TransactionLog
 
 
 class CreateInvitationInputSerializer(BaseInputSerializer):
@@ -15,7 +20,9 @@ class CreateInvitationInputSerializer(BaseInputSerializer):
 class CreateRequestInputSerializer(BaseInputSerializer):
     transaction_type = serializers.CharField(max_length=100)
     target_account_id = serializers.UUIDField(required=False, allow_null=True)
-    target_account_type = serializers.CharField(max_length=20, required=False, allow_null=True)
+    target_account_type = serializers.CharField(
+        max_length=20, required=False, allow_null=True
+    )
     target_user_id = serializers.UUIDField(required=False, allow_null=True)
     payload = serializers.JSONField(required=False, default=dict)
     form_response_id = serializers.UUIDField(required=False, allow_null=True)
@@ -35,7 +42,9 @@ class AcceptTransactionInputSerializer(BaseInputSerializer):
 
 class DenyTransactionInputSerializer(BaseInputSerializer):
     reason = serializers.CharField(
-        required=False, allow_blank=True, max_length=1000,
+        required=False,
+        allow_blank=True,
+        max_length=1000,
     )
 
 
@@ -54,8 +63,10 @@ class FormResponseUpdateInputSerializer(BaseInputSerializer):
 
 def _resolve_user(party_type, party_id, party_context=None):
     """Resolve a transaction party to a User object (or None)."""
-    from apps.transaction.constants import PartyType
     from django.contrib.auth import get_user_model
+
+    from apps.transaction.constants import PartyType
+
     User = get_user_model()
 
     if party_type == PartyType.USER:
@@ -88,8 +99,12 @@ class TransactionLogOutputSerializer(BaseOutputSerializer):
     class Meta:
         model = TransactionLog
         fields = (
-            "id", "event_type", "timestamp",
-            "previous_status", "new_status", "metadata",
+            "id",
+            "event_type",
+            "timestamp",
+            "previous_status",
+            "new_status",
+            "metadata",
         )
         read_only_fields = fields
 
@@ -106,14 +121,34 @@ class TransactionOutputSerializer(BaseOutputSerializer, TimestampFieldsMixin):
     class Meta:
         model = Transaction
         fields = (
-            "id", "transaction_type", "mode", "initiator_type", "initiator_id",
-            "initiator_context", "initiator_name", "initiator_avatar_url",
-            "target_type", "target_id", "target_name", "target_avatar_url",
-            "context_type", "context_id",
-            "status", "payload", "form_response_id",
-            "info_requested_at", "info_requested_message", "info_requested_fields",
-            "expires_at", "resolved_at", "resolution_reason",
-            "created_at", "updated_at", "logs", "form_response", "form_mapping",
+            "id",
+            "transaction_type",
+            "mode",
+            "initiator_type",
+            "initiator_id",
+            "initiator_context",
+            "initiator_name",
+            "initiator_avatar_url",
+            "target_type",
+            "target_id",
+            "target_name",
+            "target_avatar_url",
+            "context_type",
+            "context_id",
+            "status",
+            "payload",
+            "form_response_id",
+            "info_requested_at",
+            "info_requested_message",
+            "info_requested_fields",
+            "expires_at",
+            "resolved_at",
+            "resolution_reason",
+            "created_at",
+            "updated_at",
+            "logs",
+            "form_response",
+            "form_mapping",
         )
         read_only_fields = fields
 
@@ -121,6 +156,7 @@ class TransactionOutputSerializer(BaseOutputSerializer, TimestampFieldsMixin):
         if not obj.form_response_id:
             return None
         from apps.forms.selectors import FormResponseSelector
+
         response = FormResponseSelector.get_by_id_or_none(
             response_id=obj.form_response_id,
         )
@@ -129,15 +165,20 @@ class TransactionOutputSerializer(BaseOutputSerializer, TimestampFieldsMixin):
         return {
             "id": str(response.id),
             "form_template_id": str(response.form_template_id),
-            "form_name": response.form_template.name if response.form_template else None,
+            "form_name": (
+                response.form_template.name if response.form_template else None
+            ),
             "status": response.status,
             "revision": response.revision,
-            "submitted_at": response.submitted_at.isoformat() if response.submitted_at else None,
+            "submitted_at": (
+                response.submitted_at.isoformat() if response.submitted_at else None
+            ),
             "data": response.data,
         }
 
     def get_form_mapping(self, obj):
         from apps.transaction.selectors import TransactionSelector
+
         mapping = TransactionSelector.get_form_mapping_for_transaction(
             transaction=obj,
         )
@@ -151,17 +192,23 @@ class TransactionOutputSerializer(BaseOutputSerializer, TimestampFieldsMixin):
         }
 
     def get_initiator_name(self, obj) -> str:
-        user = _resolve_user(obj.initiator_type, obj.initiator_id, obj.initiator_context)
+        user = _resolve_user(
+            obj.initiator_type, obj.initiator_id, obj.initiator_context
+        )
         return _get_user_display_name(user)
 
     def get_initiator_avatar_url(self, obj):
-        user = _resolve_user(obj.initiator_type, obj.initiator_id, obj.initiator_context)
+        user = _resolve_user(
+            obj.initiator_type, obj.initiator_id, obj.initiator_context
+        )
         return _get_user_avatar_url(user)
 
     def get_target_name(self, obj) -> str:
         from apps.transaction.constants import PartyType
+
         if obj.target_type == PartyType.ACCOUNT:
             from apps.organization.business.models import BusinessAccount
+
             biz = BusinessAccount.objects.filter(id=obj.target_id).first()
             if biz:
                 return biz.legal_name
@@ -171,6 +218,7 @@ class TransactionOutputSerializer(BaseOutputSerializer, TimestampFieldsMixin):
 
     def get_target_avatar_url(self, obj):
         from apps.transaction.constants import PartyType
+
         if obj.target_type == PartyType.ACCOUNT:
             return None
         user = _resolve_user(obj.target_type, obj.target_id)
@@ -185,32 +233,69 @@ class TransactionListSerializer(BaseOutputSerializer, TimestampFieldsMixin):
     class Meta:
         model = Transaction
         fields = (
-            "id", "transaction_type", "mode", "status", "category",
-            "initiator_type", "initiator_id", "initiator_name",
-            "target_type", "target_id", "target_name",
-            "context_type", "context_id",
-            "expires_at", "created_at",
+            "id",
+            "transaction_type",
+            "mode",
+            "status",
+            "category",
+            "initiator_type",
+            "initiator_id",
+            "initiator_name",
+            "target_type",
+            "target_id",
+            "target_name",
+            "context_type",
+            "context_id",
+            "expires_at",
+            "created_at",
         )
         read_only_fields = fields
 
+    def _resolve_party_user(self, party_type, party_id, party_context=None):
+        """Resolve a party user from batch context, falling back to DB."""
+        from apps.transaction.constants import PartyType
+
+        party_users = self.context.get("party_users")
+        if party_users is not None:
+            if party_type == PartyType.USER:
+                return party_users.get(party_id)
+            if party_type == PartyType.MEMBERSHIP_ACTOR:
+                uid = (party_context or {}).get("user_id")
+                if uid:
+                    from uuid import UUID
+
+                    key = UUID(uid) if isinstance(uid, str) else uid
+                    return party_users.get(key)
+            return None
+        return _resolve_user(party_type, party_id, party_context)
+
     def get_category(self, obj) -> str:
         from apps.transaction.types import TRANSACTION_TYPES
+
         config = TRANSACTION_TYPES.get(obj.transaction_type)
         return config.category if config else ""
 
     def get_initiator_name(self, obj) -> str:
-        user = _resolve_user(obj.initiator_type, obj.initiator_id, obj.initiator_context)
+        user = self._resolve_party_user(
+            obj.initiator_type,
+            obj.initiator_id,
+            obj.initiator_context,
+        )
         return _get_user_display_name(user)
 
     def get_target_name(self, obj) -> str:
         from apps.transaction.constants import PartyType
+
         if obj.target_type == PartyType.ACCOUNT:
+            party_accounts = self.context.get("party_accounts")
+            if party_accounts is not None:
+                biz = party_accounts.get(obj.target_id)
+                return biz.legal_name if biz else ""
             from apps.organization.business.models import BusinessAccount
+
             biz = BusinessAccount.objects.filter(id=obj.target_id).first()
-            if biz:
-                return biz.legal_name
-            return ""
-        user = _resolve_user(obj.target_type, obj.target_id)
+            return biz.legal_name if biz else ""
+        user = self._resolve_party_user(obj.target_type, obj.target_id)
         return _get_user_display_name(user)
 
 
@@ -218,15 +303,24 @@ class TransactionListSerializer(BaseOutputSerializer, TimestampFieldsMixin):
 # FORM MAPPING SERIALIZERS
 # =========================================================================
 
-class TransactionFormMappingOutputSerializer(BaseOutputSerializer, TimestampFieldsMixin):
+
+class TransactionFormMappingOutputSerializer(
+    BaseOutputSerializer, TimestampFieldsMixin
+):
     form_template_name = serializers.SerializerMethodField()
 
     class Meta:
         model = TransactionFormMapping
         fields = (
-            "id", "account_type", "account_id", "transaction_type",
-            "form_template_id", "form_template_name", "is_required",
-            "created_at", "updated_at",
+            "id",
+            "account_type",
+            "account_id",
+            "transaction_type",
+            "form_template_id",
+            "form_template_name",
+            "is_required",
+            "created_at",
+            "updated_at",
         )
         read_only_fields = fields
 

@@ -31,6 +31,8 @@ const mockUser: User = {
     phone: "+1234567890",
     avatar_url: null,
     has_avatar: false,
+    cover_image_url: null,
+    has_cover_image: false,
     timezone: "America/New_York",
     language: "en",
     bio: "",

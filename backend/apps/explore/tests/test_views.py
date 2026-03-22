@@ -6,16 +6,14 @@ These tests mock ExploreSelector methods to avoid PostgreSQL-specific
 FTS/Trigram calls, allowing them to run on SQLite in the unit test suite.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from rest_framework import status
 from rest_framework.response import Response as DRFResponse
 from rest_framework.test import APIClient
 
-from apps.core.constants import (
-    BusinessStatus,
-    VerificationStatus,
-)
+from apps.core.constants import BusinessStatus, VerificationStatus
 from apps.explore.models import TagCategory
 from apps.explore.tests.factories import SuggestedTagFactory
 from apps.organization.tests.factories import (
@@ -23,7 +21,6 @@ from apps.organization.tests.factories import (
     BusinessProfileFactory,
 )
 from apps.users.tests.factories import UserFactory
-
 
 EXPLORE_BASE = "/api/v1/explore/"
 BUSINESSES_URL = f"{EXPLORE_BASE}businesses/"
@@ -90,9 +87,7 @@ class TestExploreCombinedView:
 
     def test_public_access(self, api_client):
         """Anonymous users can access combined endpoint."""
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz:
+        with patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz:
             mock_biz.return_value = MagicMock(
                 __getitem__=lambda s, k: [],
                 count=lambda: 0,
@@ -102,9 +97,7 @@ class TestExploreCombinedView:
 
     def test_response_structure_anonymous(self, api_client):
         """Anonymous users get businesses but no users."""
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz:
+        with patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz:
             mock_biz.return_value = MagicMock(
                 __getitem__=lambda s, k: [],
                 count=lambda: 0,
@@ -121,11 +114,10 @@ class TestExploreCombinedView:
 
     def test_response_structure_authenticated(self, auth_client):
         """Authenticated users get both users and businesses."""
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz, patch(
-            "apps.explore.views.ExploreSelector.search_users"
-        ) as mock_users:
+        with (
+            patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz,
+            patch("apps.explore.views.ExploreSelector.search_users") as mock_users,
+        ):
             mock_biz.return_value = MagicMock(
                 __getitem__=lambda s, k: [],
                 count=lambda: 0,
@@ -142,9 +134,7 @@ class TestExploreCombinedView:
 
     def test_passes_query_param(self, api_client):
         """Query param q is passed to search methods."""
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz:
+        with patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz:
             mock_biz.return_value = MagicMock(
                 __getitem__=lambda s, k: [],
                 count=lambda: 0,
@@ -164,14 +154,16 @@ class TestExploreBusinessSearchView:
 
     def test_public_access(self, api_client):
         """Business search is public — no auth required."""
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz, patch(
-            "apps.explore.views.StandardPagination.paginate_queryset",
-            return_value=[],
-        ), patch(
-            "apps.explore.views.StandardPagination.get_paginated_response",
-            return_value=DRFResponse({"count": 0, "results": []}),
+        with (
+            patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz,
+            patch(
+                "apps.explore.views.StandardPagination.paginate_queryset",
+                return_value=[],
+            ),
+            patch(
+                "apps.explore.views.StandardPagination.get_paginated_response",
+                return_value=DRFResponse({"count": 0, "results": []}),
+            ),
         ):
             mock_biz.return_value = MagicMock()
             response = api_client.get(BUSINESSES_URL)
@@ -197,14 +189,16 @@ class TestExploreBusinessSearchView:
             "&has_website=true"
             "&ordering=name"
         )
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz, patch(
-            "apps.explore.views.StandardPagination.paginate_queryset",
-            return_value=[],
-        ), patch(
-            "apps.explore.views.StandardPagination.get_paginated_response",
-            return_value=DRFResponse({"count": 0, "results": []}),
+        with (
+            patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz,
+            patch(
+                "apps.explore.views.StandardPagination.paginate_queryset",
+                return_value=[],
+            ),
+            patch(
+                "apps.explore.views.StandardPagination.get_paginated_response",
+                return_value=DRFResponse({"count": 0, "results": []}),
+            ),
         ):
             mock_biz.return_value = MagicMock()
             api_client.get(url)
@@ -242,14 +236,16 @@ class TestExploreUserSearchView:
 
     def test_authenticated_access(self, auth_client):
         """Authenticated users can access user search."""
-        with patch(
-            "apps.explore.views.ExploreSelector.search_users"
-        ) as mock_users, patch(
-            "apps.explore.views.StandardPagination.paginate_queryset",
-            return_value=[],
-        ), patch(
-            "apps.explore.views.StandardPagination.get_paginated_response",
-            return_value=DRFResponse({"count": 0, "results": []}),
+        with (
+            patch("apps.explore.views.ExploreSelector.search_users") as mock_users,
+            patch(
+                "apps.explore.views.StandardPagination.paginate_queryset",
+                return_value=[],
+            ),
+            patch(
+                "apps.explore.views.StandardPagination.get_paginated_response",
+                return_value=DRFResponse({"count": 0, "results": []}),
+            ),
         ):
             mock_users.return_value = MagicMock()
             response = auth_client.get(USERS_URL)
@@ -269,14 +265,16 @@ class TestExploreUserSearchView:
             "&tags=developer"
             "&ordering=name"
         )
-        with patch(
-            "apps.explore.views.ExploreSelector.search_users"
-        ) as mock_users, patch(
-            "apps.explore.views.StandardPagination.paginate_queryset",
-            return_value=[],
-        ), patch(
-            "apps.explore.views.StandardPagination.get_paginated_response",
-            return_value=DRFResponse({"count": 0, "results": []}),
+        with (
+            patch("apps.explore.views.ExploreSelector.search_users") as mock_users,
+            patch(
+                "apps.explore.views.StandardPagination.paginate_queryset",
+                return_value=[],
+            ),
+            patch(
+                "apps.explore.views.StandardPagination.get_paginated_response",
+                return_value=DRFResponse({"count": 0, "results": []}),
+            ),
         ):
             mock_users.return_value = MagicMock()
             auth_client.get(url)
@@ -302,9 +300,7 @@ class TestExploreTagSuggestView:
 
     def test_public_access(self, api_client):
         """Tag suggestions are public."""
-        with patch(
-            "apps.explore.views.ExploreSelector.suggest_tags"
-        ) as mock_tags:
+        with patch("apps.explore.views.ExploreSelector.suggest_tags") as mock_tags:
             mock_tags.return_value = []
             response = api_client.get(TAGS_URL)
         assert response.status_code == status.HTTP_200_OK
@@ -312,9 +308,7 @@ class TestExploreTagSuggestView:
     def test_returns_tag_list(self, api_client):
         """Returns serialized tag suggestions."""
         tag = SuggestedTagFactory(name="test-tag-view", usage_count=10)
-        with patch(
-            "apps.explore.views.ExploreSelector.suggest_tags"
-        ) as mock_tags:
+        with patch("apps.explore.views.ExploreSelector.suggest_tags") as mock_tags:
             mock_tags.return_value = [tag]
             response = api_client.get(f"{TAGS_URL}?q=test")
 
@@ -324,21 +318,15 @@ class TestExploreTagSuggestView:
 
     def test_passes_query_and_category(self, api_client):
         """Query and category params are forwarded."""
-        with patch(
-            "apps.explore.views.ExploreSelector.suggest_tags"
-        ) as mock_tags:
+        with patch("apps.explore.views.ExploreSelector.suggest_tags") as mock_tags:
             mock_tags.return_value = []
             api_client.get(f"{TAGS_URL}?q=dev&category=user")
 
-        mock_tags.assert_called_once_with(
-            query="dev", category="user", limit=20
-        )
+        mock_tags.assert_called_once_with(query="dev", category="user", limit=20)
 
     def test_limit_param(self, api_client):
         """Custom limit is passed."""
-        with patch(
-            "apps.explore.views.ExploreSelector.suggest_tags"
-        ) as mock_tags:
+        with patch("apps.explore.views.ExploreSelector.suggest_tags") as mock_tags:
             mock_tags.return_value = []
             api_client.get(f"{TAGS_URL}?limit=5")
 
@@ -346,9 +334,7 @@ class TestExploreTagSuggestView:
 
     def test_limit_capped_at_50(self, api_client):
         """Limit cannot exceed 50."""
-        with patch(
-            "apps.explore.views.ExploreSelector.suggest_tags"
-        ) as mock_tags:
+        with patch("apps.explore.views.ExploreSelector.suggest_tags") as mock_tags:
             mock_tags.return_value = []
             api_client.get(f"{TAGS_URL}?limit=200")
 
@@ -410,43 +396,52 @@ class TestQueryParamHelpers:
 
     def test_parse_csv_single(self):
         from apps.explore.views import _parse_csv
+
         assert _parse_csv("US") == ["US"]
 
     def test_parse_csv_multiple(self):
         from apps.explore.views import _parse_csv
+
         assert _parse_csv("US,GB,DE") == ["US", "GB", "DE"]
 
     def test_parse_csv_with_spaces(self):
         from apps.explore.views import _parse_csv
+
         assert _parse_csv("US, GB, DE") == ["US", "GB", "DE"]
 
     def test_parse_csv_empty(self):
         from apps.explore.views import _parse_csv
+
         assert _parse_csv("") is None
         assert _parse_csv(None) is None
 
     def test_parse_bool_true(self):
         from apps.explore.views import _parse_bool
+
         assert _parse_bool("true") is True
         assert _parse_bool("1") is True
         assert _parse_bool("yes") is True
 
     def test_parse_bool_false(self):
         from apps.explore.views import _parse_bool
+
         assert _parse_bool("false") is False
         assert _parse_bool("0") is False
 
     def test_parse_bool_none(self):
         from apps.explore.views import _parse_bool
+
         assert _parse_bool(None) is None
 
     def test_parse_int_valid(self):
         from apps.explore.views import _parse_int
+
         assert _parse_int("42") == 42
         assert _parse_int("0") == 0
 
     def test_parse_int_invalid(self):
         from apps.explore.views import _parse_int
+
         assert _parse_int("abc") is None
         assert _parse_int(None) is None
 
@@ -462,9 +457,7 @@ class TestExploreVisibility:
 
     def test_combined_anonymous_passes_include_private_false(self, api_client):
         """Anonymous users get include_private=False for business search."""
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz:
+        with patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz:
             mock_biz.return_value = MagicMock(
                 __getitem__=lambda s, k: [],
                 count=lambda: 0,
@@ -474,11 +467,10 @@ class TestExploreVisibility:
 
     def test_combined_authenticated_passes_include_private_true(self, auth_client):
         """Authenticated users get include_private=True for business search."""
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz, patch(
-            "apps.explore.views.ExploreSelector.search_users"
-        ) as mock_users:
+        with (
+            patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz,
+            patch("apps.explore.views.ExploreSelector.search_users") as mock_users,
+        ):
             mock_biz.return_value = MagicMock(
                 __getitem__=lambda s, k: [],
                 count=lambda: 0,
@@ -492,14 +484,16 @@ class TestExploreVisibility:
 
     def test_business_search_authenticated_passes_include_private(self, auth_client):
         """Business search passes include_private=True for authenticated users."""
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz, patch(
-            "apps.explore.views.StandardPagination.paginate_queryset",
-            return_value=[],
-        ), patch(
-            "apps.explore.views.StandardPagination.get_paginated_response",
-            return_value=DRFResponse({"count": 0, "results": []}),
+        with (
+            patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz,
+            patch(
+                "apps.explore.views.StandardPagination.paginate_queryset",
+                return_value=[],
+            ),
+            patch(
+                "apps.explore.views.StandardPagination.get_paginated_response",
+                return_value=DRFResponse({"count": 0, "results": []}),
+            ),
         ):
             mock_biz.return_value = MagicMock()
             auth_client.get(BUSINESSES_URL)
@@ -509,14 +503,16 @@ class TestExploreVisibility:
 
     def test_business_search_anonymous_passes_include_private_false(self, api_client):
         """Business search passes include_private=False for anonymous users."""
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz, patch(
-            "apps.explore.views.StandardPagination.paginate_queryset",
-            return_value=[],
-        ), patch(
-            "apps.explore.views.StandardPagination.get_paginated_response",
-            return_value=DRFResponse({"count": 0, "results": []}),
+        with (
+            patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz,
+            patch(
+                "apps.explore.views.StandardPagination.paginate_queryset",
+                return_value=[],
+            ),
+            patch(
+                "apps.explore.views.StandardPagination.get_paginated_response",
+                return_value=DRFResponse({"count": 0, "results": []}),
+            ),
         ):
             mock_biz.return_value = MagicMock()
             api_client.get(BUSINESSES_URL)
@@ -527,9 +523,7 @@ class TestExploreVisibility:
     def test_business_output_includes_is_public(self, api_client, sample_businesses):
         """Business search results include is_public field."""
         biz = sample_businesses[0]
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz:
+        with patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz:
             mock_qs = MagicMock()
             mock_qs.__getitem__ = lambda s, k: [biz]
             mock_qs.count.return_value = 1
@@ -543,11 +537,10 @@ class TestExploreVisibility:
     def test_user_output_includes_is_public(self, auth_client, sample_users):
         """User search results include is_public field."""
         user_obj = sample_users[0]
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz, patch(
-            "apps.explore.views.ExploreSelector.search_users"
-        ) as mock_users:
+        with (
+            patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz,
+            patch("apps.explore.views.ExploreSelector.search_users") as mock_users,
+        ):
             mock_biz.return_value = MagicMock(
                 __getitem__=lambda s, k: [],
                 count=lambda: 0,
@@ -565,11 +558,10 @@ class TestExploreVisibility:
     def test_user_output_excludes_email(self, auth_client, sample_users):
         """User search results do NOT include email (T3 field)."""
         user_obj = sample_users[0]
-        with patch(
-            "apps.explore.views.ExploreSelector.search_businesses"
-        ) as mock_biz, patch(
-            "apps.explore.views.ExploreSelector.search_users"
-        ) as mock_users:
+        with (
+            patch("apps.explore.views.ExploreSelector.search_businesses") as mock_biz,
+            patch("apps.explore.views.ExploreSelector.search_users") as mock_users,
+        ):
             mock_biz.return_value = MagicMock(
                 __getitem__=lambda s, k: [],
                 count=lambda: 0,

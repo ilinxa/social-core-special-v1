@@ -1,24 +1,25 @@
 from django.urls import path
+
 from apps.forms.api.views import (
-    SystemFormTemplateView,
-    FormTemplateListView,
-    FormTemplateDetailView,
-    FormTemplatePublishView,
-    FormTemplateArchiveView,
-    FormTemplateUnarchiveView,
-    FormTemplateCreateDraftView,
-    FormTemplateForkView,
     FormFieldAddView,
     FormFieldDetailView,
     FormFieldReorderView,
-    PublicTemplateLibraryView,
-    FormResponseListView,
-    FormResponseDetailView,
-    FormResponseSubmitView,
-    FormResponseProcessView,
-    FormResponseVoidView,
-    MyResponsesView,
     FormFileUploadView,
+    FormResponseDetailView,
+    FormResponseListView,
+    FormResponseProcessView,
+    FormResponseSubmitView,
+    FormResponseVoidView,
+    FormTemplateArchiveView,
+    FormTemplateCreateDraftView,
+    FormTemplateDetailView,
+    FormTemplateForkView,
+    FormTemplateListView,
+    FormTemplatePublishView,
+    FormTemplateUnarchiveView,
+    MyResponsesView,
+    PublicTemplateLibraryView,
+    SystemFormTemplateView,
 )
 
 app_name = "forms"
@@ -30,21 +31,18 @@ urlpatterns = [
         SystemFormTemplateView.as_view(),
         name="system-template",
     ),
-
     # Public template library
     path(
         "templates/library/",
         PublicTemplateLibraryView.as_view(),
         name="template-library",
     ),
-
     # Form templates (scoped by account)
     path(
         "<str:account_type>/<uuid:account_id>/templates/",
         FormTemplateListView.as_view(),
         name="template-list",
     ),
-
     # Form template operations
     path(
         "templates/<uuid:form_id>/",
@@ -91,7 +89,6 @@ urlpatterns = [
         FormFieldDetailView.as_view(),
         name="field-detail",
     ),
-
     # Form responses
     path(
         "templates/<uuid:form_id>/responses/",
@@ -118,10 +115,8 @@ urlpatterns = [
         FormResponseVoidView.as_view(),
         name="response-void",
     ),
-
     # User's own responses
     path("me/responses/", MyResponsesView.as_view(), name="my-responses"),
-
     # File upload for form fields
     path("upload/", FormFileUploadView.as_view(), name="file-upload"),
 ]

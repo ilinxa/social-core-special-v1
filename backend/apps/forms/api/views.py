@@ -1,35 +1,40 @@
 import uuid
 from uuid import UUID
+
 from django.core.files.storage import default_storage
-from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
+from rest_framework import status as http_status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
-from rest_framework import status as http_status
-from drf_spectacular.utils import extend_schema
+from rest_framework.views import APIView
 
-from apps.core.permissions import IsAuthenticated
 from apps.core.pagination import StandardPagination
+from apps.core.permissions import IsAuthenticated
 from apps.core.views import PermissionInjectMixin
 from apps.forms.api.serializers import (
-    FormTemplateCreateInputSerializer,
-    FormTemplateUpdateInputSerializer,
+    ForkTemplateInputSerializer,
     FormFieldCreateInputSerializer,
     FormFieldOutputSerializer,
-    UpdateFieldInputSerializer,
-    ReorderFieldsInputSerializer,
-    FormTemplateListOutputSerializer,
-    FormTemplateDetailOutputSerializer,
-    ForkTemplateInputSerializer,
     FormResponseCreateInputSerializer,
-    FormResponseUpdateInputSerializer,
-    FormResponseProcessInputSerializer,
-    FormResponseVoidInputSerializer,
-    FormResponseListOutputSerializer,
     FormResponseDetailOutputSerializer,
+    FormResponseListOutputSerializer,
+    FormResponseProcessInputSerializer,
+    FormResponseUpdateInputSerializer,
+    FormResponseVoidInputSerializer,
+    FormTemplateCreateInputSerializer,
+    FormTemplateDetailOutputSerializer,
+    FormTemplateListOutputSerializer,
+    FormTemplateUpdateInputSerializer,
+    ReorderFieldsInputSerializer,
+    UpdateFieldInputSerializer,
 )
-from apps.forms.selectors import FormTemplateSelector, FormFieldSelector, FormResponseSelector
+from apps.forms.policies import FormResponsePolicy, FormTemplatePolicy
+from apps.forms.selectors import (
+    FormFieldSelector,
+    FormResponseSelector,
+    FormTemplateSelector,
+)
 from apps.forms.services import FormBuilderService, FormResponseService
-from apps.forms.policies import FormTemplatePolicy, FormResponsePolicy
 from apps.rbac.selectors import MembershipSelector
 from apps.rbac.services import RBACService
 
@@ -45,6 +50,7 @@ class FormViewMixin:
         )
         if not membership:
             from apps.core.exceptions import PermissionDenied
+
             raise PermissionDenied(
                 message="Not a member of this account",
                 action="access",
@@ -69,10 +75,13 @@ class FormViewMixin:
         """
         if form.is_system_form:
             from apps.core.types import ActorContext
+
             return None, ActorContext.for_user_context(request.user, request)
 
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
         return membership, actor_context
@@ -111,6 +120,7 @@ class SystemFormTemplateView(APIView):
 # FORM TEMPLATE VIEWS
 # =============================================================================
 
+
 class FormTemplateListView(FormViewMixin, APIView):
     permission_classes = [IsAuthenticated]
 
@@ -120,7 +130,7 @@ class FormTemplateListView(FormViewMixin, APIView):
         tags=["Forms"],
     )
     def get(self, request, account_type: str, account_id: UUID):
-        membership = self.get_membership_or_403(request, account_type, account_id)
+        self.get_membership_or_403(request, account_type, account_id)
         forms = FormTemplateSelector.list_by_owner(
             owner_type=account_type,
             owner_id=account_id,
@@ -180,6 +190,7 @@ class FormTemplateDetailView(PermissionInjectMixin, FormViewMixin, APIView):
 
         if form.is_template_public:
             from apps.core.types import ActorContext
+
             membership = MembershipSelector.get_active_membership_for_user_account(
                 user=request.user,
                 account_type=form.owner_type,
@@ -187,12 +198,17 @@ class FormTemplateDetailView(PermissionInjectMixin, FormViewMixin, APIView):
             )
             if membership:
                 self._actor_context = RBACService.build_actor_context(
-                    membership=membership, request=request,
+                    membership=membership,
+                    request=request,
                 )
             else:
-                self._actor_context = ActorContext.for_user_context(request.user, request)
+                self._actor_context = ActorContext.for_user_context(
+                    request.user, request
+                )
         else:
-            membership = self.get_membership_or_403(request, form.owner_type, form.owner_id)
+            membership = self.get_membership_or_403(
+                request, form.owner_type, form.owner_id
+            )
             self._actor_context = self.get_actor_context(membership, request)
 
         self._inject_permissions = True
@@ -208,12 +224,15 @@ class FormTemplateDetailView(PermissionInjectMixin, FormViewMixin, APIView):
     def patch(self, request, form_id: UUID):
         form = FormTemplateSelector.get_by_id(form_template_id=form_id)
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormTemplatePolicy.can_edit_form(
-            actor_context=actor_context, form_template=form,
+            actor_context=actor_context,
+            form_template=form,
         )
 
         input_serializer = FormTemplateUpdateInputSerializer(data=request.data)
@@ -237,12 +256,15 @@ class FormTemplateDetailView(PermissionInjectMixin, FormViewMixin, APIView):
     def delete(self, request, form_id: UUID):
         form = FormTemplateSelector.get_by_id(form_template_id=form_id)
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormTemplatePolicy.can_delete_form(
-            actor_context=actor_context, form_template=form,
+            actor_context=actor_context,
+            form_template=form,
         )
 
         FormBuilderService.delete_form(
@@ -265,12 +287,15 @@ class FormTemplatePublishView(FormViewMixin, APIView):
     def post(self, request, form_id: UUID):
         form = FormTemplateSelector.get_by_id(form_template_id=form_id)
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormTemplatePolicy.can_publish_form(
-            actor_context=actor_context, form_template=form,
+            actor_context=actor_context,
+            form_template=form,
         )
 
         form = FormBuilderService.publish_form(
@@ -294,12 +319,15 @@ class FormTemplateArchiveView(FormViewMixin, APIView):
     def post(self, request, form_id: UUID):
         form = FormTemplateSelector.get_by_id(form_template_id=form_id)
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormTemplatePolicy.can_archive_form(
-            actor_context=actor_context, form_template=form,
+            actor_context=actor_context,
+            form_template=form,
         )
 
         form = FormBuilderService.archive_form(
@@ -323,12 +351,15 @@ class FormTemplateUnarchiveView(FormViewMixin, APIView):
     def post(self, request, form_id: UUID):
         form = FormTemplateSelector.get_by_id(form_template_id=form_id)
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormTemplatePolicy.can_edit_form(
-            actor_context=actor_context, form_template=form,
+            actor_context=actor_context,
+            form_template=form,
         )
 
         form = FormBuilderService.unarchive_form(
@@ -353,12 +384,15 @@ class FormTemplateCreateDraftView(FormViewMixin, APIView):
     def post(self, request, form_id: UUID):
         form = FormTemplateSelector.get_by_id(form_template_id=form_id)
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormTemplatePolicy.can_edit_form(
-            actor_context=actor_context, form_template=form,
+            actor_context=actor_context,
+            form_template=form,
         )
 
         new_draft = FormBuilderService.create_edit_draft(
@@ -387,7 +421,9 @@ class FormTemplateForkView(FormViewMixin, APIView):
         data = input_serializer.validated_data
 
         membership = self.get_membership_or_403(
-            request, data["new_owner_type"], data["new_owner_id"],
+            request,
+            data["new_owner_type"],
+            data["new_owner_id"],
         )
         actor_context = self.get_actor_context(membership, request)
 
@@ -434,12 +470,15 @@ class FormFieldAddView(FormViewMixin, APIView):
     def post(self, request, form_id: UUID):
         form = FormTemplateSelector.get_by_id(form_template_id=form_id)
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormTemplatePolicy.can_edit_form(
-            actor_context=actor_context, form_template=form,
+            actor_context=actor_context,
+            form_template=form,
         )
 
         input_serializer = FormFieldCreateInputSerializer(data=request.data)
@@ -468,11 +507,14 @@ class FormFieldDetailView(FormViewMixin, APIView):
         field = FormFieldSelector.get_by_id(field_id=field_id)
         if field.form_template_id != template_id:
             from apps.core.exceptions import NotFound
+
             raise NotFound(resource="FormField", resource_id=field_id)
 
         form = field.form_template
-        membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+        self.get_membership_or_403(
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         serializer = FormFieldOutputSerializer(field)
         return Response(serializer.data)
@@ -487,16 +529,20 @@ class FormFieldDetailView(FormViewMixin, APIView):
         field = FormFieldSelector.get_by_id(field_id=field_id)
         if field.form_template_id != template_id:
             from apps.core.exceptions import NotFound
+
             raise NotFound(resource="FormField", resource_id=field_id)
 
         form = field.form_template
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormTemplatePolicy.can_edit_form(
-            actor_context=actor_context, form_template=form,
+            actor_context=actor_context,
+            form_template=form,
         )
 
         input_serializer = UpdateFieldInputSerializer(data=request.data)
@@ -521,16 +567,20 @@ class FormFieldDetailView(FormViewMixin, APIView):
         field = FormFieldSelector.get_by_id(field_id=field_id)
         if field.form_template_id != template_id:
             from apps.core.exceptions import NotFound
+
             raise NotFound(resource="FormField", resource_id=field_id)
 
         form = field.form_template
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormTemplatePolicy.can_edit_form(
-            actor_context=actor_context, form_template=form,
+            actor_context=actor_context,
+            form_template=form,
         )
 
         FormBuilderService.delete_field(
@@ -554,12 +604,15 @@ class FormFieldReorderView(FormViewMixin, APIView):
     def post(self, request, template_id: UUID):
         form = FormTemplateSelector.get_by_id(form_template_id=template_id)
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormTemplatePolicy.can_edit_form(
-            actor_context=actor_context, form_template=form,
+            actor_context=actor_context,
+            form_template=form,
         )
 
         input_serializer = ReorderFieldsInputSerializer(data=request.data)
@@ -580,6 +633,7 @@ class FormFieldReorderView(FormViewMixin, APIView):
 # FORM RESPONSE VIEWS
 # =============================================================================
 
+
 class FormResponseListView(FormViewMixin, APIView):
     permission_classes = [IsAuthenticated]
 
@@ -591,12 +645,15 @@ class FormResponseListView(FormViewMixin, APIView):
     def get(self, request, form_id: UUID):
         form = FormTemplateSelector.get_by_id(form_template_id=form_id)
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormTemplatePolicy.can_view_responses(
-            actor_context=actor_context, form_template=form,
+            actor_context=actor_context,
+            form_template=form,
         )
 
         status_filter = request.query_params.get("status")
@@ -655,16 +712,19 @@ class FormResponseDetailView(APIView):
             )
             if not membership:
                 from apps.core.exceptions import PermissionDenied
+
                 raise PermissionDenied(
                     message="Not a member of this account",
                     action="view",
                     resource="FormResponse",
                 )
             actor_context = RBACService.build_actor_context(
-                membership=membership, request=request,
+                membership=membership,
+                request=request,
             )
             FormTemplatePolicy.can_view_responses(
-                actor_context=actor_context, form_template=form,
+                actor_context=actor_context,
+                form_template=form,
             )
 
         serializer = FormResponseDetailOutputSerializer(response)
@@ -679,7 +739,8 @@ class FormResponseDetailView(APIView):
     def patch(self, request, response_id: UUID):
         response = FormResponseSelector.get_by_id(response_id=response_id)
         FormResponsePolicy.can_edit_response(
-            user=request.user, response=response,
+            user=request.user,
+            response=response,
         )
         input_serializer = FormResponseUpdateInputSerializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
@@ -706,7 +767,8 @@ class FormResponseSubmitView(FormViewMixin, APIView):
     def post(self, request, response_id: UUID):
         response = FormResponseSelector.get_by_id(response_id=response_id)
         FormResponsePolicy.can_edit_response(
-            user=request.user, response=response,
+            user=request.user,
+            response=response,
         )
         form = response.form_template
 
@@ -737,12 +799,15 @@ class FormResponseProcessView(FormViewMixin, APIView):
         response = FormResponseSelector.get_by_id(response_id=response_id)
         form = response.form_template
         membership = self.get_membership_or_403(
-            request, form.owner_type, form.owner_id,
+            request,
+            form.owner_type,
+            form.owner_id,
         )
         actor_context = self.get_actor_context(membership, request)
 
         FormResponsePolicy.can_process_response(
-            actor_context=actor_context, response=response,
+            actor_context=actor_context,
+            response=response,
         )
 
         input_serializer = FormResponseProcessInputSerializer(data=request.data)
@@ -773,11 +838,14 @@ class FormResponseVoidView(FormViewMixin, APIView):
         if response.submitted_by_id != request.user.id:
             form = response.form_template
             membership = self.get_membership_or_403(
-                request, form.owner_type, form.owner_id,
+                request,
+                form.owner_type,
+                form.owner_id,
             )
             actor_context = self.get_actor_context(membership, request)
             FormResponsePolicy.can_process_response(
-                actor_context=actor_context, response=response,
+                actor_context=actor_context,
+                response=response,
             )
 
         input_serializer = FormResponseVoidInputSerializer(data=request.data)
@@ -837,6 +905,7 @@ class FormFileUploadView(APIView):
     Accepts a single file via multipart/form-data.
     Returns the URL of the uploaded file.
     """
+
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser]
 
@@ -849,6 +918,7 @@ class FormFileUploadView(APIView):
         uploaded = request.FILES.get("file")
         if not uploaded:
             from apps.core.exceptions import ValidationError
+
             raise ValidationError(
                 message="No file provided",
                 field="file",
@@ -857,6 +927,7 @@ class FormFileUploadView(APIView):
         # Size check
         if uploaded.size > MAX_UPLOAD_SIZE:
             from apps.core.exceptions import ValidationError
+
             raise ValidationError(
                 message=f"File too large. Maximum size is {MAX_UPLOAD_SIZE // (1024 * 1024)} MB.",
                 field="file",
@@ -865,6 +936,7 @@ class FormFileUploadView(APIView):
         # Type check
         if uploaded.content_type not in ALLOWED_FILE_TYPES:
             from apps.core.exceptions import ValidationError
+
             raise ValidationError(
                 message=f"File type '{uploaded.content_type}' is not allowed.",
                 field="file",
@@ -872,7 +944,11 @@ class FormFileUploadView(APIView):
 
         # Generate unique path
         ext = uploaded.name.rsplit(".", 1)[-1] if "." in uploaded.name else ""
-        filename = f"form_uploads/{uuid.uuid4().hex}.{ext}" if ext else f"form_uploads/{uuid.uuid4().hex}"
+        filename = (
+            f"form_uploads/{uuid.uuid4().hex}.{ext}"
+            if ext
+            else f"form_uploads/{uuid.uuid4().hex}"
+        )
 
         saved_path = default_storage.save(filename, uploaded)
         file_url = default_storage.url(saved_path)

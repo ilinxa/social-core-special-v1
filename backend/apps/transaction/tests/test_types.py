@@ -16,8 +16,11 @@ import pytest
 from apps.core.constants import ContextType
 from apps.core.exceptions import NotFound
 from apps.transaction.constants import ApproverPolicy, PartyType, TransactionMode
-from apps.transaction.types import TRANSACTION_TYPES, TransactionTypeConfig, get_transaction_type
-
+from apps.transaction.types import (
+    TRANSACTION_TYPES,
+    TransactionTypeConfig,
+    get_transaction_type,
+)
 
 ALL_TYPE_IDS = [
     "platform_membership_invitation",
@@ -133,18 +136,25 @@ class TestTargetTypes:
 
 class TestOwnerOnlyTypes:
 
-    @pytest.mark.parametrize("type_id", [
-        "platform_ownership_transfer",
-        "business_ownership_transfer",
-    ])
+    @pytest.mark.parametrize(
+        "type_id",
+        [
+            "platform_ownership_transfer",
+            "business_ownership_transfer",
+        ],
+    )
     def test_ownership_transfer_types_are_owner_only(self, type_id):
         config = get_transaction_type(type_id)
         assert config.owner_only is True
 
-    @pytest.mark.parametrize("type_id", [
-        t for t in ALL_TYPE_IDS
-        if t not in ("platform_ownership_transfer", "business_ownership_transfer")
-    ])
+    @pytest.mark.parametrize(
+        "type_id",
+        [
+            t
+            for t in ALL_TYPE_IDS
+            if t not in ("platform_ownership_transfer", "business_ownership_transfer")
+        ],
+    )
     def test_non_ownership_transfer_types_are_not_owner_only(self, type_id):
         config = get_transaction_type(type_id)
         assert config.owner_only is False

@@ -42,6 +42,10 @@ import { apiClient } from "@/lib/api-client";
 const mockListItem: TransactionListItem = {
   id: "txn-1",
   transaction_type: "business_membership_invitation",
+  initiator_type: "user",
+  initiator_id: "550e8400-e29b-41d4-a716-446655440001",
+  target_type: "account",
+  target_id: "550e8400-e29b-41d4-a716-446655440002",
   mode: "invitation",
   status: "pending",
   category: "membership",
@@ -365,6 +369,8 @@ describe("createFormMappingApi", () => {
     vi.mocked(apiClient.post).mockResolvedValue({ data: mockMapping });
 
     await createFormMappingApi({
+      account_type: "business",
+      account_id: "550e8400-e29b-41d4-a716-446655440002",
       transaction_type: "business_membership_invitation",
       form_template_id: "tpl-1",
       is_required: true,
@@ -373,6 +379,8 @@ describe("createFormMappingApi", () => {
     expect(apiClient.post).toHaveBeenCalledWith(
       "/transactions/form-mappings/",
       {
+        account_type: "business",
+        account_id: "550e8400-e29b-41d4-a716-446655440002",
         transaction_type: "business_membership_invitation",
         form_template_id: "tpl-1",
         is_required: true,

@@ -11,23 +11,22 @@ from decimal import Decimal
 
 import pytest
 
-from apps.core.constants import FieldType, StorageType, ResponseStatus
-from apps.forms.indexing import IndexService, INDEX_TABLE_MAP
+from apps.core.constants import FieldType, ResponseStatus, StorageType
+from apps.forms.indexing import INDEX_TABLE_MAP, IndexService
 from apps.forms.models import (
-    FormField,
-    TextFieldIndex,
-    IntegerFieldIndex,
-    DecimalFieldIndex,
     BooleanFieldIndex,
     DateFieldIndex,
     DateTimeFieldIndex,
+    DecimalFieldIndex,
+    FormField,
+    IntegerFieldIndex,
+    TextFieldIndex,
 )
 from apps.forms.tests.factories import (
     ActiveFormTemplateFactory,
     FormFieldFactory,
     FormResponseFactory,
 )
-
 
 # =============================================================================
 # IndexService.extract_and_store
@@ -156,7 +155,8 @@ class TestIndexServiceExtractAndStore:
 
         assert count == 1
         assert DateTimeFieldIndex.objects.filter(
-            response=response, field_key="ts",
+            response=response,
+            field_key="ts",
         ).exists()
 
     def test_skip_none_value(self):
@@ -290,7 +290,9 @@ class TestIndexServiceClearAndRebuild:
         )
         # Manually create index entries
         TextFieldIndex.objects.create(
-            response=response, field_key="name", value="Alice",
+            response=response,
+            field_key="name",
+            value="Alice",
         )
         assert TextFieldIndex.objects.filter(response=response).count() == 1
 
@@ -313,7 +315,9 @@ class TestIndexServiceClearAndRebuild:
         )
         # Seed stale index with wrong value
         TextFieldIndex.objects.create(
-            response=response, field_key="name", value="OldValue",
+            response=response,
+            field_key="name",
+            value="OldValue",
         )
 
         count = IndexService.rebuild_indexes(response=response)
@@ -337,49 +341,63 @@ class TestCoerceValue:
     def test_coerce_text(self):
         """Numeric value coerced to text returns string representation."""
         result = IndexService._coerce_value(
-            value=123, storage_type=StorageType.TEXT, field_key="f",
+            value=123,
+            storage_type=StorageType.TEXT,
+            field_key="f",
         )
         assert result == "123"
 
     def test_coerce_integer(self):
         """String numeric value coerced to integer returns int."""
         result = IndexService._coerce_value(
-            value="42", storage_type=StorageType.INTEGER, field_key="f",
+            value="42",
+            storage_type=StorageType.INTEGER,
+            field_key="f",
         )
         assert result == 42
 
     def test_coerce_decimal(self):
         """String decimal value coerced to decimal returns Decimal."""
         result = IndexService._coerce_value(
-            value="3.14", storage_type=StorageType.DECIMAL, field_key="f",
+            value="3.14",
+            storage_type=StorageType.DECIMAL,
+            field_key="f",
         )
         assert result == Decimal("3.14")
 
     def test_coerce_boolean_true(self):
         """Python True coerced to boolean returns True."""
         result = IndexService._coerce_value(
-            value=True, storage_type=StorageType.BOOLEAN, field_key="f",
+            value=True,
+            storage_type=StorageType.BOOLEAN,
+            field_key="f",
         )
         assert result is True
 
     def test_coerce_boolean_string(self):
         """String 'yes' coerced to boolean returns True."""
         result = IndexService._coerce_value(
-            value="yes", storage_type=StorageType.BOOLEAN, field_key="f",
+            value="yes",
+            storage_type=StorageType.BOOLEAN,
+            field_key="f",
         )
         assert result is True
 
     def test_coerce_boolean_false(self):
         """String 'no' coerced to boolean returns False."""
         result = IndexService._coerce_value(
-            value="no", storage_type=StorageType.BOOLEAN, field_key="f",
+            value="no",
+            storage_type=StorageType.BOOLEAN,
+            field_key="f",
         )
         assert result is False
 
     def test_coerce_date(self):
         """ISO date string coerced to date returns a date object."""
         result = IndexService._coerce_value(
-            value="2025-01-15", storage_type=StorageType.DATE, field_key="f",
+            value="2025-01-15",
+            storage_type=StorageType.DATE,
+            field_key="f",
         )
         assert result == date(2025, 1, 15)
 
@@ -400,13 +418,17 @@ class TestCoerceValue:
     def test_coerce_invalid_integer(self):
         """Non-numeric string coerced to integer returns None."""
         result = IndexService._coerce_value(
-            value="abc", storage_type=StorageType.INTEGER, field_key="f",
+            value="abc",
+            storage_type=StorageType.INTEGER,
+            field_key="f",
         )
         assert result is None
 
     def test_coerce_invalid_date(self):
         """Non-date string coerced to date returns None."""
         result = IndexService._coerce_value(
-            value="not-a-date", storage_type=StorageType.DATE, field_key="f",
+            value="not-a-date",
+            storage_type=StorageType.DATE,
+            field_key="f",
         )
         assert result is None

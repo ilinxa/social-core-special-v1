@@ -14,12 +14,12 @@ SECURITY: All SNS messages are signature-verified.
 import json
 
 import requests
-from django.http import HttpResponse, HttpResponseForbidden, HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.utils import timezone
-from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 
 from apps.core.observability import get_logger
 from apps.email.models import EmailLog
@@ -93,24 +93,24 @@ def ses_webhook(request):
             logger.warning("email.webhook.signature_failed", error=str(e))
             return HttpResponseForbidden("Invalid signature")
 
-        message_type = body.get('Type', '')
+        message_type = body.get("Type", "")
 
         # Handle subscription confirmation
-        if message_type == 'SubscriptionConfirmation':
+        if message_type == "SubscriptionConfirmation":
             return _handle_subscription_confirmation(body)
 
         # Handle notification
-        if message_type == 'Notification':
+        if message_type == "Notification":
             return _handle_notification(body)
 
         # Unknown message type
         logger.warning("email.webhook.unknown_type", message_type=message_type)
-        return HttpResponse('OK')
+        return HttpResponse("OK")
 
     except Exception as e:
         # Log error but return 200 to prevent SNS retry flood
         logger.exception("email.webhook.error", error=str(e))
-        return HttpResponse('OK')
+        return HttpResponse("OK")
 
 
 def _handle_subscription_confirmation(body: dict) -> HttpResponse:
@@ -120,7 +120,7 @@ def _handle_subscription_confirmation(body: dict) -> HttpResponse:
     Auto-confirms by visiting the SubscribeURL.
     This is required when setting up SES event destinations.
     """
-    subscribe_url = body.get('SubscribeURL')
+    subscribe_url = body.get("SubscribeURL")
     if subscribe_url:
         try:
             response = requests.get(subscribe_url, timeout=10)
@@ -129,7 +129,7 @@ def _handle_subscription_confirmation(body: dict) -> HttpResponse:
         except Exception as e:
             logger.error("email.webhook.subscription_failed", error=str(e))
 
-    return HttpResponse('OK')
+    return HttpResponse("OK")
 
 
 def _handle_notification(body: dict) -> HttpResponse:
@@ -139,23 +139,26 @@ def _handle_notification(body: dict) -> HttpResponse:
     Parses the nested message and routes to appropriate handler.
     """
     try:
-        message = json.loads(body.get('Message', '{}'))
+        message = json.loads(body.get("Message", "{}"))
     except json.JSONDecodeError:
         logger.warning("email.webhook.notification_invalid_json")
-        return HttpResponse('OK')
+        return HttpResponse("OK")
 
-    notification_type = message.get('notificationType', '')
+    notification_type = message.get("notificationType", "")
 
-    if notification_type == 'Delivery':
+    if notification_type == "Delivery":
         _handle_delivery(message)
-    elif notification_type == 'Bounce':
+    elif notification_type == "Bounce":
         _handle_bounce(message)
-    elif notification_type == 'Complaint':
+    elif notification_type == "Complaint":
         _handle_complaint(message)
     else:
-        logger.warning("email.webhook.unknown_notification_type", notification_type=notification_type)
+        logger.warning(
+            "email.webhook.unknown_notification_type",
+            notification_type=notification_type,
+        )
 
-    return HttpResponse('OK')
+    return HttpResponse("OK")
 
 
 def _handle_delivery(message: dict) -> None:
@@ -164,26 +167,23 @@ def _handle_delivery(message: dict) -> None:
 
     Updates EmailLog status to 'delivered'.
     """
-    mail = message.get('mail', {})
-    message_id = mail.get('messageId')
+    mail = message.get("mail", {})
+    message_id = mail.get("messageId")
 
     if not message_id:
         logger.warning("email.webhook.delivery_missing_id")
         return
 
-    delivery = message.get('delivery', {})
-    timestamp = delivery.get('timestamp')
-
+    delivery = message.get("delivery", {})
     updated = EmailLog.objects.filter(message_id=message_id).update(
-        status=EmailLog.Status.DELIVERED,
-        delivered_at=timezone.now()
+        status=EmailLog.Status.DELIVERED, delivered_at=timezone.now()
     )
 
     if updated:
         logger.info(
             "email.delivered",
             message_id=message_id,
-            recipients=delivery.get('recipients', []),
+            recipients=delivery.get("recipients", []),
         )
     else:
         logger.warning("email.webhook.delivery_not_found", message_id=message_id)
@@ -199,22 +199,22 @@ def _handle_bounce(message: dict) -> None:
         - Permanent: Hard bounce (invalid address, domain doesn't exist)
         - Transient: Soft bounce (mailbox full, server unavailable)
     """
-    mail = message.get('mail', {})
-    message_id = mail.get('messageId')
+    mail = message.get("mail", {})
+    message_id = mail.get("messageId")
 
     if not message_id:
         logger.warning("email.webhook.bounce_missing_id")
         return
 
-    bounce = message.get('bounce', {})
-    bounce_type = bounce.get('bounceType', '')
-    bounce_subtype = bounce.get('bounceSubType', '')
+    bounce = message.get("bounce", {})
+    bounce_type = bounce.get("bounceType", "")
+    bounce_subtype = bounce.get("bounceSubType", "")
 
     updated = EmailLog.objects.filter(message_id=message_id).update(
         status=EmailLog.Status.BOUNCED,
         bounced_at=timezone.now(),
         bounce_type=bounce_type,
-        bounce_subtype=bounce_subtype
+        bounce_subtype=bounce_subtype,
     )
 
     if updated:
@@ -224,7 +224,7 @@ def _handle_bounce(message: dict) -> None:
             bounce_type=bounce_type,
             bounce_subtype=bounce_subtype,
             bounced_recipients=[
-                r.get('emailAddress') for r in bounce.get('bouncedRecipients', [])
+                r.get("emailAddress") for r in bounce.get("bouncedRecipients", [])
             ],
         )
     else:
@@ -241,19 +241,18 @@ def _handle_complaint(message: dict) -> None:
     Important: High complaint rates can damage sender reputation
     and lead to SES sending restrictions.
     """
-    mail = message.get('mail', {})
-    message_id = mail.get('messageId')
+    mail = message.get("mail", {})
+    message_id = mail.get("messageId")
 
     if not message_id:
         logger.warning("email.webhook.complaint_missing_id")
         return
 
-    complaint = message.get('complaint', {})
-    complaint_feedback_type = complaint.get('complaintFeedbackType', '')
+    complaint = message.get("complaint", {})
+    complaint_feedback_type = complaint.get("complaintFeedbackType", "")
 
     updated = EmailLog.objects.filter(message_id=message_id).update(
-        status=EmailLog.Status.COMPLAINED,
-        complained_at=timezone.now()
+        status=EmailLog.Status.COMPLAINED, complained_at=timezone.now()
     )
 
     if updated:
@@ -262,7 +261,7 @@ def _handle_complaint(message: dict) -> None:
             message_id=message_id,
             feedback_type=complaint_feedback_type,
             complained_recipients=[
-                r.get('emailAddress') for r in complaint.get('complainedRecipients', [])
+                r.get("emailAddress") for r in complaint.get("complainedRecipients", [])
             ],
         )
     else:

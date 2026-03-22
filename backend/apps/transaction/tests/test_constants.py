@@ -64,14 +64,16 @@ class TestTerminalStates:
 
     def test_terminal_states_exact_membership(self):
         """TERMINAL_STATES contains exactly the 6 expected statuses."""
-        expected = frozenset([
-            TransactionStatus.ACCEPTED,
-            TransactionStatus.DENIED,
-            TransactionStatus.CANCELLED,
-            TransactionStatus.EXPIRED,
-            TransactionStatus.DISMISSED,
-            TransactionStatus.INVALIDATED,
-        ])
+        expected = frozenset(
+            [
+                TransactionStatus.ACCEPTED,
+                TransactionStatus.DENIED,
+                TransactionStatus.CANCELLED,
+                TransactionStatus.EXPIRED,
+                TransactionStatus.DISMISSED,
+                TransactionStatus.INVALIDATED,
+            ]
+        )
 
         assert TERMINAL_STATES == expected
 
@@ -89,7 +91,10 @@ class TestValidTransitions:
 
     def test_created_transitions_contain_invalidated(self):
         """VALID_TRANSITIONS[CREATED] includes INVALIDATED."""
-        assert TransactionStatus.INVALIDATED in VALID_TRANSITIONS[TransactionStatus.CREATED]
+        assert (
+            TransactionStatus.INVALIDATED
+            in VALID_TRANSITIONS[TransactionStatus.CREATED]
+        )
 
     def test_created_transitions_has_exactly_three_targets(self):
         """VALID_TRANSITIONS[CREATED] has exactly 3 valid targets."""
@@ -132,7 +137,9 @@ class TestValidTransitions:
         dismissable = {TransactionStatus.ACCEPTED, TransactionStatus.DENIED}
         for status in TERMINAL_STATES:
             if status in VALID_TRANSITIONS:
-                assert status in dismissable, f"{status} should not be in VALID_TRANSITIONS"
+                assert (
+                    status in dismissable
+                ), f"{status} should not be in VALID_TRANSITIONS"
                 assert VALID_TRANSITIONS[status] == [TransactionStatus.DISMISSED]
             elif status not in dismissable:
                 assert status not in VALID_TRANSITIONS
@@ -160,8 +167,15 @@ class TestTransactionStatus:
     def test_has_all_ten_values(self):
         """TransactionStatus has exactly 10 values (incl. INFO_REQUESTED + PENDING_REVIEW)."""
         expected_values = {
-            "created", "pending", "pending_review", "accepted", "denied",
-            "cancelled", "expired", "dismissed", "invalidated",
+            "created",
+            "pending",
+            "pending_review",
+            "accepted",
+            "denied",
+            "cancelled",
+            "expired",
+            "dismissed",
+            "invalidated",
             "info_requested",
         }
 

@@ -17,8 +17,8 @@ Usage:
 """
 
 from apps.core.visibility.enums import (
-    ContentTier,
     BusinessVisibility,
+    ContentTier,
     PlatformVisibility,
     UserVisibility,
 )

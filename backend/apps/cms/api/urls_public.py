@@ -9,6 +9,7 @@ Include in project urls.py:
 """
 
 from django.urls import path
+
 from apps.cms.api import views
 
 app_name = "cms-public"

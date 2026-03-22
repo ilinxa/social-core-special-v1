@@ -14,4 +14,4 @@ try:
 except ImportError:
     pass
 
-__all__ = ('celery_app',)
+__all__ = ("celery_app",)

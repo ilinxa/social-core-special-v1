@@ -1,15 +1,17 @@
 from apps.core.exceptions import PermissionDenied, ValidationError
 from apps.core.types import ActorContext
+from apps.transaction.constants import ApproverPolicy, PartyType, TransactionStatus
 from apps.transaction.models import Transaction
 from apps.transaction.types import TransactionTypeConfig, get_transaction_type
-from apps.transaction.constants import TransactionStatus, ApproverPolicy, PartyType
 
 
 class TransactionPolicy:
 
     @staticmethod
     def can_create_invitation(
-        *, actor_context: ActorContext, config: TransactionTypeConfig,
+        *,
+        actor_context: ActorContext,
+        config: TransactionTypeConfig,
     ) -> None:
         for perm_code in config.required_permissions:
             if not actor_context.has_permission(perm_code):
@@ -27,7 +29,9 @@ class TransactionPolicy:
 
     @staticmethod
     def can_accept(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         config: TransactionTypeConfig,
     ) -> None:
         if transaction.status != TransactionStatus.PENDING:
@@ -92,7 +96,9 @@ class TransactionPolicy:
 
     @staticmethod
     def can_deny(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         config: TransactionTypeConfig,
     ) -> None:
         # Allow deny from both PENDING and PENDING_REVIEW
@@ -111,7 +117,9 @@ class TransactionPolicy:
 
     @staticmethod
     def can_dismiss(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         config: TransactionTypeConfig,
     ) -> None:
         """Check authority to dismiss (status-agnostic authority check)."""
@@ -121,51 +129,60 @@ class TransactionPolicy:
             if transaction.target_type != PartyType.USER:
                 raise PermissionDenied(
                     message="Invalid target type",
-                    action="dismiss", resource="Transaction",
+                    action="dismiss",
+                    resource="Transaction",
                 )
             if actor_context.user_id != transaction.target_id:
                 raise PermissionDenied(
                     message="Only the target user can dismiss",
-                    action="dismiss", resource="Transaction",
+                    action="dismiss",
+                    resource="Transaction",
                 )
 
         elif policy == ApproverPolicy.ACCOUNT_AUTHORITY:
             if actor_context.account_id != transaction.context_id:
                 raise PermissionDenied(
                     message="Not a member of this account",
-                    action="dismiss", resource="Transaction",
+                    action="dismiss",
+                    resource="Transaction",
                 )
             if config.approval_permission and not actor_context.has_permission(
                 config.approval_permission,
             ):
                 raise PermissionDenied(
                     message=f"Missing permission: {config.approval_permission}",
-                    action="dismiss", resource="Transaction",
+                    action="dismiss",
+                    resource="Transaction",
                 )
 
         elif policy == ApproverPolicy.PLATFORM_AUTHORITY:
             if actor_context.account_type != "platform":
                 raise PermissionDenied(
                     message="Platform authority required",
-                    action="dismiss", resource="Transaction",
+                    action="dismiss",
+                    resource="Transaction",
                 )
             if config.approval_permission and not actor_context.has_permission(
                 config.approval_permission,
             ):
                 raise PermissionDenied(
                     message=f"Missing permission: {config.approval_permission}",
-                    action="dismiss", resource="Transaction",
+                    action="dismiss",
+                    resource="Transaction",
                 )
 
         else:
             raise PermissionDenied(
                 message="Cannot dismiss with this approval policy",
-                action="dismiss", resource="Transaction",
+                action="dismiss",
+                resource="Transaction",
             )
 
     @staticmethod
     def can_approve_pending_review(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
         config: TransactionTypeConfig,
     ) -> None:
         """Check if actor can approve a PENDING_REVIEW transaction (account authority)."""
@@ -194,7 +211,9 @@ class TransactionPolicy:
 
     @staticmethod
     def is_initiator(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
     ) -> None:
         initiator_context = ActorContext.from_dict(transaction.initiator_context)
         if actor_context.user_id != initiator_context.user_id:
@@ -206,7 +225,9 @@ class TransactionPolicy:
 
     @staticmethod
     def can_view(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
     ) -> None:
         initiator_context = ActorContext.from_dict(transaction.initiator_context)
 
@@ -214,12 +235,16 @@ class TransactionPolicy:
         if actor_context.user_id == initiator_context.user_id:
             return
         # Target user can view
-        if (transaction.target_type == PartyType.USER
-                and actor_context.user_id == transaction.target_id):
+        if (
+            transaction.target_type == PartyType.USER
+            and actor_context.user_id == transaction.target_id
+        ):
             return
         # Account member with permission can view
-        if (actor_context.account_id == transaction.context_id
-                and actor_context.account_type == transaction.context_type):
+        if (
+            actor_context.account_id == transaction.context_id
+            and actor_context.account_type == transaction.context_type
+        ):
             if actor_context.is_owner:
                 return
             if actor_context.has_permission("can_view_transactions"):
@@ -237,7 +262,9 @@ class TransactionPolicy:
 
     @staticmethod
     def get_viewer_permissions(
-        *, transaction: Transaction, actor_context: ActorContext,
+        *,
+        transaction: Transaction,
+        actor_context: ActorContext,
     ) -> dict:
         """Return permission booleans for Tier 1.5 _permissions injection."""
         config = get_transaction_type(transaction.transaction_type)
@@ -286,20 +313,14 @@ class TransactionPolicy:
                     and actor_context.user_id == transaction.target_id
                 )
             if policy == ApproverPolicy.ACCOUNT_AUTHORITY:
-                return (
-                    actor_context.account_id == transaction.context_id
-                    and (
-                        not config.approval_permission
-                        or actor_context.has_permission(config.approval_permission)
-                    )
+                return actor_context.account_id == transaction.context_id and (
+                    not config.approval_permission
+                    or actor_context.has_permission(config.approval_permission)
                 )
             if policy == ApproverPolicy.PLATFORM_AUTHORITY:
-                return (
-                    actor_context.account_type == "platform"
-                    and (
-                        not config.approval_permission
-                        or actor_context.has_permission(config.approval_permission)
-                    )
+                return actor_context.account_type == "platform" and (
+                    not config.approval_permission
+                    or actor_context.has_permission(config.approval_permission)
                 )
             return False
 
@@ -307,9 +328,7 @@ class TransactionPolicy:
 
         # For invitations in INFO_REQUESTED, the target user can resubmit
         can_resubmit_invitation = (
-            is_info_requested
-            and transaction.mode == "invitation"
-            and is_target
+            is_info_requested and transaction.mode == "invitation" and is_target
         )
 
         return {
@@ -320,8 +339,11 @@ class TransactionPolicy:
                 (is_initiator and is_pending)
                 or (is_pending_review and (is_initiator or is_target))
             ),
-            "can_dismiss": has_authority and transaction.status in (
-                TransactionStatus.ACCEPTED, TransactionStatus.DENIED,
+            "can_dismiss": has_authority
+            and transaction.status
+            in (
+                TransactionStatus.ACCEPTED,
+                TransactionStatus.DENIED,
             ),
             "can_request_info": (
                 (can_accept or can_approve)
@@ -329,8 +351,7 @@ class TransactionPolicy:
                 and transaction.form_response_id is not None
             ),
             "can_resubmit": (
-                (is_initiator and is_info_requested)
-                or can_resubmit_invitation
+                (is_initiator and is_info_requested) or can_resubmit_invitation
             ),
             "can_view_form": transaction.form_response_id is not None,
         }

@@ -14,17 +14,21 @@ Usage:
     celery -A backend_core worker -B -l info
 """
 
+import logging
 import os
+
 from celery import Celery
 
+logger = logging.getLogger(__name__)
+
 # Set default Django settings module
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend_core.settings.local')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend_core.settings.local")
 
 # Create Celery app
-app = Celery('backend_core')
+app = Celery("backend_core")
 
 # Load config from Django settings with CELERY_ prefix
-app.config_from_object('django.conf:settings', namespace='CELERY')
+app.config_from_object("django.conf:settings", namespace="CELERY")
 
 # Auto-discover tasks in all installed apps
 app.autodiscover_tasks()
@@ -84,4 +88,4 @@ app.conf.beat_schedule = {
 @app.task(bind=True, ignore_result=True)
 def debug_task(self):
     """Debug task for testing Celery setup."""
-    print(f'Request: {self.request!r}')
+    logger.debug("celery.debug_task", extra={"request": repr(self.request)})

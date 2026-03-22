@@ -9,21 +9,18 @@ All business fixtures initialize RBAC (roles + owner membership).
 import pytest
 from rest_framework.test import APIClient
 
-from apps.organization.tests.factories import (
-    # User factories
-    UserFactory,
-    StaffUserFactory,
-    SuperuserFactory,
-    # Platform factories
+from apps.organization.tests.factories import (  # User factories; Platform factories; Business factories
+    BusinessAccountFactory,
+    BusinessAccountWithProfileFactory,
+    BusinessProfileFactory,
+    BusinessSlugHistoryFactory,
     PlatformAccountFactory,
     PlatformProfileFactory,
-    # Business factories
-    BusinessAccountFactory,
-    BusinessProfileFactory,
-    BusinessAccountWithProfileFactory,
-    BusinessSlugHistoryFactory,
-    VerifiedBusinessFactory,
+    StaffUserFactory,
+    SuperuserFactory,
     SuspendedBusinessFactory,
+    UserFactory,
+    VerifiedBusinessFactory,
 )
 
 
@@ -241,9 +238,9 @@ def another_business(db, another_user):
 @pytest.fixture
 def member_user(db, business_with_profile):
     """Create a user with Base Member role in business_with_profile (no special permissions)."""
-    from apps.rbac.services import RBACService
-    from apps.rbac.selectors import RoleSelector
     from apps.core.constants import AccountType
+    from apps.rbac.selectors import RoleSelector
+    from apps.rbac.services import RBACService
 
     member = UserFactory(username="memberuser", email="member@example.com")
 

@@ -1,28 +1,25 @@
-import pytest
-from uuid import uuid4
 from datetime import timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
+import pytest
 from django.utils import timezone
 
 from apps.core.constants import ContextType
+from apps.transaction.constants import PartyType, TransactionMode, TransactionStatus
+from apps.transaction.models import Transaction, TransactionLog
 from apps.transaction.tasks import (
+    cleanup_old_transaction_logs_task,
     expire_transactions_task,
     retry_outcome_execution_task,
-    cleanup_old_transaction_logs_task,
     send_expiration_reminder_task,
 )
-from apps.transaction.models import Transaction, TransactionLog
-from apps.transaction.tests.factories import (
-    TransactionFactory,
-    TransactionLogFactory,
-)
-from apps.transaction.constants import TransactionStatus, TransactionMode, PartyType
-
+from apps.transaction.tests.factories import TransactionFactory, TransactionLogFactory
 
 # =========================================================================
 # EXPIRE TRANSACTIONS TASK
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestExpireTransactionsTask:
@@ -60,6 +57,7 @@ class TestExpireTransactionsTask:
 # RETRY OUTCOME EXECUTION TASK
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestRetryOutcomeExecutionTask:
 
@@ -76,6 +74,7 @@ class TestRetryOutcomeExecutionTask:
 
     def test_retries_failed_outcome(self):
         from apps.users.tests.factories import UserFactory
+
         user_a = UserFactory()
         user_b = UserFactory()
         txn = TransactionFactory(
@@ -89,6 +88,7 @@ class TestRetryOutcomeExecutionTask:
             target_id=user_b.id,
         )
         from apps.transaction.outcome_handlers import register_all_handlers
+
         register_all_handlers()
 
         retry_outcome_execution_task(str(txn.id))
@@ -99,6 +99,7 @@ class TestRetryOutcomeExecutionTask:
 # =========================================================================
 # CLEANUP OLD TRANSACTION LOGS TASK
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestCleanupOldTransactionLogsTask:
@@ -142,12 +143,14 @@ class TestCleanupOldTransactionLogsTask:
 # SEND EXPIRATION REMINDER TASK
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestSendExpirationReminderTask:
 
     @patch("apps.notifications.services.NotificationService.send")
     def test_sends_reminders_for_expiring_invitations(self, mock_send):
         from apps.users.tests.factories import UserFactory
+
         target = UserFactory()
 
         TransactionFactory(

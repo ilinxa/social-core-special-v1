@@ -9,10 +9,10 @@ import uuid
 
 import pytest
 
-
 # =============================================================================
 # NEG-A01–A10: AUTH FAILURES
 # =============================================================================
+
 
 class TestNegativeAuth:
     """Test authentication failure scenarios."""
@@ -53,20 +53,26 @@ class TestNegativeAuth:
     def test_neg_a06_wrong_password(self, api):
         """Wrong password returns 401 invalid_credentials (or 429 if rate limited)."""
         api.clear_token()
-        r = api.post("auth/login/", json={
-            "email": "alice@test.com",
-            "password": "TotallyWrong!",
-        })
+        r = api.post(
+            "auth/login/",
+            json={
+                "email": "alice@test.com",
+                "password": "TotallyWrong!",
+            },
+        )
         # May be rate limited (429) from prior rapid login tests
         assert r.status_code in (401, 429)
 
     def test_neg_a07_nonexistent_email(self, api):
         """Login with non-existent email returns 401 (or 429 if rate limited)."""
         api.clear_token()
-        r = api.post("auth/login/", json={
-            "email": "ghost@nowhere.com",
-            "password": "TestPass123!",
-        })
+        r = api.post(
+            "auth/login/",
+            json={
+                "email": "ghost@nowhere.com",
+                "password": "TestPass123!",
+            },
+        )
         assert r.status_code in (401, 429)
 
     def test_neg_a08_register_duplicate_email(self, api):
@@ -78,24 +84,31 @@ class TestNegativeAuth:
     def test_neg_a09_register_weak_password(self, api):
         """Register with weak password returns 400."""
         api.clear_token()
-        r = api.post("auth/register/", json={
-            "email": "weak@test.com",
-            "password": "123",
-        })
+        r = api.post(
+            "auth/register/",
+            json={
+                "email": "weak@test.com",
+                "password": "123",
+            },
+        )
         assert r.status_code == 400
 
     def test_neg_a10_register_missing_email(self, api):
         """Register without email returns 400."""
         api.clear_token()
-        r = api.post("auth/register/", json={
-            "password": "TestPass123!",
-        })
+        r = api.post(
+            "auth/register/",
+            json={
+                "password": "TestPass123!",
+            },
+        )
         assert r.status_code == 400
 
 
 # =============================================================================
 # NEG-B01–B08: AUTHORIZATION FAILURES
 # =============================================================================
+
 
 class TestNegativeAuthorization:
     """Test authorization boundary violations."""
@@ -115,10 +128,13 @@ class TestNegativeAuthorization:
         slug = state.businesses.get("alice_corp", {}).get("slug")
         if not slug:
             pytest.skip("No business")
-        r = api.post(f"business/{slug}/roles/", json={
-            "name": "Hacker Role",
-            "level": 1,
-        })
+        r = api.post(
+            f"business/{slug}/roles/",
+            json={
+                "name": "Hacker Role",
+                "level": 1,
+            },
+        )
         assert r.status_code == 403
 
     def test_neg_b03_non_member_suspend_business(self, api, state):
@@ -169,25 +185,32 @@ class TestNegativeAuthorization:
     def test_neg_b08_unauthenticated_business_create(self, api):
         """Unauthenticated user cannot create business."""
         api.clear_token()
-        r = api.post("business/", json={
-            "legal_name": "Anon Corp",
-            "country": "US",
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": "Anon Corp",
+                "country": "US",
+            },
+        )
         assert r.status_code == 401
 
     def test_neg_b09_no_business_creation_permission(self, api, state):
         """Authenticated user without can_create_business flag gets 403."""
         api.set_token(state.get_token("nobody"))
-        r = api.post("business/", json={
-            "legal_name": "Unauthorized Corp",
-            "country": "US",
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": "Unauthorized Corp",
+                "country": "US",
+            },
+        )
         assert r.status_code == 403
 
 
 # =============================================================================
 # NEG-V01–V08: VALIDATION FAILURES
 # =============================================================================
+
 
 class TestNegativeValidation:
     """Test input validation error handling."""
@@ -200,27 +223,36 @@ class TestNegativeValidation:
 
     def test_neg_v02_invalid_email_format(self, api):
         """Register with invalid email returns 400."""
-        r = api.post("auth/register/", json={
-            "email": "not-an-email",
-            "password": "TestPass123!",
-        })
+        r = api.post(
+            "auth/register/",
+            json={
+                "email": "not-an-email",
+                "password": "TestPass123!",
+            },
+        )
         assert r.status_code == 400
 
     def test_neg_v03_password_too_short(self, api):
         """Register with password < 8 chars returns 400."""
-        r = api.post("auth/register/", json={
-            "email": "short@test.com",
-            "password": "Short1!",
-        })
+        r = api.post(
+            "auth/register/",
+            json={
+                "email": "short@test.com",
+                "password": "Short1!",
+            },
+        )
         assert r.status_code == 400
 
     def test_neg_v04_invalid_country_code(self, api, state):
         """Create business with invalid country code returns 400."""
         api.set_token(state.get_token("alice"))
-        r = api.post("business/", json={
-            "legal_name": "Bad Country Corp",
-            "country": "INVALID",
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": "Bad Country Corp",
+                "country": "INVALID",
+            },
+        )
         assert r.status_code == 400
 
     def test_neg_v05_invalid_json_body(self, api, state):
@@ -242,10 +274,13 @@ class TestNegativeValidation:
     def test_neg_v07_empty_name(self, api, state):
         """Create business with empty name returns 400."""
         api.set_token(state.get_token("alice"))
-        r = api.post("business/", json={
-            "legal_name": "",
-            "country": "US",
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": "",
+                "country": "US",
+            },
+        )
         assert r.status_code == 400
 
     def test_neg_v08_role_invalid_level(self, api, state):
@@ -254,16 +289,20 @@ class TestNegativeValidation:
         if not slug:
             pytest.skip("No business")
         api.set_token(state.get_token("alice"))
-        r = api.post(f"business/{slug}/roles/", json={
-            "name": "Invalid Level",
-            "level": 999,  # max is 10
-        })
+        r = api.post(
+            f"business/{slug}/roles/",
+            json={
+                "name": "Invalid Level",
+                "level": 999,  # max is 10
+            },
+        )
         assert r.status_code == 400
 
 
 # =============================================================================
 # NEG-C01–C07: CONFLICTS
 # =============================================================================
+
 
 class TestNegativeConflicts:
     """Test conflict/duplicate scenarios."""
@@ -280,20 +319,26 @@ class TestNegativeConflicts:
         slug = state.businesses.get("alice_corp", {}).get("slug")
         if not slug:
             pytest.skip("No business")
-        r = api.post("business/", json={
-            "legal_name": "Dup Slug Corp",
-            "country": "US",
-            "slug": slug,
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": "Dup Slug Corp",
+                "country": "US",
+                "slug": slug,
+            },
+        )
         assert r.status_code in (400, 409)
 
     def test_neg_c03_duplicate_site_slug(self, api, state):
         """Create CMS site with existing slug returns 400/409."""
         api.set_token(state.get_token("alice"))
-        r = api.post("cms/admin/sites/", json={
-            "name": "Dup Site",
-            "slug": "main-site",  # Already exists from phase 08
-        })
+        r = api.post(
+            "cms/admin/sites/",
+            json={
+                "name": "Dup Site",
+                "slug": "main-site",  # Already exists from phase 08
+            },
+        )
         # 403 if Alice lacks platform membership, 400/409 if slug exists
         assert r.status_code in (400, 403, 409)
 
@@ -319,10 +364,13 @@ class TestNegativeConflicts:
         if not slug or "biz:editor" not in state.roles:
             pytest.skip("No business/role")
         api.set_token(state.get_token("alice"))
-        r = api.post(f"business/{slug}/roles/", json={
-            "name": "Editor",  # Already exists
-            "level": 6,
-        })
+        r = api.post(
+            f"business/{slug}/roles/",
+            json={
+                "name": "Editor",  # Already exists
+                "level": 6,
+            },
+        )
         assert r.status_code in (400, 409)
 
     def test_neg_c07_duplicate_invitation(self, api, state, db_helper):
@@ -336,21 +384,26 @@ class TestNegativeConflicts:
         if not biz_id:
             pytest.skip("No business")
         role_id = db_helper.get_base_member_role_id("business", biz_id)
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "business_membership_invitation",
-            "target_user_id": state.users["bob"]["id"],
-            "context_type": "business",
-            "context_id": biz_id,
-            "payload": {"role_id": role_id},
-        })
-        assert r.status_code in (400, 409), (
-            f"Expected 400/409 for existing member, got {r.status_code}: {r.text}"
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "business_membership_invitation",
+                "target_user_id": state.users["bob"]["id"],
+                "context_type": "business",
+                "context_id": biz_id,
+                "payload": {"role_id": role_id},
+            },
         )
+        assert r.status_code in (
+            400,
+            409,
+        ), f"Expected 400/409 for existing member, got {r.status_code}: {r.text}"
 
 
 # =============================================================================
 # NEG-N01–N06: NOT FOUND
 # =============================================================================
+
 
 class TestNegativeNotFound:
     """Test 404 responses for non-existent resources."""
@@ -397,6 +450,7 @@ class TestNegativeNotFound:
 # NEG-R01–R02: RATE LIMITING
 # =============================================================================
 
+
 class TestNegativeRateLimiting:
     """Test rate limiting on sensitive endpoints."""
 
@@ -405,10 +459,13 @@ class TestNegativeRateLimiting:
         api.clear_token()
         results = []
         for i in range(20):
-            r = api.post("auth/login/", json={
-                "email": f"nonexistent{i}@test.com",
-                "password": "WrongPass!",
-            })
+            r = api.post(
+                "auth/login/",
+                json={
+                    "email": f"nonexistent{i}@test.com",
+                    "password": "WrongPass!",
+                },
+            )
             results.append(r.status_code)
             if r.status_code == 429:
                 break
@@ -422,9 +479,12 @@ class TestNegativeRateLimiting:
         api.clear_token()
         results = []
         for i in range(15):
-            r = api.post("auth/password/reset/", json={
-                "email": "alice@test.com",
-            })
+            r = api.post(
+                "auth/password/reset/",
+                json={
+                    "email": "alice@test.com",
+                },
+            )
             results.append(r.status_code)
             if r.status_code == 429:
                 break

@@ -4,11 +4,11 @@
 import pytest
 
 from apps.core.visibility.enums import (
+    VISIBILITY_ENUMS,
     BusinessVisibility,
     ContentTier,
     PlatformVisibility,
     UserVisibility,
-    VISIBILITY_ENUMS,
 )
 
 

@@ -11,7 +11,11 @@ VisibilityOverrideInput: Validates PATCH input for visibility settings.
 
 from rest_framework import serializers
 
-from apps.core.visibility.registry import get_t2_fields, get_visibility_choices, get_account_type_for_registry
+from apps.core.visibility.registry import (
+    get_account_type_for_registry,
+    get_t2_fields,
+    get_visibility_choices,
+)
 from apps.core.visibility.resolver import VisibilityResolver
 
 
@@ -86,7 +90,9 @@ class VisibilityOverrideInput(serializers.Serializer):
         errors = {}
         for field_name, level in value.items():
             if field_name not in t2_fields:
-                errors[field_name] = f"'{field_name}' is not a configurable visibility field."
+                errors[field_name] = (
+                    f"'{field_name}' is not a configurable visibility field."
+                )
             elif level not in valid_values:
                 errors[field_name] = (
                     f"Invalid level {level}. Valid values: {sorted(valid_values)}."

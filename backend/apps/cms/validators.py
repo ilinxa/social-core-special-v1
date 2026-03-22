@@ -7,11 +7,23 @@ Two modes: permissive (draft save) and strict (publish).
 """
 
 import re
-from typing import Optional
+
 from apps.cms.constants import CMS_FIELD_TYPES
 from apps.core.observability import get_logger
 
 logger = get_logger(__name__)
+
+# Maximum allowed length for user-defined regex patterns
+MAX_REGEX_PATTERN_LENGTH = 500
+
+
+def _has_catastrophic_backtracking_risk(pattern: str) -> bool:
+    """Heuristic: detect nested quantifiers that cause exponential backtracking.
+
+    Catches patterns like (a+)+, (a*)+, (a+)*, (a{2,})+ where a quantified
+    group is itself quantified — the classic ReDoS trigger.
+    """
+    return bool(re.search(r"[+*}]\)?[+*{]", pattern))
 
 
 class SchemaValidator:
@@ -56,6 +68,25 @@ class SchemaValidator:
                 )
             seen_keys.add(field["key"])
 
+            # Validate regex patterns for ReDoS safety
+            validation = field.get("validation", {})
+            if "pattern" in validation:
+                pattern = validation["pattern"]
+                if len(pattern) > MAX_REGEX_PATTERN_LENGTH:
+                    raise ValidationError(
+                        message=f"Regex pattern for '{field['key']}' exceeds {MAX_REGEX_PATTERN_LENGTH} char limit",
+                    )
+                try:
+                    re.compile(pattern)
+                except re.error as e:
+                    raise ValidationError(
+                        message=f"Invalid regex pattern for '{field['key']}': {e}",
+                    ) from e
+                if _has_catastrophic_backtracking_risk(pattern):
+                    raise ValidationError(
+                        message=f"Regex pattern for '{field['key']}' rejected: potential catastrophic backtracking",
+                    )
+
             # Validate repeater sub-schema (no nesting)
             if field["type"] == "repeater":
                 if "item_schema" not in field:
@@ -98,11 +129,13 @@ class SchemaValidator:
             # Required check
             if required and (value is None or value == "" or value == []):
                 if strict:
-                    issues.append({
-                        "field_key": key,
-                        "error_type": "required_field_empty",
-                        "message": f"{field_def.get('label', key)} is required",
-                    })
+                    issues.append(
+                        {
+                            "field_key": key,
+                            "error_type": "required_field_empty",
+                            "message": f"{field_def.get('label', key)} is required",
+                        }
+                    )
                 continue
 
             # Skip validation if value is None/empty (non-required)
@@ -146,18 +179,45 @@ class SchemaValidator:
             value = sanitized.get(key)
 
             if field_type == "richtext" and isinstance(value, str):
-                allowed_tags = set(field_def.get("allowed_tags", [
-                    "p", "br", "strong", "em", "u", "s", "a", "ul", "ol", "li",
-                    "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "code", "pre",
-                ]))
+                allowed_tags = set(
+                    field_def.get(
+                        "allowed_tags",
+                        [
+                            "p",
+                            "br",
+                            "strong",
+                            "em",
+                            "u",
+                            "s",
+                            "a",
+                            "ul",
+                            "ol",
+                            "li",
+                            "h1",
+                            "h2",
+                            "h3",
+                            "h4",
+                            "h5",
+                            "h6",
+                            "blockquote",
+                            "code",
+                            "pre",
+                        ],
+                    )
+                )
                 sanitized[key] = nh3.clean(value, tags=allowed_tags)
 
             elif field_type == "repeater" and isinstance(value, list):
                 # Recursively sanitize repeater items
                 item_schema = field_def.get("item_schema", {})
                 sanitized[key] = [
-                    SchemaValidator.sanitize_content(schema=item_schema, content=item)
-                    if isinstance(item, dict) else item
+                    (
+                        SchemaValidator.sanitize_content(
+                            schema=item_schema, content=item
+                        )
+                        if isinstance(item, dict)
+                        else item
+                    )
                     for item in value
                 ]
 
@@ -178,81 +238,222 @@ class SchemaValidator:
 
         if field_type in ("text", "textarea"):
             if not isinstance(value, str):
-                issues.append({"field_key": key, "error_type": "type_error", "message": f"{key} must be a string"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "type_error",
+                        "message": f"{key} must be a string",
+                    }
+                )
                 return issues
             if "max_length" in validation and len(value) > validation["max_length"]:
-                issues.append({"field_key": key, "error_type": "max_length", "message": f"{key} exceeds max length"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "max_length",
+                        "message": f"{key} exceeds max length",
+                    }
+                )
             if "min_length" in validation and len(value) < validation["min_length"]:
-                issues.append({"field_key": key, "error_type": "min_length", "message": f"{key} below min length"})
-            if "pattern" in validation and not re.match(validation["pattern"], value):
-                issues.append({"field_key": key, "error_type": "pattern_mismatch", "message": f"{key} does not match pattern"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "min_length",
+                        "message": f"{key} below min length",
+                    }
+                )
+            if "pattern" in validation:
+                try:
+                    if not re.match(validation["pattern"], value):
+                        issues.append(
+                            {
+                                "field_key": key,
+                                "error_type": "pattern_mismatch",
+                                "message": f"{key} does not match pattern",
+                            }
+                        )
+                except (re.error, RecursionError):
+                    logger.warning("cms.regex_validation_failed", field_key=key)
+                    issues.append(
+                        {
+                            "field_key": key,
+                            "error_type": "pattern_error",
+                            "message": f"Pattern validation failed for {key}",
+                        }
+                    )
 
         elif field_type == "richtext":
             if not isinstance(value, str):
-                issues.append({"field_key": key, "error_type": "type_error", "message": f"{key} must be a string"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "type_error",
+                        "message": f"{key} must be a string",
+                    }
+                )
                 return issues
             # NOTE: Sanitization is handled by sanitize_content() — called BEFORE validation.
             # This method only validates constraints (length, etc.) on already-sanitized values.
             # Length check on stripped text
             if "max_length" in validation:
                 import html
+
                 stripped = html.unescape(re.sub(r"<[^>]+>", "", value))
                 if len(stripped) > validation["max_length"]:
-                    issues.append({"field_key": key, "error_type": "max_length", "message": f"{key} text content exceeds max length"})
+                    issues.append(
+                        {
+                            "field_key": key,
+                            "error_type": "max_length",
+                            "message": f"{key} text content exceeds max length",
+                        }
+                    )
 
         elif field_type == "number":
             if not isinstance(value, (int, float)):
-                issues.append({"field_key": key, "error_type": "type_error", "message": f"{key} must be a number"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "type_error",
+                        "message": f"{key} must be a number",
+                    }
+                )
                 return issues
             if "min" in validation and value < validation["min"]:
-                issues.append({"field_key": key, "error_type": "min_value", "message": f"{key} below minimum"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "min_value",
+                        "message": f"{key} below minimum",
+                    }
+                )
             if "max" in validation and value > validation["max"]:
-                issues.append({"field_key": key, "error_type": "max_value", "message": f"{key} above maximum"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "max_value",
+                        "message": f"{key} above maximum",
+                    }
+                )
 
         elif field_type == "boolean":
             if not isinstance(value, bool):
-                issues.append({"field_key": key, "error_type": "type_error", "message": f"{key} must be boolean"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "type_error",
+                        "message": f"{key} must be boolean",
+                    }
+                )
 
         elif field_type in ("select",):
             choices = [c["value"] for c in validation.get("choices", [])]
             if choices and value not in choices:
-                issues.append({"field_key": key, "error_type": "invalid_choice", "message": f"{key} value not in choices"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "invalid_choice",
+                        "message": f"{key} value not in choices",
+                    }
+                )
 
         elif field_type == "multiselect":
             if not isinstance(value, list):
-                issues.append({"field_key": key, "error_type": "type_error", "message": f"{key} must be a list"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "type_error",
+                        "message": f"{key} must be a list",
+                    }
+                )
                 return issues
             choices = [c["value"] for c in validation.get("choices", [])]
             if choices:
                 for v in value:
                     if v not in choices:
-                        issues.append({"field_key": key, "error_type": "invalid_choice", "message": f"{key} contains invalid choice: {v}"})
+                        issues.append(
+                            {
+                                "field_key": key,
+                                "error_type": "invalid_choice",
+                                "message": f"{key} contains invalid choice: {v}",
+                            }
+                        )
             if "min_selected" in validation and len(value) < validation["min_selected"]:
-                issues.append({"field_key": key, "error_type": "min_selected", "message": f"{key} below minimum selections"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "min_selected",
+                        "message": f"{key} below minimum selections",
+                    }
+                )
             if "max_selected" in validation and len(value) > validation["max_selected"]:
-                issues.append({"field_key": key, "error_type": "max_selected", "message": f"{key} above maximum selections"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "max_selected",
+                        "message": f"{key} above maximum selections",
+                    }
+                )
 
         elif field_type == "media":
             if not isinstance(value, dict) or "media_id" not in value:
-                issues.append({"field_key": key, "error_type": "type_error", "message": f"{key} must be a media reference object"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "type_error",
+                        "message": f"{key} must be a media reference object",
+                    }
+                )
                 return issues
             if strict:
                 # Check that media exists and is not tombstoned
                 from apps.cms.models import MediaFile
-                media = MediaFile.objects.filter(id=value["media_id"], is_deleted=False).first()
+
+                media = MediaFile.objects.filter(
+                    id=value["media_id"], is_deleted=False
+                ).first()
                 if not media:
-                    issues.append({"field_key": key, "error_type": "media_not_found", "message": f"{key} references non-existent media"})
+                    issues.append(
+                        {
+                            "field_key": key,
+                            "error_type": "media_not_found",
+                            "message": f"{key} references non-existent media",
+                        }
+                    )
                 elif media.is_tombstoned:
-                    issues.append({"field_key": key, "error_type": "media_reference_tombstoned", "message": f"{key} references tombstoned media"})
+                    issues.append(
+                        {
+                            "field_key": key,
+                            "error_type": "media_reference_tombstoned",
+                            "message": f"{key} references tombstoned media",
+                        }
+                    )
 
         elif field_type == "repeater":
             if not isinstance(value, list):
-                issues.append({"field_key": key, "error_type": "type_error", "message": f"{key} must be a list"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "type_error",
+                        "message": f"{key} must be a list",
+                    }
+                )
                 return issues
             if "min_items" in validation and len(value) < validation["min_items"]:
-                issues.append({"field_key": key, "error_type": "min_items", "message": f"{key} below minimum items"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "min_items",
+                        "message": f"{key} below minimum items",
+                    }
+                )
             if "max_items" in validation and len(value) > validation["max_items"]:
-                issues.append({"field_key": key, "error_type": "max_items", "message": f"{key} above maximum items"})
+                issues.append(
+                    {
+                        "field_key": key,
+                        "error_type": "max_items",
+                        "message": f"{key} above maximum items",
+                    }
+                )
             # Validate each item against item_schema
             item_schema = field_def.get("item_schema", {})
             if item_schema:

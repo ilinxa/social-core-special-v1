@@ -15,7 +15,7 @@ Usage:
     )
 """
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict
 
 from django.http import HttpRequest
 
@@ -23,16 +23,33 @@ from apps.core.observability.audit.models import AuditLog
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model
+
     User = get_user_model()
 
 
 # Fields that must be redacted from audit log details/changes
-REDACTED_FIELDS = frozenset([
-    "password", "password1", "password2", "old_password", "new_password",
-    "token", "access_token", "refresh_token", "api_key", "secret",
-    "authorization", "cookie", "session_id", "csrf",
-    "credit_card", "card_number", "cvv", "ssn",
-])
+REDACTED_FIELDS = frozenset(
+    [
+        "password",
+        "password1",
+        "password2",
+        "old_password",
+        "new_password",
+        "token",
+        "access_token",
+        "refresh_token",
+        "api_key",
+        "secret",
+        "authorization",
+        "cookie",
+        "session_id",
+        "csrf",
+        "credit_card",
+        "card_number",
+        "cvv",
+        "ssn",
+    ]
+)
 
 
 def _redact_sensitive_data(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -74,15 +91,15 @@ class AuditService:
     def log(
         *,
         action: str,
-        actor: Optional["User"] = None,
+        actor: "User | None" = None,
         actor_type: str = AuditLog.ActorType.USER,
         resource: Any = None,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        request: Optional[HttpRequest] = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        request: HttpRequest | None = None,
         outcome: str = AuditLog.Outcome.SUCCESS,
-        details: Optional[Dict[str, Any]] = None,
-        changes: Optional[Dict[str, Any]] = None,
+        details: Dict[str, Any] | None = None,
+        changes: Dict[str, Any] | None = None,
     ) -> AuditLog:
         """
         Create an audit log entry.
@@ -172,9 +189,9 @@ class AuditService:
         *,
         action: str,
         reason: str,
-        actor: Optional["User"] = None,
-        request: Optional[HttpRequest] = None,
-        details: Optional[Dict[str, Any]] = None,
+        actor: "User | None" = None,
+        request: HttpRequest | None = None,
+        details: Dict[str, Any] | None = None,
     ) -> AuditLog:
         """
         Convenience method for logging failures.
@@ -206,7 +223,7 @@ class AuditService:
         resource: Any,
         before: Dict[str, Any],
         after: Dict[str, Any],
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> AuditLog:
         """
         Log a data change with before/after values.
@@ -226,9 +243,7 @@ class AuditService:
             "before": {
                 k: v for k, v in before.items() if before.get(k) != after.get(k)
             },
-            "after": {
-                k: v for k, v in after.items() if before.get(k) != after.get(k)
-            },
+            "after": {k: v for k, v in after.items() if before.get(k) != after.get(k)},
         }
 
         return AuditService.log(
@@ -241,7 +256,7 @@ class AuditService:
         )
 
     @staticmethod
-    def _get_client_ip(request: HttpRequest) -> Optional[str]:
+    def _get_client_ip(request: HttpRequest) -> str | None:
         """Extract client IP from request, handling proxies."""
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:

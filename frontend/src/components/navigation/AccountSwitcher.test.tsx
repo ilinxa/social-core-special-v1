@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Membership } from "@/types/rbac";
 import { useMembershipStore } from "@/stores/membership-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { renderWithProviders } from "@/test/utils";
 
 import { AccountSwitcher } from "./AccountSwitcher";
@@ -25,6 +26,26 @@ vi.mock("next/link", () => ({
       {children}
     </a>
   ),
+}));
+
+// Mock transaction API for BusinessCreationRequestButton
+vi.mock("@/features/transactions/api/transactions-api", () => ({
+  fetchTransactionsApi: vi.fn().mockResolvedValue({ count: 0, results: [] }),
+  checkRequestFormApi: vi.fn(),
+  submitRequestFormResponseApi: vi.fn(),
+  createRequestApi: vi.fn(),
+}));
+
+vi.mock("@/features/platform/api/platform-api", () => ({
+  fetchPlatformAccountApi: vi.fn(),
+}));
+
+vi.mock("@/features/users/api/users-api", () => ({
+  fetchCurrentUserApi: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
 }));
 
 let mockPathname = "/home";
@@ -60,6 +81,44 @@ function makeMembership(overrides: Partial<Membership> = {}): Membership {
   };
 }
 
+function setAuthUser(canCreateBusiness: boolean) {
+  useAuthStore.setState({
+    user: {
+      id: "user-1",
+      email: "test@test.com",
+      username: "testuser",
+      is_active: true,
+      is_verified: true,
+      is_complete: true,
+      can_create_business: canCreateBusiness,
+      is_staff: false,
+      is_superuser: false,
+      date_joined: "2026-01-01T00:00:00Z",
+      last_login: null,
+      profile: {
+        first_name: "Test",
+        last_name: "User",
+        full_name: "Test User",
+        display_name: "Test User",
+        phone: "",
+        avatar_url: null,
+        has_avatar: false,
+        cover_image_url: null,
+        has_cover_image: false,
+        timezone: "UTC",
+        language: "en",
+        bio: "",
+        country: "",
+        city: "",
+        tags: [],
+        is_public: true,
+      },
+    },
+    isAuthenticated: true,
+    isInitialized: true,
+  });
+}
+
 // =============================================================================
 // TESTS
 // =============================================================================
@@ -69,6 +128,7 @@ describe("AccountSwitcher", () => {
     vi.clearAllMocks();
     mockPathname = "/home";
     useMembershipStore.setState({ memberships: [], isLoaded: true });
+    useAuthStore.setState({ user: null, isAuthenticated: false, isInitialized: false });
   });
 
   it("shows 'Personal' as current context label when on personal route", () => {
@@ -185,5 +245,40 @@ describe("AccountSwitcher", () => {
     const acmeItems = screen.getAllByText("Acme Corp");
     await user.click(acmeItems[acmeItems.length - 1]);
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("shows 'Create Business' when user can_create_business is true", async () => {
+    const user = userEvent.setup();
+    setAuthUser(true);
+
+    renderWithProviders(<AccountSwitcher />);
+
+    await user.click(screen.getByRole("combobox", { name: /switch account context/i }));
+
+    expect(screen.getByText("Create Business")).toBeInTheDocument();
+  });
+
+  it("shows 'Request Business Access' when user can_create_business is false", async () => {
+    const user = userEvent.setup();
+    setAuthUser(false);
+
+    renderWithProviders(<AccountSwitcher />);
+
+    await user.click(screen.getByRole("combobox", { name: /switch account context/i }));
+
+    expect(await screen.findByText("Request Business Access")).toBeInTheDocument();
+    expect(screen.queryByText("Create Business")).not.toBeInTheDocument();
+  });
+
+  it("shows neither Create nor Request when user is not authenticated", async () => {
+    const user = userEvent.setup();
+    // user is null (default from beforeEach)
+
+    renderWithProviders(<AccountSwitcher />);
+
+    await user.click(screen.getByRole("combobox", { name: /switch account context/i }));
+
+    expect(screen.queryByText("Create Business")).not.toBeInTheDocument();
+    expect(screen.queryByText("Request Business Access")).not.toBeInTheDocument();
   });
 });

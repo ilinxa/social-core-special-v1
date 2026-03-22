@@ -4,7 +4,7 @@ Notification Service
 Main service for sending notifications through multiple channels.
 """
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 from django.db import transaction
 
@@ -12,10 +12,7 @@ from apps.core.exceptions import NotFound, ValidationError
 from apps.core.observability import get_logger
 from apps.notifications.models import NotificationLog
 from apps.notifications.services.preference_service import PreferenceService
-from apps.notifications.types import (
-    NotificationTypeConfig,
-    get_notification_type,
-)
+from apps.notifications.types import NotificationTypeConfig, get_notification_type
 
 logger = get_logger(__name__)
 
@@ -38,8 +35,8 @@ class NotificationService:
         user,
         notification_type: str,
         context: Dict[str, Any],
-        force_channels: Optional[List[str]] = None,
-        async_dispatch: bool = True
+        force_channels: List[str] | None = None,
+        async_dispatch: bool = True,
     ) -> NotificationLog:
         """
         Send a notification to a user.
@@ -63,7 +60,7 @@ class NotificationService:
         if not type_config:
             raise NotFound(
                 message=f"Unknown notification type: {notification_type}",
-                resource='NotificationType'
+                resource="NotificationType",
             )
 
         if not type_config.enabled:
@@ -79,8 +76,7 @@ class NotificationService:
             channels = force_channels
         else:
             channels = PreferenceService.get_enabled_channels(
-                user=user,
-                notification_type=notification_type
+                user=user, notification_type=notification_type
             )
 
         if not channels:
@@ -91,14 +87,14 @@ class NotificationService:
                 channels=[],
                 context=context,
                 status=NotificationLog.Status.SENT,
-                channel_results={'note': 'No channels enabled'}
+                channel_results={"note": "No channels enabled"},
             )
             logger.info(
                 "notification.skipped",
                 log_id=str(log.id),
                 type=notification_type,
                 user_id=str(user.id),
-                reason='No channels enabled',
+                reason="No channels enabled",
             )
             return log
 
@@ -108,7 +104,7 @@ class NotificationService:
             notification_type=notification_type,
             channels=channels,
             context=context,
-            status=NotificationLog.Status.PENDING
+            status=NotificationLog.Status.PENDING,
         )
 
         logger.info(
@@ -122,6 +118,7 @@ class NotificationService:
         # Dispatch to channels
         if async_dispatch:
             from apps.notifications.tasks import dispatch_notification_task
+
             dispatch_notification_task.delay(str(log.id))
         else:
             NotificationService._dispatch_now(log)
@@ -134,7 +131,7 @@ class NotificationService:
         users: List,
         notification_type: str,
         context_fn: Callable,  # Callable[[User], Dict] - generates context per user
-        force_channels: Optional[List[str]] = None
+        force_channels: List[str] | None = None,
     ) -> List[NotificationLog]:
         """
         Send notification to multiple users.
@@ -153,7 +150,7 @@ class NotificationService:
                     user=user,
                     notification_type=notification_type,
                     context=context,
-                    force_channels=force_channels
+                    force_channels=force_channels,
                 )
                 logs.append(log)
             except Exception as e:
@@ -168,8 +165,7 @@ class NotificationService:
 
     @staticmethod
     def _validate_context(
-        type_config: NotificationTypeConfig,
-        context: Dict[str, Any]
+        type_config: NotificationTypeConfig, context: Dict[str, Any]
     ) -> None:
         """
         Validate context has all required keys for notification type.
@@ -177,15 +173,12 @@ class NotificationService:
         Raises:
             ValidationError: If required context key is missing
         """
-        missing = [
-            key for key in type_config.required_context
-            if key not in context
-        ]
+        missing = [key for key in type_config.required_context if key not in context]
 
         if missing:
             raise ValidationError(
                 message=f"Missing required context for '{type_config.name}': {', '.join(missing)}",
-                field='context'
+                field="context",
             )
 
     @staticmethod
@@ -198,9 +191,9 @@ class NotificationService:
 
         # Idempotent dispatch: acquire lock and check status
         with transaction.atomic():
-            locked_log = NotificationLog.objects.select_for_update().filter(
-                id=log.id
-            ).first()
+            locked_log = (
+                NotificationLog.objects.select_for_update().filter(id=log.id).first()
+            )
 
             if not locked_log:
                 return
@@ -211,14 +204,14 @@ class NotificationService:
 
             # Mark as processing to prevent concurrent dispatch
             locked_log.status = NotificationLog.Status.PROCESSING
-            locked_log.save(update_fields=['status'])
+            locked_log.save(update_fields=["status"])
 
         # Dispatch to channels (outside lock - don't hold during I/O)
         channel_results = locked_log.channel_results or {}
 
         for channel_name in locked_log.channels:
             # Skip already successful channels (for partial retry)
-            if channel_results.get(channel_name, {}).get('status') == 'sent':
+            if channel_results.get(channel_name, {}).get("status") == "sent":
                 continue
 
             channel = get_channel(channel_name)
@@ -226,23 +219,23 @@ class NotificationService:
                 result = channel.send(
                     user=locked_log.user,
                     notification_type=locked_log.notification_type,
-                    context=locked_log.context
+                    context=locked_log.context,
                 )
                 channel_results[channel_name] = result
 
-                status_label = 'sent' if result.get('status') == 'sent' else 'failed'
+                status_label = "sent" if result.get("status") == "sent" else "failed"
                 logger.info(
                     f"notification.channel.{status_label}",
                     log_id=str(locked_log.id),
                     channel=channel_name,
-                    result_status=result.get('status'),
+                    result_status=result.get("status"),
                 )
 
         # Determine final status
-        statuses = [r.get('status') for r in channel_results.values()]
-        if all(s == 'sent' for s in statuses):
+        statuses = [r.get("status") for r in channel_results.values()]
+        if all(s == "sent" for s in statuses):
             final_status = NotificationLog.Status.SENT
-        elif any(s == 'sent' for s in statuses):
+        elif any(s == "sent" for s in statuses):
             final_status = NotificationLog.Status.PARTIAL
         else:
             final_status = NotificationLog.Status.FAILED
@@ -250,4 +243,4 @@ class NotificationService:
         # Update log
         locked_log.channel_results = channel_results
         locked_log.status = final_status
-        locked_log.save(update_fields=['channel_results', 'status'])
+        locked_log.save(update_fields=["channel_results", "status"])

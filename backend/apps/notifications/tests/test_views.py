@@ -5,20 +5,19 @@ Covers PreferencesView, PreferenceDetailView, NotificationHistoryView,
 and ConfigurableTypesView endpoints.
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from rest_framework import status
 
-from apps.notifications.models import NotificationPreference, NotificationLog
+from apps.notifications.models import NotificationLog, NotificationPreference
 from apps.notifications.tests.factories import (
-    NotificationPreferenceFactory,
-    NotificationLogFactory,
-    SentNotificationLogFactory,
     FailedNotificationLogFactory,
+    NotificationLogFactory,
+    NotificationPreferenceFactory,
+    SentNotificationLogFactory,
 )
 from apps.users.tests.factories import UserFactory
-
 
 # =============================================================================
 # PREFERENCES LIST VIEW
@@ -44,9 +43,7 @@ class TestPreferencesListView:
         assert response.status_code == status.HTTP_200_OK
         assert isinstance(response.data, dict)
 
-    def test_response_contains_all_types(
-        self, authenticated_client, preferences_url
-    ):
+    def test_response_contains_all_types(self, authenticated_client, preferences_url):
         """Response contains all notification types across all categories."""
         response = authenticated_client.get(preferences_url)
 
@@ -83,6 +80,12 @@ class TestPreferencesListView:
             "follow_request_accepted",
             "connection_request_received",
             "connection_accepted",
+            # Social / Chat
+            "chat_message_received",
+            "chat_request_received",
+            "chat_request_accepted",
+            "chat_group_added",
+            "chat_reaction_received",
         }
         assert set(all_types) == expected_types
 
@@ -127,9 +130,7 @@ class TestPreferenceDetailView:
         self, authenticated_client, preference_detail_url
     ):
         """GET for a nonexistent notification type returns 404."""
-        response = authenticated_client.get(
-            preference_detail_url("nonexistent_type")
-        )
+        response = authenticated_client.get(preference_detail_url("nonexistent_type"))
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -241,9 +242,7 @@ class TestPreferenceDetailView:
             user=user, notification_type="new_login"
         ).exists()
 
-        response = authenticated_client.delete(
-            preference_detail_url("new_login")
-        )
+        response = authenticated_client.delete(preference_detail_url("new_login"))
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         # The override record should be deleted
@@ -289,9 +288,7 @@ class TestNotificationHistoryView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["notifications"]) == 2
 
-    def test_response_format(
-        self, authenticated_client, history_url, user
-    ):
+    def test_response_format(self, authenticated_client, history_url, user):
         """Response has {notifications: [...], count: int} structure."""
         NotificationLogFactory(user=user)
 
@@ -321,27 +318,21 @@ class TestNotificationHistoryView:
         for notification in response.data["notifications"]:
             assert notification["notification_type"] == "welcome"
 
-    def test_filters_by_status(
-        self, authenticated_client, history_url, user
-    ):
+    def test_filters_by_status(self, authenticated_client, history_url, user):
         """Query param status filters to only logs with that status."""
         SentNotificationLogFactory(user=user)
         SentNotificationLogFactory(user=user)
         FailedNotificationLogFactory(user=user)
         NotificationLogFactory(user=user)  # pending
 
-        response = authenticated_client.get(
-            history_url, {"status": "sent"}
-        )
+        response = authenticated_client.get(history_url, {"status": "sent"})
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["count"] == 2
         for notification in response.data["notifications"]:
             assert notification["status"] == "sent"
 
-    def test_respects_limit(
-        self, authenticated_client, history_url, user
-    ):
+    def test_respects_limit(self, authenticated_client, history_url, user):
         """Query param limit caps the number of returned results."""
         for _ in range(5):
             NotificationLogFactory(user=user)
@@ -351,9 +342,7 @@ class TestNotificationHistoryView:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["count"] <= 2
 
-    def test_only_returns_own_logs(
-        self, authenticated_client, history_url, user
-    ):
+    def test_only_returns_own_logs(self, authenticated_client, history_url, user):
         """User only sees their own notification logs, not other users' logs."""
         other_user = UserFactory()
 
@@ -378,9 +367,7 @@ class TestNotificationHistoryView:
 class TestConfigurableTypesView:
     """Tests for GET /api/v1/notifications/types/."""
 
-    def test_unauthenticated_returns_401(
-        self, api_client, configurable_types_url
-    ):
+    def test_unauthenticated_returns_401(self, api_client, configurable_types_url):
         """Unauthenticated request to configurable types returns 401."""
         response = api_client.get(configurable_types_url)
 
@@ -409,7 +396,9 @@ class TestConfigurableTypesView:
 
         returned_names = {t["name"] for t in response.data["types"]}
         expected_names = {
-            "new_login", "newsletter", "promotions",
+            "new_login",
+            "newsletter",
+            "promotions",
             "transaction_invitation_received",
             "transaction_accepted",
             "transaction_denied",
@@ -425,19 +414,26 @@ class TestConfigurableTypesView:
             "follow_request_accepted",
             "connection_request_received",
             "connection_accepted",
+            # Social / Chat
+            "chat_message_received",
+            "chat_request_received",
+            "chat_request_accepted",
+            "chat_group_added",
+            "chat_reaction_received",
         }
         assert returned_names == expected_names
 
         # Non-configurable types must not be present
         non_configurable = {
-            "verify_email", "welcome", "password_reset",
-            "password_changed", "suspicious_activity",
+            "verify_email",
+            "welcome",
+            "password_reset",
+            "password_changed",
+            "suspicious_activity",
         }
         assert returned_names.isdisjoint(non_configurable)
 
-    def test_type_structure(
-        self, authenticated_client, configurable_types_url
-    ):
+    def test_type_structure(self, authenticated_client, configurable_types_url):
         """Each type in the response has name, display_name, description, category, default_channels."""
         response = authenticated_client.get(configurable_types_url)
 

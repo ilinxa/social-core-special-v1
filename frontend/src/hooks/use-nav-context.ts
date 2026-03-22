@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useShallow } from "zustand/react/shallow";
 
 import { useMembershipStore } from "@/stores/membership-store";
 import type { NavContext } from "@/types/navigation";
@@ -16,7 +17,7 @@ const BCONSOLE_REGEX = /^\/bconsole\/([^/]+)/;
  */
 export function useNavContext(): NavContext {
   const pathname = usePathname();
-  const memberships = useMembershipStore((s) => s.memberships);
+  const memberships = useMembershipStore(useShallow((s) => s.memberships));
 
   const businessMatch = pathname.match(BCONSOLE_REGEX);
   if (businessMatch) {

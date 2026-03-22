@@ -130,6 +130,8 @@ describe("useCreateFormMapping", () => {
     );
 
     result.current.mutate({
+      account_type: "business",
+      account_id: "550e8400-e29b-41d4-a716-446655440002",
       transaction_type: "business_membership_invitation",
       form_template_id: "tpl-1",
       is_required: true,
@@ -138,6 +140,8 @@ describe("useCreateFormMapping", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(createFormMappingApi).toHaveBeenCalledWith({
+      account_type: "business",
+      account_id: "550e8400-e29b-41d4-a716-446655440002",
       transaction_type: "business_membership_invitation",
       form_template_id: "tpl-1",
       is_required: true,

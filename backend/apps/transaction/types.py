@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List
 from uuid import UUID
+
 from apps.core.constants import ContextType
-from apps.transaction.constants import TransactionMode, PartyType, ApproverPolicy
+from apps.transaction.constants import ApproverPolicy, PartyType, TransactionMode
 
 
 @dataclass
@@ -15,12 +16,12 @@ class TransactionTypeConfig:
     context_type: ContextType
     approver_policy: ApproverPolicy
     required_permissions: List[str] = field(default_factory=list)
-    approval_permission: Optional[str] = None
+    approval_permission: str | None = None
     owner_only: bool = False
-    required_form_template_id: Optional[UUID] = None
-    optional_form_template_id: Optional[UUID] = None
-    required_form_template_slug: Optional[str] = None
-    optional_form_template_slug: Optional[str] = None
+    required_form_template_id: UUID | None = None
+    optional_form_template_id: UUID | None = None
+    required_form_template_slug: str | None = None
+    optional_form_template_slug: str | None = None
     payload_schema: dict = field(default_factory=dict)
     expiration_days: int = 7
     resubmission_cooldown_days: int = 0
@@ -34,11 +35,17 @@ class TransactionTypeConfig:
 
     @property
     def requires_form(self) -> bool:
-        return self.required_form_template_slug is not None or self.required_form_template_id is not None
+        return (
+            self.required_form_template_slug is not None
+            or self.required_form_template_id is not None
+        )
 
     @property
     def has_optional_form(self) -> bool:
-        return self.optional_form_template_slug is not None or self.optional_form_template_id is not None
+        return (
+            self.optional_form_template_slug is not None
+            or self.optional_form_template_id is not None
+        )
 
 
 TRANSACTION_TYPES = {
@@ -90,7 +97,6 @@ TRANSACTION_TYPES = {
         expiration_days=7,
         outcome_handler="apps.transaction.outcome_handlers.OwnershipOutcomeHandler.handle_accepted",
     ),
-
     # --- BUSINESS ---
     "business_membership_invitation": TransactionTypeConfig(
         id="business_membership_invitation",
@@ -220,7 +226,6 @@ TRANSACTION_TYPES = {
         resubmission_cooldown_days=30,
         outcome_handler="apps.transaction.outcome_handlers.PermissionOutcomeHandler.handle_business_creation_approved",
     ),
-
     # --- BUSINESS CONNECTIONS ---
     "business_connection_request": TransactionTypeConfig(
         id="business_connection_request",
@@ -235,7 +240,11 @@ TRANSACTION_TYPES = {
         approval_permission="can_manage_connections",
         payload_schema={
             "initiator_account_type": {"type": "string", "required": True},
-            "initiator_account_id": {"type": "string", "format": "uuid", "required": True},
+            "initiator_account_id": {
+                "type": "string",
+                "format": "uuid",
+                "required": True,
+            },
             "note": {"type": "string", "max_length": 500, "required": False},
         },
         expiration_days=30,
@@ -254,14 +263,17 @@ TRANSACTION_TYPES = {
         approval_permission="can_manage_connections",
         payload_schema={
             "initiator_account_type": {"type": "string", "required": True},
-            "initiator_account_id": {"type": "string", "format": "uuid", "required": True},
+            "initiator_account_id": {
+                "type": "string",
+                "format": "uuid",
+                "required": True,
+            },
             "note": {"type": "string", "max_length": 500, "required": False},
         },
         expiration_days=30,
         resubmission_cooldown_days=7,
         outcome_handler="apps.network.outcome_handlers.ConnectionOutcomeHandler.handle_account_accepted",
     ),
-
     # --- USER-TO-USER ---
     "user_connection_request": TransactionTypeConfig(
         id="user_connection_request",
@@ -288,13 +300,15 @@ def get_conflict_group_types(conflict_group: str) -> list[str]:
     if not conflict_group:
         return []
     return [
-        cfg.id for cfg in TRANSACTION_TYPES.values()
+        cfg.id
+        for cfg in TRANSACTION_TYPES.values()
         if cfg.conflict_group == conflict_group
     ]
 
 
 def get_transaction_type(type_id: str) -> TransactionTypeConfig:
     from apps.core.exceptions import NotFound
+
     config = TRANSACTION_TYPES.get(type_id)
     if not config:
         raise NotFound(

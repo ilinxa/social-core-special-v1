@@ -15,8 +15,8 @@ import pytest
 from django.db import IntegrityError
 from django.db.utils import IntegrityError as DBIntegrityError
 
-from apps.core.constants import AccountType, PermissionScope, MembershipStatus
-from apps.rbac.models import Permission, Role, RolePermission, Membership
+from apps.core.constants import AccountType, MembershipStatus, PermissionScope
+from apps.rbac.models import Membership, Permission, Role, RolePermission
 
 
 @pytest.mark.django_db
@@ -201,7 +201,9 @@ class TestMembershipUniqueConstraints:
                 status=MembershipStatus.ACTIVE,
             )
 
-    def test_one_membership_per_user_per_account(self, business, role, base_member_role, user):
+    def test_one_membership_per_user_per_account(
+        self, business, role, base_member_role, user
+    ):
         """Test that a user can only have one membership per account."""
         Membership.objects.create(
             user=user,
@@ -251,7 +253,9 @@ class TestMembershipUniqueConstraints:
         )
         assert m1.id != m2.id
 
-    def test_deleted_owner_allows_new_owner(self, business, owner_role, user, another_user):
+    def test_deleted_owner_allows_new_owner(
+        self, business, owner_role, user, another_user
+    ):
         """Test that soft-deleting owner allows assigning a new owner."""
         old_owner = Membership.objects.create(
             user=user,
@@ -311,9 +315,11 @@ class TestMembershipManager:
         member1.status = MembershipStatus.SUSPENDED
         member1.save()
 
-        active_count = Membership.objects.active().filter(
-            account_id=business_with_members["business"].id
-        ).count()
+        active_count = (
+            Membership.objects.active()
+            .filter(account_id=business_with_members["business"].id)
+            .count()
+        )
         # Owner + member2 = 2 active
         assert active_count == 2
 

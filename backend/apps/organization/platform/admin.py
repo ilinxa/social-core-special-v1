@@ -26,8 +26,22 @@ class PlatformProfileInline(admin.StackedInline):
 class PlatformAccountAdmin(admin.ModelAdmin):
     """Admin configuration for PlatformAccount."""
 
-    list_display = ("id", "is_configured", "max_members", "open_member_request", "created_at", "updated_at")
-    readonly_fields = ("id", "singleton_key", "created_at", "updated_at", "created_by", "updated_by")
+    list_display = (
+        "id",
+        "is_configured",
+        "max_members",
+        "open_member_request",
+        "created_at",
+        "updated_at",
+    )
+    readonly_fields = (
+        "id",
+        "singleton_key",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
     inlines = [PlatformProfileInline]
 
     fieldsets = (

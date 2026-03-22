@@ -14,16 +14,16 @@ Key scenarios:
 - Role assignment validation
 """
 
-import pytest
-from uuid import uuid4
 from datetime import datetime
+from uuid import uuid4
 
-from apps.core.constants import AccountType, PermissionScope, MembershipStatus
+import pytest
+
+from apps.core.constants import AccountType, MembershipStatus, PermissionScope
 from apps.core.exceptions import PermissionDenied
 from apps.core.types import ActorContext
-from apps.rbac.models import Role, RolePermission, Membership
+from apps.rbac.models import Membership, Role, RolePermission
 from apps.rbac.policies import MembershipPolicy, RolePolicy
-
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -133,7 +133,9 @@ class TestMembershipPolicyAuthorize:
             )
         assert "Missing required permission" in str(exc_info.value.message)
 
-    def test_cross_account_requires_global_scope(self, business, another_business, role):
+    def test_cross_account_requires_global_scope(
+        self, business, another_business, role
+    ):
         """Test cross-account action requires global-scoped permission."""
         # Actor in business A
         actor_context = make_actor_context(
@@ -164,7 +166,9 @@ class TestMembershipPolicyAuthorize:
                 required_permission="can_remove_member",
             )
 
-    def test_cross_account_with_global_permission(self, business, another_business, platform):
+    def test_cross_account_with_global_permission(
+        self, business, another_business, platform
+    ):
         """Test cross-account action with global-scoped permission."""
         # Platform actor with global permission
         actor_context = make_actor_context(
@@ -228,7 +232,9 @@ class TestMembershipPolicyOwnerInvincibility:
             )
         assert "account owner" in str(exc_info.value.message)
 
-    def test_business_owner_vulnerable_to_platform_global(self, business, owner_role, platform):
+    def test_business_owner_vulnerable_to_platform_global(
+        self, business, owner_role, platform
+    ):
         """Test that business owner CAN be acted upon by platform with global permission."""
         # Platform actor with global permission
         actor_context = make_actor_context(
@@ -780,7 +786,9 @@ class TestMembershipPolicyGetViewerPermissions:
         assert perms["can_ban"] is False
         assert perms["can_reactivate"] is False
 
-    def test_owner_viewing_suspended_member(self, business, owner_role, base_member_role):
+    def test_owner_viewing_suspended_member(
+        self, business, owner_role, base_member_role
+    ):
         """Owner should see can_reactivate=True for suspended member."""
         account_id = business.id
         actor_context = make_actor_context(
@@ -1044,7 +1052,9 @@ class TestPlatformDominanceRule:
             required_permission="can_change_member_role",
         )
 
-    def test_platform_moderator_cannot_act_on_admin(self, platform, platform_admin_role):
+    def test_platform_moderator_cannot_act_on_admin(
+        self, platform, platform_admin_role
+    ):
         """Level 5 (moderator) cannot act on level 2 (admin) within platform."""
         account_id = platform.id
         actor_context = make_actor_context(
@@ -1135,7 +1145,9 @@ class TestPlatformTargetChecks:
 class TestPlatformRoleAssignment:
     """Role assignment validation for platform context."""
 
-    def test_cannot_assign_platform_owner_role(self, platform, platform_base_member_role):
+    def test_cannot_assign_platform_owner_role(
+        self, platform, platform_base_member_role
+    ):
         """Platform owner role (level 0) cannot be assigned directly."""
         account_id = platform.id
         owner_role = Role.objects.create(
@@ -1167,7 +1179,9 @@ class TestPlatformRoleAssignment:
             )
         assert "ownership transfer" in str(exc_info.value.message)
 
-    def test_cannot_assign_equal_or_higher_platform_role(self, platform, platform_base_member_role):
+    def test_cannot_assign_equal_or_higher_platform_role(
+        self, platform, platform_base_member_role
+    ):
         """Platform actor cannot assign role equal to or higher than their own."""
         account_id = platform.id
         admin_role = Role.objects.create(
@@ -1199,7 +1213,9 @@ class TestPlatformRoleAssignment:
             )
         assert "equal or higher authority" in str(exc_info.value.message)
 
-    def test_platform_role_must_belong_to_same_platform(self, platform, business, platform_base_member_role):
+    def test_platform_role_must_belong_to_same_platform(
+        self, platform, business, platform_base_member_role
+    ):
         """Role from a different account is rejected."""
         # Create role on the business, not the platform
         business_role = Role.objects.create(
@@ -1349,7 +1365,9 @@ class TestPlatformRolePolicies:
 class TestPlatformMembershipViewerPermissions:
     """get_viewer_permissions for platform membership context."""
 
-    def test_platform_owner_viewing_active_member(self, platform, platform_owner_role, platform_base_member_role):
+    def test_platform_owner_viewing_active_member(
+        self, platform, platform_owner_role, platform_base_member_role
+    ):
         """Platform owner should have all action permissions on an active member."""
         account_id = platform.id
         actor_context = make_actor_context(
@@ -1414,7 +1432,9 @@ class TestPlatformMembershipViewerPermissions:
         assert perms["can_ban"] is False
         assert perms["can_reactivate"] is False
 
-    def test_platform_owner_viewing_suspended_member(self, platform, platform_owner_role, platform_base_member_role):
+    def test_platform_owner_viewing_suspended_member(
+        self, platform, platform_owner_role, platform_base_member_role
+    ):
         """Platform owner sees can_reactivate=True for suspended member."""
         account_id = platform.id
         actor_context = make_actor_context(

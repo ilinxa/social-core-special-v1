@@ -26,7 +26,7 @@ import {
   updateUsernameApi,
   uploadAvatarApi,
 } from "@/features/users/api/users-api";
-import type { User } from "@/types/auth";
+import type { User } from "@/types";
 import {
   useUpdateUsername,
   useUpdateProfile,
@@ -54,6 +54,8 @@ const mockUser: User = {
     phone: "",
     avatar_url: null,
     has_avatar: false,
+    cover_image_url: null,
+    has_cover_image: false,
     timezone: "UTC",
     language: "en",
     bio: "",

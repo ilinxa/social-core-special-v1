@@ -11,13 +11,13 @@ Services:
 """
 
 from apps.auth.services.auth_service import AuthService, DeviceInfo, TokenPair
-from apps.auth.services.verification_service import VerificationService
 from apps.auth.services.password_service import PasswordService
+from apps.auth.services.verification_service import VerificationService
 
 __all__ = [
-    'AuthService',
-    'DeviceInfo',
-    'TokenPair',
-    'VerificationService',
-    'PasswordService',
+    "AuthService",
+    "DeviceInfo",
+    "TokenPair",
+    "VerificationService",
+    "PasswordService",
 ]

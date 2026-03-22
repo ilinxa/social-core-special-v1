@@ -25,9 +25,7 @@ Usage:
     users = UserSelector.get_active_users()
 """
 
-from typing import Optional
-
-from django.db.models import Count, QuerySet
+from django.db.models import Count, Q, QuerySet
 
 from apps.core.exceptions import NotFound
 from apps.users.models import User, UserProfile
@@ -64,20 +62,16 @@ class UserSelector:
         """
         queryset = User.objects.all()
         if with_profile:
-            queryset = queryset.select_related('profile')
+            queryset = queryset.select_related("profile")
 
         user = queryset.filter(id=user_id).first()
         if not user:
-            raise NotFound(resource='User', resource_id=user_id)
+            raise NotFound(resource="User", resource_id=user_id)
 
         return user
 
     @staticmethod
-    def get_by_id_or_none(
-        *,
-        user_id: int,
-        with_profile: bool = False
-    ) -> Optional[User]:
+    def get_by_id_or_none(*, user_id: int, with_profile: bool = False) -> User | None:
         """
         Get user by ID, returns None if not found.
 
@@ -90,7 +84,7 @@ class UserSelector:
         """
         queryset = User.objects.all()
         if with_profile:
-            queryset = queryset.select_related('profile')
+            queryset = queryset.select_related("profile")
 
         return queryset.filter(id=user_id).first()
 
@@ -111,20 +105,16 @@ class UserSelector:
         """
         queryset = User.objects.all()
         if with_profile:
-            queryset = queryset.select_related('profile')
+            queryset = queryset.select_related("profile")
 
         user = queryset.filter(email__iexact=email.strip()).first()
         if not user:
-            raise NotFound(resource='User', resource_id=email)
+            raise NotFound(resource="User", resource_id=email)
 
         return user
 
     @staticmethod
-    def get_by_email_or_none(
-        *,
-        email: str,
-        with_profile: bool = False
-    ) -> Optional[User]:
+    def get_by_email_or_none(*, email: str, with_profile: bool = False) -> User | None:
         """
         Get user by email, returns None if not found.
 
@@ -137,7 +127,7 @@ class UserSelector:
         """
         queryset = User.objects.all()
         if with_profile:
-            queryset = queryset.select_related('profile')
+            queryset = queryset.select_related("profile")
 
         return queryset.filter(email__iexact=email.strip()).first()
 
@@ -158,20 +148,18 @@ class UserSelector:
         """
         queryset = User.objects.all()
         if with_profile:
-            queryset = queryset.select_related('profile')
+            queryset = queryset.select_related("profile")
 
         user = queryset.filter(username__iexact=username.strip()).first()
         if not user:
-            raise NotFound(resource='User', resource_id=username)
+            raise NotFound(resource="User", resource_id=username)
 
         return user
 
     @staticmethod
     def get_by_username_or_none(
-        *,
-        username: str,
-        with_profile: bool = False
-    ) -> Optional[User]:
+        *, username: str, with_profile: bool = False
+    ) -> User | None:
         """
         Get user by username, returns None if not found.
 
@@ -184,7 +172,7 @@ class UserSelector:
         """
         queryset = User.objects.all()
         if with_profile:
-            queryset = queryset.select_related('profile')
+            queryset = queryset.select_related("profile")
 
         return queryset.filter(username__iexact=username.strip()).first()
 
@@ -211,7 +199,7 @@ class UserSelector:
 
         user = queryset.filter(email__iexact=email.strip()).first()
         if not user:
-            raise NotFound(resource='User', resource_id=email)
+            raise NotFound(resource="User", resource_id=email)
 
         return user
 
@@ -276,9 +264,7 @@ class UserSelector:
         Returns:
             QuerySet of referred users with profiles
         """
-        return User.objects.filter(
-            referred_by=user
-        ).select_related('profile')
+        return User.objects.filter(referred_by=user).select_related("profile")
 
     @staticmethod
     def count_referrals(*, user: User) -> int:
@@ -304,11 +290,11 @@ class UserSelector:
         Returns:
             QuerySet of users ordered by referral count
         """
-        return User.objects.annotate(
-            referral_count=Count('referrals')
-        ).filter(
-            referral_count__gt=0
-        ).order_by('-referral_count')[:limit]
+        return (
+            User.objects.annotate(referral_count=Count("referrals"))
+            .filter(referral_count__gt=0)
+            .order_by("-referral_count")[:limit]
+        )
 
     # =========================================================================
     # PROFILE QUERIES
@@ -331,10 +317,7 @@ class UserSelector:
         try:
             return user.profile
         except UserProfile.DoesNotExist:
-            raise NotFound(
-                resource='UserProfile',
-                resource_id=user.id
-            )
+            raise NotFound(resource="UserProfile", resource_id=user.id)
 
     # =========================================================================
     # EXISTENCE CHECKS
@@ -365,3 +348,44 @@ class UserSelector:
             True if username exists, False otherwise
         """
         return User.objects.filter(username__iexact=username.strip()).exists()
+
+    # =========================================================================
+    # APPROVED BUSINESS CREATORS
+    # =========================================================================
+
+    @staticmethod
+    def list_approved_business_creators(
+        *,
+        search: str | None = None,
+        ordering: str | None = None,
+    ) -> QuerySet[User]:
+        """
+        Get active users who have permission to create businesses.
+
+        Args:
+            search: Optional search term for name/email/username
+            ordering: Sort order (name, newest, email)
+
+        Returns:
+            QuerySet of users with can_create_business=True
+        """
+        qs = User.objects.filter(
+            can_create_business=True,
+            is_active=True,
+        ).select_related("profile")
+
+        if search:
+            qs = qs.filter(
+                Q(email__icontains=search)
+                | Q(username__icontains=search)
+                | Q(profile__first_name__icontains=search)
+                | Q(profile__last_name__icontains=search)
+            )
+
+        order_map = {
+            "name": "profile__first_name",
+            "newest": "-date_joined",
+            "email": "email",
+        }
+        qs = qs.order_by(order_map.get(ordering or "", "-date_joined"))
+        return qs

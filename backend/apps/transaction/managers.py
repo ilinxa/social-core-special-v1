@@ -1,7 +1,8 @@
 from django.db import models
 from django.utils import timezone
+
 from apps.core.models import SoftDeleteManager
-from apps.transaction.constants import TransactionStatus, TERMINAL_STATES
+from apps.transaction.constants import TERMINAL_STATES, TransactionStatus
 
 
 class TransactionQuerySet(models.QuerySet):

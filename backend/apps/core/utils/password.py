@@ -3,7 +3,7 @@ Password Utilities
 ==================
 Secure password hashing and validation utilities.
 
-Uses Django's built-in password hashing (which uses Argon2 by default in Django 4+).
+Uses Django's built-in password hashing with Argon2 (configured in PASSWORD_HASHERS).
 This module provides a cleaner interface and additional validation helpers.
 
 Security Notes:
@@ -34,23 +34,23 @@ Usage:
         pass
 """
 
-from typing import List, Optional
+from typing import List
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 
-
 # =============================================================================
 # PASSWORD HASHING
 # =============================================================================
+
 
 def hash_password(password: str) -> str:
     """
     Hash a password for secure storage.
 
     Uses Django's make_password which:
-        - Uses Argon2 by default (Django 4+)
+        - Uses the first hasher in PASSWORD_HASHERS (Argon2)
         - Includes automatic salting
         - Produces a string safe for database storage
 
@@ -99,10 +99,8 @@ def verify_password(password: str, hashed: str) -> bool:
 # PASSWORD VALIDATION
 # =============================================================================
 
-def validate_password_strength(
-    password: str,
-    user=None
-) -> List[str]:
+
+def validate_password_strength(password: str, user=None) -> List[str]:
     """
     Validate password against strength requirements.
 
@@ -155,6 +153,7 @@ def is_password_valid(password: str, user=None) -> bool:
 # PASSWORD REQUIREMENTS INFO
 # =============================================================================
 
+
 def get_password_requirements() -> List[str]:
     """
     Get human-readable password requirements.
@@ -169,10 +168,7 @@ def get_password_requirements() -> List[str]:
         requirements = get_password_requirements()
         # ["At least 8 characters", "Not a common password", ...]
     """
-    from django.conf import settings
-    from django.contrib.auth.password_validation import (
-        get_default_password_validators,
-    )
+    from django.contrib.auth.password_validation import get_default_password_validators
 
     requirements = []
 
@@ -187,6 +183,7 @@ def get_password_requirements() -> List[str]:
 # =============================================================================
 # PASSWORD GENERATION (for temporary passwords)
 # =============================================================================
+
 
 def generate_temporary_password(length: int = 12) -> str:
     """
@@ -215,12 +212,7 @@ def generate_temporary_password(length: int = 12) -> str:
 
     # Character set: letters, digits, and some punctuation
     # Excludes ambiguous characters (0, O, l, 1, I)
-    alphabet = (
-        "abcdefghjkmnpqrstuvwxyz"
-        "ABCDEFGHJKMNPQRSTUVWXYZ"
-        "23456789"
-        "!@#$%^&*"
-    )
+    alphabet = "abcdefghjkmnpqrstuvwxyz" "ABCDEFGHJKMNPQRSTUVWXYZ" "23456789" "!@#$%^&*"
 
     # Ensure at least one of each type
     password = [

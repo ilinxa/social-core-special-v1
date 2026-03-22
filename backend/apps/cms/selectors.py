@@ -5,17 +5,25 @@ CMS Selectors
 Read-only queries for CMS models. All methods use keyword-only arguments.
 """
 
-from typing import Optional
 from uuid import UUID
-from django.db.models import QuerySet, Prefetch
 
-from apps.core.exceptions import NotFound
+from django.db.models import Prefetch, QuerySet
+
+from apps.cms.constants import PageStatus
 from apps.cms.models import (
-    Site, Page, SectionTemplate, BlockTemplate,
-    PageSectionPlacement, SectionBlockPlacement,
-    ContentVersion, MediaFolder, MediaFile, MediaUsage, CMSApiKey,
+    BlockTemplate,
+    CMSApiKey,
+    ContentVersion,
+    MediaFile,
+    MediaFolder,
+    MediaUsage,
+    Page,
+    PageSectionPlacement,
+    SectionBlockPlacement,
+    SectionTemplate,
+    Site,
 )
-from apps.cms.constants import PageStatus, ContentLayer
+from apps.core.exceptions import NotFound
 
 
 class CMSSiteSelector:
@@ -71,16 +79,19 @@ class CMSPageSelector:
         Uses prefetch_related for efficient loading (3 joins deep).
         """
         page = (
-            Page.objects
-            .filter(id=page_id)
+            Page.objects.filter(id=page_id)
             .prefetch_related(
                 Prefetch(
                     "section_placements",
-                    queryset=PageSectionPlacement.objects.select_related("template").order_by("order"),
+                    queryset=PageSectionPlacement.objects.select_related(
+                        "template"
+                    ).order_by("order"),
                 ),
                 Prefetch(
                     "section_placements__block_placements",
-                    queryset=SectionBlockPlacement.objects.select_related("template").order_by("order"),
+                    queryset=SectionBlockPlacement.objects.select_related(
+                        "template"
+                    ).order_by("order"),
                 ),
             )
             .first()
@@ -93,7 +104,7 @@ class CMSPageSelector:
     def list_by_site(
         *,
         site_id: UUID,
-        status: Optional[str] = None,
+        status: str | None = None,
         visible_only: bool = False,
     ) -> QuerySet[Page]:
         qs = Page.objects.filter(site_id=site_id)
@@ -106,11 +117,9 @@ class CMSPageSelector:
     @staticmethod
     def list_published_for_site(*, site_id: UUID) -> QuerySet[Page]:
         """List published, visible pages for public API."""
-        return (
-            Page.objects
-            .filter(site_id=site_id, status=PageStatus.PUBLISHED, is_visible=True)
-            .order_by("order")
-        )
+        return Page.objects.filter(
+            site_id=site_id, status=PageStatus.PUBLISHED, is_visible=True
+        ).order_by("order")
 
 
 class CMSTemplateSelector:
@@ -139,7 +148,7 @@ class CMSTemplateSelector:
 
     @staticmethod
     def list_section_templates(
-        *, section_type: Optional[str] = None
+        *, section_type: str | None = None
     ) -> QuerySet[SectionTemplate]:
         qs = SectionTemplate.objects.all()
         if section_type:
@@ -148,7 +157,7 @@ class CMSTemplateSelector:
 
     @staticmethod
     def list_block_templates(
-        *, block_type: Optional[str] = None
+        *, block_type: str | None = None
     ) -> QuerySet[BlockTemplate]:
         qs = BlockTemplate.objects.all()
         if block_type:
@@ -162,20 +171,26 @@ class CMSBlockPlacementSelector:
     @staticmethod
     def get_by_id(*, block_placement_id: UUID) -> SectionBlockPlacement:
         placement = (
-            SectionBlockPlacement.objects
-            .select_related("template", "section_placement__page")
+            SectionBlockPlacement.objects.select_related(
+                "template", "section_placement__page"
+            )
             .filter(id=block_placement_id)
             .first()
         )
         if not placement:
-            raise NotFound(resource="SectionBlockPlacement", resource_id=block_placement_id)
+            raise NotFound(
+                resource="SectionBlockPlacement", resource_id=block_placement_id
+            )
         return placement
 
     @staticmethod
-    def list_for_section(*, section_placement_id: UUID) -> QuerySet[SectionBlockPlacement]:
+    def list_for_section(
+        *, section_placement_id: UUID
+    ) -> QuerySet[SectionBlockPlacement]:
         return (
-            SectionBlockPlacement.objects
-            .filter(section_placement_id=section_placement_id)
+            SectionBlockPlacement.objects.filter(
+                section_placement_id=section_placement_id
+            )
             .select_related("template")
             .order_by("order")
         )
@@ -184,8 +199,7 @@ class CMSBlockPlacementSelector:
     def list_for_page(*, page_id: UUID) -> QuerySet[SectionBlockPlacement]:
         """Get all block placements for a page (across all sections)."""
         return (
-            SectionBlockPlacement.objects
-            .filter(section_placement__page_id=page_id)
+            SectionBlockPlacement.objects.filter(section_placement__page_id=page_id)
             .select_related("template", "section_placement")
             .order_by("section_placement__order", "order")
         )
@@ -206,8 +220,8 @@ class CMSMediaSelector:
         *,
         owner_type: str,
         owner_id: UUID,
-        folder_id: Optional[UUID] = None,
-        mime_type: Optional[str] = None,
+        folder_id: UUID | None = None,
+        mime_type: str | None = None,
     ) -> QuerySet[MediaFile]:
         qs = MediaFile.objects.filter(owner_type=owner_type, owner_id=owner_id)
         if folder_id:
@@ -224,7 +238,7 @@ class CMSMediaSelector:
 
     @staticmethod
     def list_folders(
-        *, owner_type: str, owner_id: UUID, parent_id: Optional[UUID] = None
+        *, owner_type: str, owner_id: UUID, parent_id: UUID | None = None
     ) -> QuerySet[MediaFolder]:
         qs = MediaFolder.objects.filter(owner_type=owner_type, owner_id=owner_id)
         if parent_id:
@@ -258,16 +272,13 @@ class CMSContentVersionSelector:
     @staticmethod
     def list_for_placement(*, block_placement_id: UUID) -> QuerySet[ContentVersion]:
         return (
-            ContentVersion.objects
-            .filter(block_placement_id=block_placement_id)
+            ContentVersion.objects.filter(block_placement_id=block_placement_id)
             .select_related("created_by")
             .order_by("-version_number")
         )
 
     @staticmethod
-    def get_version(
-        *, block_placement_id: UUID, version_number: int
-    ) -> ContentVersion:
+    def get_version(*, block_placement_id: UUID, version_number: int) -> ContentVersion:
         version = ContentVersion.objects.filter(
             block_placement_id=block_placement_id,
             version_number=version_number,
@@ -280,10 +291,9 @@ class CMSContentVersionSelector:
         return version
 
     @staticmethod
-    def get_latest_version(*, block_placement_id: UUID) -> Optional[ContentVersion]:
+    def get_latest_version(*, block_placement_id: UUID) -> ContentVersion | None:
         return (
-            ContentVersion.objects
-            .filter(block_placement_id=block_placement_id)
+            ContentVersion.objects.filter(block_placement_id=block_placement_id)
             .order_by("-version_number")
             .first()
         )

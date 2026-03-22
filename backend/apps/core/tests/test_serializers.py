@@ -27,10 +27,9 @@ from apps.core.serializers.base import (
     MessageSerializer,
     PaginatedResponseSerializer,
     TimestampFieldsMixin,
-    UUIDSerializer,
     UserStampFieldsMixin,
+    UUIDSerializer,
 )
-
 
 # =============================================================================
 # BASE INPUT SERIALIZER

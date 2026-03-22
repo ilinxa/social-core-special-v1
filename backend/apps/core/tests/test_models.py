@@ -12,16 +12,15 @@ Covers:
     - AuditLog: immutability (append-only, no delete)
 """
 
-import uuid
 import time
+import uuid
 
 import pytest
 from django.utils import timezone
 
-from apps.organization.tests.factories import BusinessAccountFactory, UserFactory
 from apps.core.observability.audit.models import AuditLog
 from apps.organization.business.models import BusinessAccount
-
+from apps.organization.tests.factories import BusinessAccountFactory, UserFactory
 
 # =============================================================================
 # TIMESTAMPED MODEL TESTS (via BusinessAccount -> AuditModel -> UserStampedModel -> TimeStampedModel)

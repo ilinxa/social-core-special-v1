@@ -57,7 +57,7 @@ def _add_member(business, user, permissions=None):
     )
 
     if permissions:
-        from apps.rbac.models import Role, Permission, RolePermission
+        from apps.rbac.models import Permission, Role, RolePermission
 
         # Create a custom role with the desired permissions
         custom_role = Role.objects.create(
@@ -120,9 +120,7 @@ class TestCrossEndpointVisibilityConsistency:
         biz.profile.contact_email = "t2@acme.com"
         biz.profile.contact_phone = "+1234567890"
         biz.profile.is_public = False
-        biz.profile.save(
-            update_fields=["contact_email", "contact_phone", "is_public"]
-        )
+        biz.profile.save(update_fields=["contact_email", "contact_phone", "is_public"])
 
         viewer = UserFactory()
         client = APIClient()

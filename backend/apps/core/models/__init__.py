@@ -7,17 +7,14 @@ Usage:
     from apps.core.models import TimeStampedModel, SoftDeleteModel, BaseModel
 """
 
-from apps.core.models.base import (
-    # Individual base models
-    TimeStampedModel,
+from apps.core.models.base import (  # Individual base models; Combined base models; Managers
+    AuditModel,
+    BaseModel,
+    SoftDeleteManager,
     SoftDeleteModel,
+    TimeStampedModel,
     UserStampedModel,
     UUIDModel,
-    # Combined base models
-    BaseModel,
-    AuditModel,
-    # Managers
-    SoftDeleteManager,
 )
 
 # Observability models

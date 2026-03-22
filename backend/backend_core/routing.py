@@ -1,7 +1,9 @@
 # backend_core/routing.py
+
 from django.urls import path
-# from apps.websockets.consumers import YourConsumer
+
+from apps.chat.consumers import ChatConsumer
 
 websocket_urlpatterns = [
-    # path("ws/chat/<str:room_name>/", ChatConsumer.as_asgi()),
+    path("ws/chat/", ChatConsumer.as_asgi()),
 ]

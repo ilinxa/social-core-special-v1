@@ -1,6 +1,6 @@
 from apps.core.exceptions import PermissionDenied
 from apps.core.types import ActorContext
-from apps.forms.models import FormTemplate, FormResponse
+from apps.forms.models import FormResponse, FormTemplate
 
 
 class FormTemplatePolicy:
@@ -17,7 +17,9 @@ class FormTemplatePolicy:
 
     @staticmethod
     def can_edit_form(
-        *, actor_context: ActorContext, form_template: FormTemplate,
+        *,
+        actor_context: ActorContext,
+        form_template: FormTemplate,
     ) -> None:
         if form_template.is_system_form:
             raise PermissionDenied(
@@ -34,7 +36,9 @@ class FormTemplatePolicy:
 
     @staticmethod
     def can_delete_form(
-        *, actor_context: ActorContext, form_template: FormTemplate,
+        *,
+        actor_context: ActorContext,
+        form_template: FormTemplate,
     ) -> None:
         if form_template.is_system_form:
             raise PermissionDenied(
@@ -51,7 +55,9 @@ class FormTemplatePolicy:
 
     @staticmethod
     def can_publish_form(
-        *, actor_context: ActorContext, form_template: FormTemplate,
+        *,
+        actor_context: ActorContext,
+        form_template: FormTemplate,
     ) -> None:
         if form_template.is_system_form:
             raise PermissionDenied(
@@ -68,7 +74,9 @@ class FormTemplatePolicy:
 
     @staticmethod
     def can_archive_form(
-        *, actor_context: ActorContext, form_template: FormTemplate,
+        *,
+        actor_context: ActorContext,
+        form_template: FormTemplate,
     ) -> None:
         if form_template.is_system_form:
             raise PermissionDenied(
@@ -85,7 +93,9 @@ class FormTemplatePolicy:
 
     @staticmethod
     def can_view_responses(
-        *, actor_context: ActorContext, form_template: FormTemplate,
+        *,
+        actor_context: ActorContext,
+        form_template: FormTemplate,
     ) -> None:
         if not actor_context.has_permission("can_view_responses"):
             raise PermissionDenied(
@@ -103,15 +113,17 @@ class FormTemplatePolicy:
                 resource="FormTemplate",
             )
 
-
     @staticmethod
-    def get_viewer_permissions(*, actor_context: ActorContext, form_template: FormTemplate) -> dict:
+    def get_viewer_permissions(
+        *, actor_context: ActorContext, form_template: FormTemplate
+    ) -> dict:
         """
         Get evaluated permissions for the requesting user on this form template.
 
         Returns a dict of boolean permission flags for frontend UI gating.
         Uses _safe_check to convert exception-raising policy methods to booleans.
         """
+
         def _safe_check(fn, **kwargs) -> bool:
             try:
                 fn(**kwargs)
@@ -122,19 +134,23 @@ class FormTemplatePolicy:
         return {
             "can_edit": _safe_check(
                 FormTemplatePolicy.can_edit_form,
-                actor_context=actor_context, form_template=form_template,
+                actor_context=actor_context,
+                form_template=form_template,
             ),
             "can_delete": _safe_check(
                 FormTemplatePolicy.can_delete_form,
-                actor_context=actor_context, form_template=form_template,
+                actor_context=actor_context,
+                form_template=form_template,
             ),
             "can_publish": _safe_check(
                 FormTemplatePolicy.can_publish_form,
-                actor_context=actor_context, form_template=form_template,
+                actor_context=actor_context,
+                form_template=form_template,
             ),
             "can_archive": _safe_check(
                 FormTemplatePolicy.can_archive_form,
-                actor_context=actor_context, form_template=form_template,
+                actor_context=actor_context,
+                form_template=form_template,
             ),
         }
 
@@ -168,7 +184,9 @@ class FormResponsePolicy:
 
     @staticmethod
     def can_process_response(
-        *, actor_context: ActorContext, response: FormResponse,
+        *,
+        actor_context: ActorContext,
+        response: FormResponse,
     ) -> None:
         if not actor_context.has_permission("can_process_response"):
             raise PermissionDenied(
@@ -179,7 +197,9 @@ class FormResponsePolicy:
 
     @staticmethod
     def can_export_responses(
-        *, actor_context: ActorContext, form_template: FormTemplate,
+        *,
+        actor_context: ActorContext,
+        form_template: FormTemplate,
     ) -> None:
         if not actor_context.has_permission("can_export_responses"):
             raise PermissionDenied(

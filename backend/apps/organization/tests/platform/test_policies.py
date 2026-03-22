@@ -12,7 +12,6 @@ from apps.organization.tests.factories import UserFactory
 from apps.rbac.selectors import RoleSelector
 from apps.rbac.services import RBACService
 
-
 # =============================================================================
 # FIXTURES
 # =============================================================================
@@ -125,7 +124,9 @@ class TestPlatformPolicyCanUpdateProfile:
         """Platform Admin has can_edit_profile via platform_only scope."""
         assert PlatformPolicy.can_update_profile(user=platform_admin_user) is True
 
-    def test_non_member_cannot_update_profile(self, non_member_user, platform_with_rbac):
+    def test_non_member_cannot_update_profile(
+        self, non_member_user, platform_with_rbac
+    ):
         """User with no platform membership cannot update profile."""
         assert PlatformPolicy.can_update_profile(user=non_member_user) is False
 
@@ -144,7 +145,9 @@ class TestPlatformPolicyCanUpdateSettings:
         """Platform Owner has all permissions via RBAC."""
         assert PlatformPolicy.can_update_settings(user=platform_owner_user) is True
 
-    def test_staff_cannot_update_settings_without_rbac(self, staff_user, platform_with_rbac):
+    def test_staff_cannot_update_settings_without_rbac(
+        self, staff_user, platform_with_rbac
+    ):
         """Staff without RBAC membership cannot update settings."""
         assert PlatformPolicy.can_update_settings(user=staff_user) is False
 
@@ -152,7 +155,9 @@ class TestPlatformPolicyCanUpdateSettings:
         """Platform Admin has can_edit_business via platform_only scope (migration 0005)."""
         assert PlatformPolicy.can_update_settings(user=platform_admin_user) is True
 
-    def test_non_member_cannot_update_settings(self, non_member_user, platform_with_rbac):
+    def test_non_member_cannot_update_settings(
+        self, non_member_user, platform_with_rbac
+    ):
         assert PlatformPolicy.can_update_settings(user=non_member_user) is False
 
 

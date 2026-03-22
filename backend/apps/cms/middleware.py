@@ -42,8 +42,7 @@ class CMSApiKeyMiddleware:
         # Validate key
         key_hash = CMSApiKey.hash_key(api_key_value)
         api_key = (
-            CMSApiKey.objects
-            .filter(key_hash=key_hash, is_deleted=False)
+            CMSApiKey.objects.filter(key_hash=key_hash, is_deleted=False)
             .select_related("site")
             .first()
         )

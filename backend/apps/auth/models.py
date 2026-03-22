@@ -27,10 +27,10 @@ from django.utils import timezone
 
 from apps.core.models import TimeStampedModel, UUIDModel
 
-
 # =============================================================================
 # REFRESH TOKEN
 # =============================================================================
+
 
 class RefreshToken(UUIDModel, TimeStampedModel):
     """
@@ -46,7 +46,7 @@ class RefreshToken(UUIDModel, TimeStampedModel):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='refresh_tokens'
+        related_name="refresh_tokens",
     )
 
     # Token identification (hash, not actual token)
@@ -54,7 +54,7 @@ class RefreshToken(UUIDModel, TimeStampedModel):
         max_length=64,
         unique=True,
         db_index=True,
-        help_text="SHA256 hash of the actual token"
+        help_text="SHA256 hash of the actual token",
     )
 
     # JWT ID - included in access tokens to enable invalidation
@@ -62,7 +62,7 @@ class RefreshToken(UUIDModel, TimeStampedModel):
         default=uuid.uuid4,
         unique=True,
         db_index=True,
-        help_text="JWT ID for access token invalidation"
+        help_text="JWT ID for access token invalidation",
     )
 
     # Expiration
@@ -73,48 +73,49 @@ class RefreshToken(UUIDModel, TimeStampedModel):
         max_length=255,
         blank=True,
         db_index=True,
-        help_text="Client-provided device identifier"
+        help_text="Client-provided device identifier",
     )
-    device_info = models.JSONField(
-        default=dict,
-        help_text="User agent, platform, etc."
-    )
+    device_info = models.JSONField(default=dict, help_text="User agent, platform, etc.")
     ip_address = models.GenericIPAddressField(null=True, blank=True)
 
     # Status
     is_revoked = models.BooleanField(default=False, db_index=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class RevokedReason(models.TextChoices):
+        LOGOUT = "logout", "User Logout"
+        LOGOUT_ALL = "logout_all", "Logout All Sessions"
+        PASSWORD_CHANGE = "password_change", "Password Changed"
+        SESSION_LIMIT = "session_limit", "Session Limit Exceeded"
+        SECURITY = "security", "Security Event"
+        ADMIN = "admin", "Admin Revocation"
+        TOKEN_REUSE = "token_reuse", "Token Reuse Detected"
+
     revoked_reason = models.CharField(
         max_length=50,
         blank=True,
-        choices=[
-            ('logout', 'User Logout'),
-            ('logout_all', 'Logout All Sessions'),
-            ('password_change', 'Password Changed'),
-            ('session_limit', 'Session Limit Exceeded'),
-            ('security', 'Security Event'),
-            ('admin', 'Admin Revocation'),
-            ('token_reuse', 'Token Reuse Detected'),
-        ]
+        choices=RevokedReason.choices,
     )
 
     # Rotation tracking
     replaced_by = models.OneToOneField(
-        'self',
+        "self",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='replaces',
-        help_text="The new token that replaced this one"
+        related_name="replaces",
+        help_text="The new token that replaced this one",
     )
 
     class Meta:
-        db_table = 'auth_refresh_tokens'
+        db_table = "auth_refresh_tokens"
+        verbose_name = "refresh token"
+        verbose_name_plural = "refresh tokens"
         indexes = [
-            models.Index(fields=['user', 'is_revoked', 'expires_at']),
-            models.Index(fields=['device_id', 'user']),
+            models.Index(fields=["user", "is_revoked", "expires_at"]),
+            models.Index(fields=["device_id", "user"]),
         ]
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
 
     def __str__(self):
         status = "revoked" if self.is_revoked else "active"
@@ -124,9 +125,9 @@ class RefreshToken(UUIDModel, TimeStampedModel):
     def is_valid(self) -> bool:
         """Check if token can be used."""
         return (
-            not self.is_revoked and
-            self.expires_at > timezone.now() and
-            self.replaced_by is None
+            not self.is_revoked
+            and self.expires_at > timezone.now()
+            and self.replaced_by is None
         )
 
     @staticmethod
@@ -136,12 +137,8 @@ class RefreshToken(UUIDModel, TimeStampedModel):
 
     @classmethod
     def create_token(
-        cls,
-        user,
-        device_id: str = '',
-        device_info: dict = None,
-        ip_address: str = None
-    ) -> tuple['RefreshToken', str]:
+        cls, user, device_id: str = "", device_info: dict = None, ip_address: str = None
+    ) -> tuple["RefreshToken", str]:
         """
         Create a new refresh token.
 
@@ -152,11 +149,9 @@ class RefreshToken(UUIDModel, TimeStampedModel):
         raw_token = secrets.token_urlsafe(32)
 
         # Get lifetime from settings
-        lifetime_seconds = getattr(
-            settings,
-            'JWT_AUTH',
-            {}
-        ).get('REFRESH_TOKEN_LIFETIME', 604800)  # Default 7 days
+        lifetime_seconds = getattr(settings, "JWT_AUTH", {}).get(
+            "REFRESH_TOKEN_LIFETIME", 604800
+        )  # Default 7 days
 
         # Create instance with hash
         instance = cls.objects.create(
@@ -165,22 +160,23 @@ class RefreshToken(UUIDModel, TimeStampedModel):
             expires_at=timezone.now() + timedelta(seconds=lifetime_seconds),
             device_id=device_id,
             device_info=device_info or {},
-            ip_address=ip_address
+            ip_address=ip_address,
         )
 
         return instance, raw_token
 
-    def revoke(self, reason: str = 'logout') -> None:
+    def revoke(self, reason: str = "logout") -> None:
         """Revoke this token."""
         self.is_revoked = True
         self.revoked_at = timezone.now()
         self.revoked_reason = reason
-        self.save(update_fields=['is_revoked', 'revoked_at', 'revoked_reason'])
+        self.save(update_fields=["is_revoked", "revoked_at", "revoked_reason"])
 
 
 # =============================================================================
 # DEVICE SESSION
 # =============================================================================
+
 
 class DeviceSession(UUIDModel, TimeStampedModel):
     """
@@ -190,24 +186,22 @@ class DeviceSession(UUIDModel, TimeStampedModel):
     """
 
     class DeviceType(models.TextChoices):
-        WEB = 'web', 'Web Browser'
-        IOS = 'ios', 'iOS App'
-        ANDROID = 'android', 'Android App'
-        DESKTOP = 'desktop', 'Desktop App'
-        UNKNOWN = 'unknown', 'Unknown'
+        WEB = "web", "Web Browser"
+        IOS = "ios", "iOS App"
+        ANDROID = "android", "Android App"
+        DESKTOP = "desktop", "Desktop App"
+        UNKNOWN = "unknown", "Unknown"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='device_sessions'
+        related_name="device_sessions",
     )
 
     device_id = models.CharField(max_length=255, db_index=True)
     device_name = models.CharField(max_length=255, blank=True)
     device_type = models.CharField(
-        max_length=20,
-        choices=DeviceType.choices,
-        default=DeviceType.UNKNOWN
+        max_length=20, choices=DeviceType.choices, default=DeviceType.UNKNOWN
     )
 
     user_agent = models.TextField(blank=True)
@@ -223,16 +217,23 @@ class DeviceSession(UUIDModel, TimeStampedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='session'
+        related_name="session",
     )
 
     class Meta:
-        db_table = 'auth_device_sessions'
-        unique_together = ['user', 'device_id']
+        db_table = "auth_device_sessions"
+        verbose_name = "device session"
+        verbose_name_plural = "device sessions"
         indexes = [
-            models.Index(fields=['user', 'is_active', 'last_activity']),
+            models.Index(fields=["user", "is_active", "last_activity"]),
         ]
-        ordering = ['-last_activity']
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "device_id"],
+                name="auth_device_session_user_device_uniq",
+            ),
+        ]
+        ordering = ["-last_activity"]
 
     def __str__(self):
         return f"{self.device_name or self.device_type} - {self.user_id}"
@@ -241,6 +242,7 @@ class DeviceSession(UUIDModel, TimeStampedModel):
 # =============================================================================
 # EMAIL VERIFICATION TOKEN
 # =============================================================================
+
 
 class EmailVerificationToken(TimeStampedModel):
     """
@@ -255,15 +257,11 @@ class EmailVerificationToken(TimeStampedModel):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='verification_tokens'
+        related_name="verification_tokens",
     )
 
     # Magic link token
-    token = models.UUIDField(
-        default=uuid.uuid4,
-        unique=True,
-        db_index=True
-    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
 
     # 6-digit code
     code = models.CharField(max_length=6, db_index=True)
@@ -277,17 +275,19 @@ class EmailVerificationToken(TimeStampedModel):
     used_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        db_table = 'auth_verification_tokens'
+        db_table = "auth_verification_tokens"
+        verbose_name = "email verification token"
+        verbose_name_plural = "email verification tokens"
         indexes = [
-            models.Index(fields=['user', 'is_used', 'expires_at']),
-            models.Index(fields=['code', 'email', 'is_used']),
+            models.Index(fields=["user", "is_used", "expires_at"]),
+            models.Index(fields=["code", "email", "is_used"]),
         ]
         constraints = [
             # Only one active (unused) verification token per user
             models.UniqueConstraint(
-                fields=['user'],
+                fields=["user"],
                 condition=models.Q(is_used=False),
-                name='one_active_verification_token_per_user'
+                name="one_active_verification_token_per_user",
             ),
         ]
 
@@ -302,39 +302,37 @@ class EmailVerificationToken(TimeStampedModel):
     @staticmethod
     def generate_code() -> str:
         """Generate 6-digit verification code."""
-        return ''.join(secrets.choice('0123456789') for _ in range(6))
+        return "".join(secrets.choice("0123456789") for _ in range(6))
 
     @classmethod
-    def create_for_user(cls, user, email: str = None) -> 'EmailVerificationToken':
+    def create_for_user(cls, user, email: str = None) -> "EmailVerificationToken":
         """
         Create verification token for user.
 
         Invalidates any existing active tokens first.
         """
         # Invalidate existing tokens
-        cls.objects.filter(
-            user=user,
-            is_used=False
-        ).update(is_used=True)
+        cls.objects.filter(user=user, is_used=False).update(is_used=True)
 
         # Token expires in 15 minutes
         return cls.objects.create(
             user=user,
             email=email or user.email,
             code=cls.generate_code(),
-            expires_at=timezone.now() + timedelta(minutes=15)
+            expires_at=timezone.now() + timedelta(minutes=15),
         )
 
     def mark_used(self) -> None:
         """Mark token as used."""
         self.is_used = True
         self.used_at = timezone.now()
-        self.save(update_fields=['is_used', 'used_at'])
+        self.save(update_fields=["is_used", "used_at"])
 
 
 # =============================================================================
 # PASSWORD RESET TOKEN
 # =============================================================================
+
 
 class PasswordResetToken(TimeStampedModel):
     """
@@ -347,7 +345,7 @@ class PasswordResetToken(TimeStampedModel):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='password_reset_tokens'
+        related_name="password_reset_tokens",
     )
 
     token = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
@@ -359,16 +357,18 @@ class PasswordResetToken(TimeStampedModel):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
 
     class Meta:
-        db_table = 'auth_password_reset_tokens'
+        db_table = "auth_password_reset_tokens"
+        verbose_name = "password reset token"
+        verbose_name_plural = "password reset tokens"
         indexes = [
-            models.Index(fields=['token', 'is_used']),
+            models.Index(fields=["token", "is_used"]),
         ]
         constraints = [
             # Only one active (unused) reset token per user
             models.UniqueConstraint(
-                fields=['user'],
+                fields=["user"],
                 condition=models.Q(is_used=False),
-                name='one_active_password_reset_token_per_user'
+                name="one_active_password_reset_token_per_user",
             ),
         ]
 
@@ -381,35 +381,33 @@ class PasswordResetToken(TimeStampedModel):
         return not self.is_used and self.expires_at > timezone.now()
 
     @classmethod
-    def create_for_user(cls, user, ip_address: str = None) -> 'PasswordResetToken':
+    def create_for_user(cls, user, ip_address: str = None) -> "PasswordResetToken":
         """
         Create password reset token for user.
 
         Invalidates any existing active tokens first.
         """
         # Invalidate existing tokens
-        cls.objects.filter(
-            user=user,
-            is_used=False
-        ).update(is_used=True)
+        cls.objects.filter(user=user, is_used=False).update(is_used=True)
 
         # Token expires in 1 hour
         return cls.objects.create(
             user=user,
             expires_at=timezone.now() + timedelta(hours=1),
-            ip_address=ip_address
+            ip_address=ip_address,
         )
 
     def mark_used(self) -> None:
         """Mark token as used."""
         self.is_used = True
         self.used_at = timezone.now()
-        self.save(update_fields=['is_used', 'used_at'])
+        self.save(update_fields=["is_used", "used_at"])
 
 
 # =============================================================================
 # OAUTH CONNECTION
 # =============================================================================
+
 
 class OAuthConnection(TimeStampedModel):
     """
@@ -419,20 +417,16 @@ class OAuthConnection(TimeStampedModel):
     """
 
     class Provider(models.TextChoices):
-        GOOGLE = 'google', 'Google'
-        APPLE = 'apple', 'Apple'
+        GOOGLE = "google", "Google"
+        APPLE = "apple", "Apple"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='oauth_connections'
+        related_name="oauth_connections",
     )
 
-    provider = models.CharField(
-        max_length=20,
-        choices=Provider.choices,
-        db_index=True
-    )
+    provider = models.CharField(max_length=20, choices=Provider.choices, db_index=True)
 
     # Provider's unique user ID
     provider_uid = models.CharField(max_length=255)
@@ -444,18 +438,24 @@ class OAuthConnection(TimeStampedModel):
 
     # Provider profile data
     provider_data = models.JSONField(
-        default=dict,
-        help_text="Raw data from provider (name, email, etc.)"
+        default=dict, help_text="Raw data from provider (name, email, etc.)"
     )
 
     # Email from provider (for linking logic)
     provider_email = models.EmailField(blank=True)
 
     class Meta:
-        db_table = 'auth_oauth_connections'
-        unique_together = ['provider', 'provider_uid']
+        db_table = "auth_oauth_connections"
+        verbose_name = "OAuth connection"
+        verbose_name_plural = "OAuth connections"
         indexes = [
-            models.Index(fields=['user', 'provider']),
+            models.Index(fields=["user", "provider"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "provider_uid"],
+                name="auth_oauth_provider_uid_uniq",
+            ),
         ]
 
     def __str__(self):

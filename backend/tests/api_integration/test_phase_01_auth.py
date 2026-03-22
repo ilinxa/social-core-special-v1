@@ -11,10 +11,10 @@ import uuid
 
 import pytest
 
-
 # =============================================================================
 # A01–A04: REGISTER USERS
 # =============================================================================
+
 
 class TestAuthRegister:
     """Register the 4 test users and store their tokens."""
@@ -53,6 +53,7 @@ class TestAuthRegister:
 # A05–A08: LOGIN FLOWS
 # =============================================================================
 
+
 class TestAuthLogin:
     """Test login success and failure cases."""
 
@@ -68,19 +69,25 @@ class TestAuthLogin:
 
     def test_a06_login_wrong_password(self, api, assert_error):
         """Login with wrong password returns 401 invalid_credentials."""
-        r = api.post("auth/login/", json={
-            "email": "alice@test.com",
-            "password": "WrongPassword99!",
-        })
+        r = api.post(
+            "auth/login/",
+            json={
+                "email": "alice@test.com",
+                "password": "WrongPassword99!",
+            },
+        )
         assert r.status_code == 401
         assert_error(r, "invalid_credentials", 401)
 
     def test_a07_login_nonexistent_email(self, api, assert_error):
         """Login with non-existent email returns 401."""
-        r = api.post("auth/login/", json={
-            "email": "nonexistent@test.com",
-            "password": "TestPass123!",
-        })
+        r = api.post(
+            "auth/login/",
+            json={
+                "email": "nonexistent@test.com",
+                "password": "TestPass123!",
+            },
+        )
         assert r.status_code == 401
 
     def test_a08_login_missing_fields(self, api):
@@ -92,6 +99,7 @@ class TestAuthLogin:
 # =============================================================================
 # A09–A10: TOKEN REFRESH
 # =============================================================================
+
 
 class TestAuthRefresh:
     """Test token refresh and reuse detection."""
@@ -134,14 +142,15 @@ class TestAuthRefresh:
 
         # Try to reuse the same refresh token
         r2 = api.refresh_tokens(old_refresh)
-        assert r2.status_code == 401, (
-            f"Expected 401 on token reuse, got {r2.status_code}: {r2.text}"
-        )
+        assert (
+            r2.status_code == 401
+        ), f"Expected 401 on token reuse, got {r2.status_code}: {r2.text}"
 
 
 # =============================================================================
 # A11–A13: LOGOUT
 # =============================================================================
+
 
 class TestAuthLogout:
     """Test logout and logout-all."""
@@ -193,9 +202,9 @@ class TestAuthLogout:
         # 4. Use the OLD token — should be rejected (JTI blacklisted)
         api.set_token(old_token)
         r = api.get("users/me/")
-        assert r.status_code == 401, (
-            f"Expected 401 after logout-all, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 401
+        ), f"Expected 401 after logout-all, got {r.status_code}"
 
         # 5. Login fresh again — proves account is not locked
         r = api.login_as("carol@test.com")
@@ -206,6 +215,7 @@ class TestAuthLogout:
 # =============================================================================
 # A14–A20: EMAIL VERIFICATION
 # =============================================================================
+
 
 class TestAuthEmailVerification:
     """Test email verification via code and magic link."""
@@ -234,9 +244,12 @@ class TestAuthEmailVerification:
         """Resend verification email always returns 200."""
         # Clear token — endpoint is AllowAny but DRF rejects stale Bearer tokens
         api.clear_token()
-        r = api.post("auth/resend-verification/", json={
-            "email": "alice@test.com",
-        })
+        r = api.post(
+            "auth/resend-verification/",
+            json={
+                "email": "alice@test.com",
+            },
+        )
         assert r.status_code == 200
 
     def test_a19_verify_by_code(self, api, db_helper):
@@ -249,10 +262,13 @@ class TestAuthEmailVerification:
         if not code:
             pytest.skip("No verification code found — Celery worker may not be running")
 
-        r = api.post("auth/verify-email/", json={
-            "email": "alice@test.com",
-            "code": code,
-        })
+        r = api.post(
+            "auth/verify-email/",
+            json={
+                "email": "alice@test.com",
+                "code": code,
+            },
+        )
         # May return 200 or 400 if already verified
         assert r.status_code in (200, 400)
 
@@ -275,14 +291,18 @@ class TestAuthEmailVerification:
 # A21–A25: PASSWORD RESET & CHANGE
 # =============================================================================
 
+
 class TestAuthPassword:
     """Test password reset request, confirm, and change."""
 
     def test_a21_password_reset_request(self, api):
         """Request password reset always returns 200 (no email leak)."""
-        r = api.post("auth/password/reset/", json={
-            "email": "alice@test.com",
-        })
+        r = api.post(
+            "auth/password/reset/",
+            json={
+                "email": "alice@test.com",
+            },
+        )
         # 429 if PasswordResetRateThrottle triggered by prior verification/login attempts
         assert r.status_code in (200, 429), f"Unexpected: {r.status_code} {r.text}"
         if r.status_code == 200:
@@ -291,9 +311,12 @@ class TestAuthPassword:
 
     def test_a22_password_reset_nonexistent(self, api):
         """Password reset for non-existent email still returns 200."""
-        r = api.post("auth/password/reset/", json={
-            "email": "nonexistent@test.com",
-        })
+        r = api.post(
+            "auth/password/reset/",
+            json={
+                "email": "nonexistent@test.com",
+            },
+        )
         # 429 if rate limited from prior requests
         assert r.status_code in (200, 429)
 
@@ -308,10 +331,13 @@ class TestAuthPassword:
         if not token:
             pytest.skip("No reset token found — Celery worker may not be running")
 
-        r = api.post("auth/password/reset/confirm/", json={
-            "token": token,
-            "new_password": "NewTestPass123!",
-        })
+        r = api.post(
+            "auth/password/reset/confirm/",
+            json={
+                "token": token,
+                "new_password": "NewTestPass123!",
+            },
+        )
         assert r.status_code == 200
 
         # Restore original password
@@ -328,10 +354,13 @@ class TestAuthPassword:
             if r.status_code != 200:
                 pytest.skip("Cannot login")
 
-        r = api.post("auth/password/change/", json={
-            "current_password": "NewTestPass123!",
-            "new_password": "TestPass123!",
-        })
+        r = api.post(
+            "auth/password/change/",
+            json={
+                "current_password": "NewTestPass123!",
+                "new_password": "TestPass123!",
+            },
+        )
         # May succeed or fail depending on which password is current
         if r.status_code == 200:
             assert "message" in r.json()
@@ -346,6 +375,7 @@ class TestAuthPassword:
 # =============================================================================
 # A26–A28: SESSIONS
 # =============================================================================
+
 
 class TestAuthSessions:
     """Test session listing and revocation."""
@@ -391,6 +421,7 @@ class TestAuthSessions:
 # A29–A31: OAUTH SMOKE TESTS
 # =============================================================================
 
+
 class TestAuthOAuth:
     """Smoke tests for OAuth endpoints (redirect verification only)."""
 
@@ -410,7 +441,5 @@ class TestAuthOAuth:
         for name in ["alice", "bob", "carol", "nobody"]:
             email = f"{name}@test.com"
             r = api.login_as_with_retry(email)
-            assert r.status_code == 200, (
-                f"Failed to login {name}: {r.text}"
-            )
+            assert r.status_code == 200, f"Failed to login {name}: {r.text}"
             state.store_user(name, r.json())

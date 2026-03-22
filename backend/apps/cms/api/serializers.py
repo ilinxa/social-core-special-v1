@@ -6,16 +6,25 @@ Input (validation) and Output (response shaping) serializers.
 """
 
 from rest_framework import serializers
-from apps.cms.models import (
-    Site, Page, SectionTemplate, BlockTemplate,
-    PageSectionPlacement, SectionBlockPlacement,
-    ContentVersion, MediaFolder, MediaFile, MediaUsage, CMSApiKey,
-)
 
+from apps.cms.models import (
+    BlockTemplate,
+    CMSApiKey,
+    ContentVersion,
+    MediaFile,
+    MediaFolder,
+    MediaUsage,
+    Page,
+    PageSectionPlacement,
+    SectionBlockPlacement,
+    SectionTemplate,
+    Site,
+)
 
 # ---------------------------------------------------------------------------
 # Input Serializers
 # ---------------------------------------------------------------------------
+
 
 class SiteCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
@@ -104,7 +113,9 @@ class ApiKeyCreateSerializer(serializers.Serializer):
     site_id = serializers.UUIDField()
     name = serializers.CharField(max_length=255)
     allowed_origins = serializers.ListField(
-        child=serializers.CharField(), required=False, default=list,
+        child=serializers.CharField(),
+        required=False,
+        default=list,
     )
     rate_limit = serializers.IntegerField(min_value=1, required=False, default=60)
     expires_at = serializers.DateTimeField(required=False, default=None)
@@ -113,7 +124,8 @@ class ApiKeyCreateSerializer(serializers.Serializer):
 class ApiKeyUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255, required=False)
     allowed_origins = serializers.ListField(
-        child=serializers.CharField(), required=False,
+        child=serializers.CharField(),
+        required=False,
     )
     is_active = serializers.BooleanField(required=False)
     rate_limit = serializers.IntegerField(min_value=1, required=False)
@@ -121,6 +133,7 @@ class ApiKeyUpdateSerializer(serializers.Serializer):
 
 class PageImportSerializer(serializers.Serializer):
     """Import data matching export format (spec Section 10.1)."""
+
     export_version = serializers.CharField()
     page = serializers.JSONField()
 
@@ -129,13 +142,23 @@ class PageImportSerializer(serializers.Serializer):
 # Output Serializers
 # ---------------------------------------------------------------------------
 
+
 class SiteOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = Site
         fields = [
-            "id", "owner_type", "owner_id", "name", "slug", "domain",
-            "description", "default_locale", "metadata", "is_active",
-            "created_at", "updated_at",
+            "id",
+            "owner_type",
+            "owner_id",
+            "name",
+            "slug",
+            "domain",
+            "description",
+            "default_locale",
+            "metadata",
+            "is_active",
+            "created_at",
+            "updated_at",
         ]
 
 
@@ -145,9 +168,22 @@ class PageOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = Page
         fields = [
-            "id", "site", "site_slug", "title", "slug", "description",
-            "path", "page_type", "metadata", "status", "published_at",
-            "order", "is_required", "is_visible", "created_at", "updated_at",
+            "id",
+            "site",
+            "site_slug",
+            "title",
+            "slug",
+            "description",
+            "path",
+            "page_type",
+            "metadata",
+            "status",
+            "published_at",
+            "order",
+            "is_required",
+            "is_visible",
+            "created_at",
+            "updated_at",
         ]
 
 
@@ -155,8 +191,15 @@ class SectionTemplateOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = SectionTemplate
         fields = [
-            "id", "name", "display_name", "slug", "description",
-            "section_type", "metadata", "ui_config", "created_at",
+            "id",
+            "name",
+            "display_name",
+            "slug",
+            "description",
+            "section_type",
+            "metadata",
+            "ui_config",
+            "created_at",
         ]
 
 
@@ -164,9 +207,18 @@ class BlockTemplateOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = BlockTemplate
         fields = [
-            "id", "name", "display_name", "slug", "description",
-            "block_type", "schema", "schema_version", "default_content",
-            "metadata", "ui_config", "created_at",
+            "id",
+            "name",
+            "display_name",
+            "slug",
+            "description",
+            "block_type",
+            "schema",
+            "schema_version",
+            "default_content",
+            "metadata",
+            "ui_config",
+            "created_at",
         ]
 
 
@@ -176,8 +228,14 @@ class SectionPlacementOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = PageSectionPlacement
         fields = [
-            "id", "page", "template", "label", "order",
-            "is_required", "is_visible", "config_overrides",
+            "id",
+            "page",
+            "template",
+            "label",
+            "order",
+            "is_required",
+            "is_visible",
+            "config_overrides",
             "created_at",
         ]
 
@@ -188,10 +246,20 @@ class BlockPlacementOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = SectionBlockPlacement
         fields = [
-            "id", "section_placement", "template", "label", "order",
-            "is_required", "is_visible", "config_overrides",
-            "schema_version_validated", "draft_content", "published_content",
-            "status", "created_at", "updated_at",
+            "id",
+            "section_placement",
+            "template",
+            "label",
+            "order",
+            "is_required",
+            "is_visible",
+            "config_overrides",
+            "schema_version_validated",
+            "draft_content",
+            "published_content",
+            "status",
+            "created_at",
+            "updated_at",
         ]
 
     def to_representation(self, instance):
@@ -204,16 +272,30 @@ class BlockPlacementOutputSerializer(serializers.ModelSerializer):
 
 class PageDetailOutputSerializer(serializers.ModelSerializer):
     """Page with full tree: sections -> blocks."""
+
     section_placements = serializers.SerializerMethodField()
     site_slug = serializers.CharField(source="site.slug", read_only=True)
 
     class Meta:
         model = Page
         fields = [
-            "id", "site", "site_slug", "title", "slug", "description",
-            "path", "page_type", "metadata", "status", "published_at",
-            "order", "is_required", "is_visible",
-            "section_placements", "created_at", "updated_at",
+            "id",
+            "site",
+            "site_slug",
+            "title",
+            "slug",
+            "description",
+            "path",
+            "page_type",
+            "metadata",
+            "status",
+            "published_at",
+            "order",
+            "is_required",
+            "is_visible",
+            "section_placements",
+            "created_at",
+            "updated_at",
         ]
 
     def get_section_placements(self, obj):
@@ -233,14 +315,22 @@ class PageDetailOutputSerializer(serializers.ModelSerializer):
 
 class ContentVersionOutputSerializer(serializers.ModelSerializer):
     created_by_username = serializers.CharField(
-        source="created_by.username", read_only=True,
+        source="created_by.username",
+        read_only=True,
     )
 
     class Meta:
         model = ContentVersion
         fields = [
-            "id", "block_placement", "content_snapshot", "version_number",
-            "action", "created_by", "created_by_username", "created_at", "notes",
+            "id",
+            "block_placement",
+            "content_snapshot",
+            "version_number",
+            "action",
+            "created_by",
+            "created_by_username",
+            "created_at",
+            "notes",
         ]
 
 
@@ -248,8 +338,14 @@ class MediaFolderOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = MediaFolder
         fields = [
-            "id", "owner_type", "owner_id", "name", "slug",
-            "parent", "path", "created_at",
+            "id",
+            "owner_type",
+            "owner_id",
+            "name",
+            "slug",
+            "parent",
+            "path",
+            "created_at",
         ]
 
 
@@ -259,13 +355,28 @@ class MediaFileOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = MediaFile
         fields = [
-            "id", "owner_type", "owner_id", "folder", "storage_key",
-            "original_filename", "mime_type", "file_size", "width", "height",
-            "alt_text", "title", "metadata", "is_tombstoned",
-            "usage_count", "created_at", "updated_at",
+            "id",
+            "owner_type",
+            "owner_id",
+            "folder",
+            "storage_key",
+            "original_filename",
+            "mime_type",
+            "file_size",
+            "width",
+            "height",
+            "alt_text",
+            "title",
+            "metadata",
+            "is_tombstoned",
+            "usage_count",
+            "created_at",
+            "updated_at",
         ]
 
     def get_usage_count(self, obj):
+        if hasattr(obj, "_usage_count"):
+            return obj._usage_count
         return MediaUsage.objects.filter(media_file=obj).count()
 
 
@@ -273,34 +384,55 @@ class MediaUsageOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = MediaUsage
         fields = [
-            "id", "media_file", "block_placement", "field_key",
-            "content_layer", "created_at",
+            "id",
+            "media_file",
+            "block_placement",
+            "field_key",
+            "content_layer",
+            "created_at",
         ]
 
 
 class ApiKeyOutputSerializer(serializers.ModelSerializer):
     """Output for list/detail — never includes full key."""
+
     class Meta:
         model = CMSApiKey
         fields = [
-            "id", "site", "name", "key_prefix", "allowed_origins",
-            "is_active", "expires_at", "last_used_at", "rate_limit",
+            "id",
+            "site",
+            "name",
+            "key_prefix",
+            "allowed_origins",
+            "is_active",
+            "expires_at",
+            "last_used_at",
+            "rate_limit",
             "created_at",
         ]
 
 
 class ApiKeyCreatedOutputSerializer(serializers.ModelSerializer):
     """Output for creation — includes key field (added by view)."""
+
     class Meta:
         model = CMSApiKey
         fields = [
-            "id", "site", "name", "key_prefix", "allowed_origins",
-            "is_active", "expires_at", "rate_limit", "created_at",
+            "id",
+            "site",
+            "name",
+            "key_prefix",
+            "allowed_origins",
+            "is_active",
+            "expires_at",
+            "rate_limit",
+            "created_at",
         ]
 
 
 class PublishErrorOutputSerializer(serializers.Serializer):
     """Structured publish validation error response."""
+
     section_placement_id = serializers.UUIDField()
     block_placement_id = serializers.UUIDField()
     block_template = serializers.CharField()
@@ -311,6 +443,7 @@ class PublishErrorOutputSerializer(serializers.Serializer):
 
 class PageExportOutputSerializer(serializers.Serializer):
     """Export format matching spec Section 10.1."""
+
     export_version = serializers.CharField()
     exported_at = serializers.DateTimeField()
     exported_by = serializers.CharField()

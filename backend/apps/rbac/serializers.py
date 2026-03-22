@@ -7,11 +7,11 @@ Follows the layered architecture:
 - Output serializers: Format data for API responses
 """
 
-from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
 
-from apps.core.constants import AccountType, PermissionScope, MembershipStatus
-from apps.rbac.models import Permission, Role, RolePermission, Membership
+from apps.core.constants import AccountType, MembershipStatus, PermissionScope
+from apps.rbac.models import Membership, Permission, Role, RolePermission
 
 User = get_user_model()
 
@@ -19,6 +19,7 @@ User = get_user_model()
 # =============================================================================
 # OUTPUT SERIALIZERS
 # =============================================================================
+
 
 class PermissionOutputSerializer(serializers.ModelSerializer):
     """Output serializer for Permission."""
@@ -203,18 +204,29 @@ class MyMembershipOutputSerializer(serializers.ModelSerializer):
     def get_permissions(self, obj) -> list:
         """Return list of permission codes for this membership."""
         from apps.rbac.selectors import PermissionSelector
+
         permissions = PermissionSelector.get_permissions_for_membership(
             membership_id=obj.id
         )
         return [{"code": code, "scope": scope} for code, scope in permissions]
 
+    def _get_account_from_context(self, obj):
+        """Get account object from batch context, or None."""
+        account_data = self.context.get("account_data")
+        if account_data is not None:
+            return account_data.get(obj.account_id)
+        return None
+
     def get_account_name(self, obj) -> str:
         """Return human-readable account name."""
         if obj.account_type == AccountType.BUSINESS:
-            from apps.organization.business.models import BusinessAccount
-            try:
-                account = BusinessAccount.objects.get(id=obj.account_id)
+            account = self._get_account_from_context(obj)
+            if account is not None:
                 return account.legal_name
+            from apps.organization.business.models import BusinessAccount
+
+            try:
+                return BusinessAccount.objects.get(id=obj.account_id).legal_name
             except BusinessAccount.DoesNotExist:
                 return ""
         return "Platform"
@@ -222,29 +234,39 @@ class MyMembershipOutputSerializer(serializers.ModelSerializer):
     def get_account_slug(self, obj) -> str:
         """Return account slug (business only, empty string for platform)."""
         if obj.account_type == AccountType.BUSINESS:
-            from apps.organization.business.models import BusinessAccount
-            try:
-                account = BusinessAccount.objects.get(id=obj.account_id)
+            account = self._get_account_from_context(obj)
+            if account is not None:
                 return account.slug
+            from apps.organization.business.models import BusinessAccount
+
+            try:
+                return BusinessAccount.objects.get(id=obj.account_id).slug
             except BusinessAccount.DoesNotExist:
                 return ""
         return ""
 
     def get_account_max_members(self, obj) -> int:
         """Return max_members for the account this membership belongs to."""
+        account = self._get_account_from_context(obj)
+        if account is not None:
+            return getattr(account, "max_members", 0)
         if obj.account_type == AccountType.BUSINESS:
             from apps.organization.business.models import BusinessAccount
+
             try:
                 return BusinessAccount.objects.values_list(
-                    "max_members", flat=True,
+                    "max_members",
+                    flat=True,
                 ).get(id=obj.account_id)
             except BusinessAccount.DoesNotExist:
                 return 0
         elif obj.account_type == AccountType.PLATFORM:
             from apps.organization.platform.models import PlatformAccount
+
             try:
                 return PlatformAccount.objects.values_list(
-                    "max_members", flat=True,
+                    "max_members",
+                    flat=True,
                 ).get(id=obj.account_id)
             except PlatformAccount.DoesNotExist:
                 return 0
@@ -254,6 +276,7 @@ class MyMembershipOutputSerializer(serializers.ModelSerializer):
 # =============================================================================
 # INPUT SERIALIZERS
 # =============================================================================
+
 
 class RoleCreateInputSerializer(serializers.Serializer):
     """Input serializer for creating a role."""
@@ -292,12 +315,14 @@ class MembershipRoleChangeInputSerializer(serializers.Serializer):
 class MembershipStatusChangeInputSerializer(serializers.Serializer):
     """Input serializer for changing a member's status."""
 
-    status = serializers.ChoiceField(choices=[
-        MembershipStatus.SUSPENDED,
-        MembershipStatus.BANNED,
-        MembershipStatus.REMOVED,
-        MembershipStatus.ACTIVE,
-    ])
+    status = serializers.ChoiceField(
+        choices=[
+            MembershipStatus.SUSPENDED,
+            MembershipStatus.BANNED,
+            MembershipStatus.REMOVED,
+            MembershipStatus.ACTIVE,
+        ]
+    )
     reason = serializers.CharField(required=False, allow_blank=True, default="")
 
 
@@ -305,5 +330,8 @@ class MemberActionReasonInputSerializer(serializers.Serializer):
     """Input serializer for suspend/remove/ban actions that only require an optional reason."""
 
     reason = serializers.CharField(
-        required=False, allow_blank=True, default="", max_length=1000,
+        required=False,
+        allow_blank=True,
+        default="",
+        max_length=1000,
     )

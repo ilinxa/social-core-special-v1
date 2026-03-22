@@ -7,7 +7,7 @@ VisibilityResolver — computes viewer access and filters serialized data.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from uuid import UUID
 
 from apps.core.visibility.enums import (
@@ -166,9 +166,7 @@ class VisibilityResolver:
             perm_codes = frozenset(code for code, scope in perm_tuples)
 
             # Check if owner (role level 0)
-            is_owner = (
-                membership.role is not None and membership.role.level == 0
-            )
+            is_owner = membership.role is not None and membership.role.level == 0
 
             return ViewerAccess(
                 level=BusinessVisibility.WORLD + 1,
@@ -237,9 +235,7 @@ class VisibilityResolver:
             )
             perm_codes = frozenset(code for code, scope in perm_tuples)
 
-            is_owner = (
-                membership.role is not None and membership.role.level == 0
-            )
+            is_owner = membership.role is not None and membership.role.level == 0
 
             return ViewerAccess(
                 level=PlatformVisibility.WORLD + 1,
@@ -263,7 +259,7 @@ class VisibilityResolver:
         data: Dict[str, Any],
         registry_key: str,
         viewer_access: ViewerAccess,
-        visibility_overrides: Optional[Dict[str, int]] = None,
+        visibility_overrides: Dict[str, int] | None = None,
         is_public: bool = True,
     ) -> Dict[str, Any]:
         """Filter serialized data based on viewer access and field visibility config.
@@ -311,7 +307,7 @@ class VisibilityResolver:
         field_name: str,
         registry_key: str,
         viewer_access: ViewerAccess,
-        visibility_overrides: Optional[Dict[str, int]] = None,
+        visibility_overrides: Dict[str, int] | None = None,
         is_public: bool = True,
     ) -> bool:
         """Check if a viewer can see a specific field.
@@ -337,7 +333,7 @@ class VisibilityResolver:
         config: FieldVisibilityConfig,
         viewer_access: ViewerAccess,
         is_public: bool,
-        override_level: Optional[int],
+        override_level: int | None,
     ) -> bool:
         """Core visibility check for a single field."""
         tier = config.tier
@@ -358,9 +354,7 @@ class VisibilityResolver:
             if not viewer_access.is_authenticated:
                 return False
             required_level = (
-                override_level
-                if override_level is not None
-                else config.default_level
+                override_level if override_level is not None else config.default_level
             )
             if required_level is None:
                 return False  # Misconfigured T2 → hide
@@ -384,7 +378,7 @@ class VisibilityResolver:
     def get_visibility_settings(
         *,
         registry_key: str,
-        visibility_overrides: Optional[Dict[str, int]] = None,
+        visibility_overrides: Dict[str, int] | None = None,
     ) -> List[Dict[str, Any]]:
         """Get T2 field settings for the owner's settings UI.
 
@@ -401,14 +395,13 @@ class VisibilityResolver:
         settings = []
         for field_name, config in t2_fields.items():
             current = overrides.get(field_name, config.default_level)
-            settings.append({
-                "field_name": field_name,
-                "current_level": current,
-                "default_level": config.default_level,
-                "choices": [
-                    {"value": c.value, "label": c.label}
-                    for c in choices
-                ],
-            })
+            settings.append(
+                {
+                    "field_name": field_name,
+                    "current_level": current,
+                    "default_level": config.default_level,
+                    "choices": [{"value": c.value, "label": c.label} for c in choices],
+                }
+            )
 
         return settings

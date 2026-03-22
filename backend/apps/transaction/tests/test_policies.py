@@ -7,8 +7,9 @@ is_initiator, and can_view.
 Uses pytest + @pytest.mark.django_db. Follows AAA (Arrange-Act-Assert) pattern.
 """
 
-import pytest
 from uuid import uuid4
+
+import pytest
 
 from apps.core.constants import ContextType
 from apps.core.exceptions import PermissionDenied, ValidationError
@@ -23,10 +24,10 @@ from apps.transaction.policies import TransactionPolicy
 from apps.transaction.tests.factories import TransactionFactory
 from apps.transaction.types import TransactionTypeConfig, get_transaction_type
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_actor(
     *,
@@ -91,7 +92,8 @@ class TestCanCreateInvitation:
 
         # Act / Assert — no exception means allowed
         TransactionPolicy.can_create_invitation(
-            actor_context=actor, config=config,
+            actor_context=actor,
+            config=config,
         )
 
     def test_raises_when_missing_required_permission(self):
@@ -102,7 +104,8 @@ class TestCanCreateInvitation:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Missing required permission"):
             TransactionPolicy.can_create_invitation(
-                actor_context=actor, config=config,
+                actor_context=actor,
+                config=config,
             )
 
     def test_allowed_when_no_required_permissions(self):
@@ -112,7 +115,8 @@ class TestCanCreateInvitation:
 
         # Act / Assert — no exception
         TransactionPolicy.can_create_invitation(
-            actor_context=actor, config=config,
+            actor_context=actor,
+            config=config,
         )
 
     def test_raises_for_owner_only_when_actor_is_not_owner(self):
@@ -123,7 +127,8 @@ class TestCanCreateInvitation:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Only the account owner"):
             TransactionPolicy.can_create_invitation(
-                actor_context=actor, config=config,
+                actor_context=actor,
+                config=config,
             )
 
     def test_allowed_for_owner_only_when_actor_is_owner(self):
@@ -133,7 +138,8 @@ class TestCanCreateInvitation:
 
         # Act / Assert — no exception
         TransactionPolicy.can_create_invitation(
-            actor_context=actor, config=config,
+            actor_context=actor,
+            config=config,
         )
 
     def test_multiple_required_permissions_all_present(self):
@@ -150,7 +156,8 @@ class TestCanCreateInvitation:
 
         # Act / Assert — no exception
         TransactionPolicy.can_create_invitation(
-            actor_context=actor, config=config,
+            actor_context=actor,
+            config=config,
         )
 
     def test_multiple_required_permissions_one_missing_raises(self):
@@ -165,7 +172,8 @@ class TestCanCreateInvitation:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="can_manage_roles"):
             TransactionPolicy.can_create_invitation(
-                actor_context=actor, config=config,
+                actor_context=actor,
+                config=config,
             )
 
     def test_owner_only_checked_after_permissions(self):
@@ -183,7 +191,8 @@ class TestCanCreateInvitation:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Only the account owner"):
             TransactionPolicy.can_create_invitation(
-                actor_context=actor, config=config,
+                actor_context=actor,
+                config=config,
             )
 
 
@@ -215,7 +224,9 @@ class TestCanAccept:
 
         # Act / Assert — no exception
         TransactionPolicy.can_accept(
-            transaction=transaction, actor_context=actor, config=config,
+            transaction=transaction,
+            actor_context=actor,
+            config=config,
         )
 
     def test_target_acceptance_non_target_user_raises(self):
@@ -233,7 +244,9 @@ class TestCanAccept:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Only the target user"):
             TransactionPolicy.can_accept(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
     def test_target_acceptance_non_pending_raises_validation_error(self):
@@ -252,7 +265,9 @@ class TestCanAccept:
         # Act / Assert
         with pytest.raises(ValidationError, match="not pending"):
             TransactionPolicy.can_accept(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
     def test_target_acceptance_non_user_target_type_raises(self):
@@ -269,7 +284,9 @@ class TestCanAccept:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Invalid target type"):
             TransactionPolicy.can_accept(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
     # -----------------------------------------------------------------------
@@ -297,7 +314,9 @@ class TestCanAccept:
 
         # Act / Assert — no exception
         TransactionPolicy.can_accept(
-            transaction=transaction, actor_context=actor, config=config,
+            transaction=transaction,
+            actor_context=actor,
+            config=config,
         )
 
     def test_account_authority_member_without_approval_permission_raises(self):
@@ -319,7 +338,9 @@ class TestCanAccept:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Missing permission"):
             TransactionPolicy.can_accept(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
     def test_account_authority_non_member_raises(self):
@@ -343,7 +364,9 @@ class TestCanAccept:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Not a member"):
             TransactionPolicy.can_accept(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
     # -----------------------------------------------------------------------
@@ -370,7 +393,9 @@ class TestCanAccept:
 
         # Act / Assert — no exception
         TransactionPolicy.can_accept(
-            transaction=transaction, actor_context=actor, config=config,
+            transaction=transaction,
+            actor_context=actor,
+            config=config,
         )
 
     def test_platform_authority_non_platform_account_type_raises(self):
@@ -394,7 +419,9 @@ class TestCanAccept:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Platform authority required"):
             TransactionPolicy.can_accept(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
     def test_platform_authority_platform_member_without_permission_raises(self):
@@ -415,7 +442,9 @@ class TestCanAccept:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Missing permission"):
             TransactionPolicy.can_accept(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
     # -----------------------------------------------------------------------
@@ -440,7 +469,9 @@ class TestCanAccept:
         # Act / Assert
         with pytest.raises(ValidationError, match="Auto-approval"):
             TransactionPolicy.can_accept(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
     # -----------------------------------------------------------------------
@@ -459,7 +490,9 @@ class TestCanAccept:
         # Act / Assert
         with pytest.raises(ValidationError, match="not pending"):
             TransactionPolicy.can_accept(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
     def test_expired_status_raises_validation_error(self):
@@ -474,7 +507,9 @@ class TestCanAccept:
         # Act / Assert
         with pytest.raises(ValidationError, match="not pending"):
             TransactionPolicy.can_accept(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
     def test_denied_status_raises_validation_error(self):
@@ -489,7 +524,9 @@ class TestCanAccept:
         # Act / Assert
         with pytest.raises(ValidationError, match="not pending"):
             TransactionPolicy.can_accept(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
 
@@ -517,7 +554,9 @@ class TestCanDeny:
 
         # Act / Assert — no exception
         TransactionPolicy.can_deny(
-            transaction=transaction, actor_context=actor, config=config,
+            transaction=transaction,
+            actor_context=actor,
+            config=config,
         )
 
     def test_unauthorized_deny_raises_permission_denied(self):
@@ -535,7 +574,9 @@ class TestCanDeny:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Only the target user"):
             TransactionPolicy.can_deny(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
     def test_non_pending_deny_raises_validation_error(self):
@@ -554,7 +595,9 @@ class TestCanDeny:
         # Act / Assert
         with pytest.raises(ValidationError, match="not pending"):
             TransactionPolicy.can_deny(
-                transaction=transaction, actor_context=actor, config=config,
+                transaction=transaction,
+                actor_context=actor,
+                config=config,
             )
 
 
@@ -589,7 +632,8 @@ class TestIsInitiator:
 
         # Act / Assert — no exception
         TransactionPolicy.is_initiator(
-            transaction=transaction, actor_context=actor,
+            transaction=transaction,
+            actor_context=actor,
         )
 
     def test_wrong_user_raises_permission_denied(self):
@@ -614,7 +658,8 @@ class TestIsInitiator:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Only the initiator"):
             TransactionPolicy.is_initiator(
-                transaction=transaction, actor_context=actor,
+                transaction=transaction,
+                actor_context=actor,
             )
 
     def test_system_context_raises_permission_denied(self):
@@ -639,7 +684,8 @@ class TestIsInitiator:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Only the initiator"):
             TransactionPolicy.is_initiator(
-                transaction=transaction, actor_context=system_actor,
+                transaction=transaction,
+                actor_context=system_actor,
             )
 
     def test_initiator_with_none_user_id_vs_real_user_raises(self):
@@ -654,7 +700,8 @@ class TestIsInitiator:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Only the initiator"):
             TransactionPolicy.is_initiator(
-                transaction=transaction, actor_context=actor,
+                transaction=transaction,
+                actor_context=actor,
             )
 
 
@@ -691,7 +738,8 @@ class TestCanView:
 
         # Act / Assert — no exception
         TransactionPolicy.can_view(
-            transaction=transaction, actor_context=actor,
+            transaction=transaction,
+            actor_context=actor,
         )
 
     def test_target_user_can_view(self):
@@ -718,7 +766,8 @@ class TestCanView:
 
         # Act / Assert — no exception
         TransactionPolicy.can_view(
-            transaction=transaction, actor_context=actor,
+            transaction=transaction,
+            actor_context=actor,
         )
 
     def test_account_owner_can_view(self):
@@ -751,7 +800,8 @@ class TestCanView:
 
         # Act / Assert — no exception
         TransactionPolicy.can_view(
-            transaction=transaction, actor_context=actor,
+            transaction=transaction,
+            actor_context=actor,
         )
 
     def test_account_member_with_view_permission_can_view(self):
@@ -785,7 +835,8 @@ class TestCanView:
 
         # Act / Assert — no exception
         TransactionPolicy.can_view(
-            transaction=transaction, actor_context=actor,
+            transaction=transaction,
+            actor_context=actor,
         )
 
     def test_platform_member_with_global_permission_can_view(self):
@@ -818,7 +869,8 @@ class TestCanView:
 
         # Act / Assert — no exception
         TransactionPolicy.can_view(
-            transaction=transaction, actor_context=actor,
+            transaction=transaction,
+            actor_context=actor,
         )
 
     def test_platform_member_with_global_only_scope_can_view(self):
@@ -851,7 +903,8 @@ class TestCanView:
 
         # Act / Assert — no exception
         TransactionPolicy.can_view(
-            transaction=transaction, actor_context=actor,
+            transaction=transaction,
+            actor_context=actor,
         )
 
     def test_unrelated_user_raises_permission_denied(self):
@@ -885,7 +938,8 @@ class TestCanView:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Not authorized to view"):
             TransactionPolicy.can_view(
-                transaction=transaction, actor_context=actor,
+                transaction=transaction,
+                actor_context=actor,
             )
 
     def test_account_member_without_view_permission_raises(self):
@@ -920,13 +974,15 @@ class TestCanView:
         # Act / Assert
         with pytest.raises(PermissionDenied, match="Not authorized to view"):
             TransactionPolicy.can_view(
-                transaction=transaction, actor_context=actor,
+                transaction=transaction,
+                actor_context=actor,
             )
 
 
 # ===========================================================================
 # get_viewer_permissions
 # ===========================================================================
+
 
 @pytest.mark.django_db
 class TestGetViewerPermissions:
@@ -937,10 +993,14 @@ class TestGetViewerPermissions:
         initiator_ctx = _make_actor()
         actor = ActorContext(
             user_id=target_user_id,
-            account_type=None, account_id=None,
-            membership_id=None, role_id=None,
-            role_name=None, role_level=None,
-            is_owner=False, permissions_snapshot=[],
+            account_type=None,
+            account_id=None,
+            membership_id=None,
+            role_id=None,
+            role_name=None,
+            role_level=None,
+            is_owner=False,
+            permissions_snapshot=[],
         )
         txn = TransactionFactory(
             transaction_type="business_membership_invitation",
@@ -951,7 +1011,8 @@ class TestGetViewerPermissions:
             status=TransactionStatus.PENDING,
         )
         perms = TransactionPolicy.get_viewer_permissions(
-            transaction=txn, actor_context=actor,
+            transaction=txn,
+            actor_context=actor,
         )
         assert perms["can_accept"] is True
         assert perms["can_deny"] is True
@@ -964,10 +1025,14 @@ class TestGetViewerPermissions:
         initiator_ctx = _make_actor(user_id=user_id)
         actor = ActorContext(
             user_id=user_id,
-            account_type=None, account_id=None,
-            membership_id=None, role_id=None,
-            role_name=None, role_level=None,
-            is_owner=False, permissions_snapshot=[],
+            account_type=None,
+            account_id=None,
+            membership_id=None,
+            role_id=None,
+            role_name=None,
+            role_level=None,
+            is_owner=False,
+            permissions_snapshot=[],
         )
         txn = TransactionFactory(
             transaction_type="business_membership_invitation",
@@ -978,7 +1043,8 @@ class TestGetViewerPermissions:
             status=TransactionStatus.PENDING,
         )
         perms = TransactionPolicy.get_viewer_permissions(
-            transaction=txn, actor_context=actor,
+            transaction=txn,
+            actor_context=actor,
         )
         assert perms["can_accept"] is False
         assert perms["can_cancel"] is True
@@ -989,10 +1055,14 @@ class TestGetViewerPermissions:
         initiator_ctx = _make_actor()
         actor = ActorContext(
             user_id=target_user_id,
-            account_type=None, account_id=None,
-            membership_id=None, role_id=None,
-            role_name=None, role_level=None,
-            is_owner=False, permissions_snapshot=[],
+            account_type=None,
+            account_id=None,
+            membership_id=None,
+            role_id=None,
+            role_name=None,
+            role_level=None,
+            is_owner=False,
+            permissions_snapshot=[],
         )
         txn = TransactionFactory(
             transaction_type="business_membership_invitation",
@@ -1002,7 +1072,8 @@ class TestGetViewerPermissions:
             status=TransactionStatus.ACCEPTED,
         )
         perms = TransactionPolicy.get_viewer_permissions(
-            transaction=txn, actor_context=actor,
+            transaction=txn,
+            actor_context=actor,
         )
         assert perms["can_accept"] is False
         assert perms["can_cancel"] is False

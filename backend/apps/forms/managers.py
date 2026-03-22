@@ -1,6 +1,7 @@
 from django.db import models
-from apps.core.models import SoftDeleteManager
+
 from apps.core.constants import FormStatus, OwnerType, ResponseStatus
+from apps.core.models import SoftDeleteManager
 
 
 class FormTemplateQuerySet(models.QuerySet):

@@ -47,8 +47,14 @@ class TestSearchBusinesses:
 
         for key, val in overrides.items():
             if key in (
-                "display_name", "tagline", "description", "industry",
-                "company_size", "founded_year", "tags", "website",
+                "display_name",
+                "tagline",
+                "description",
+                "industry",
+                "company_size",
+                "founded_year",
+                "tags",
+                "website",
                 "is_public",
             ):
                 profile_kwargs[key] = val
@@ -141,9 +147,7 @@ class TestSearchBusinesses:
             display_name="Corp Biz",
             business_type=BusinessType.CORPORATION,
         )
-        results = ExploreSelector.search_businesses(
-            business_type=[BusinessType.LLC]
-        )
+        results = ExploreSelector.search_businesses(business_type=[BusinessType.LLC])
         names = [b.profile.display_name for b in results]
         assert "LLC Biz" in names
         assert "Corp Biz" not in names
@@ -163,12 +167,8 @@ class TestSearchBusinesses:
         assert "Unverified" not in names
 
     def test_filter_by_platform_branch(self):
-        self._create_business(
-            display_name="Branch", is_platform_branch=True
-        )
-        self._create_business(
-            display_name="Regular", is_platform_branch=False
-        )
+        self._create_business(display_name="Branch", is_platform_branch=True)
+        self._create_business(display_name="Regular", is_platform_branch=False)
         results = ExploreSelector.search_businesses(is_platform_branch=True)
         names = [b.profile.display_name for b in results]
         assert "Branch" in names
@@ -193,9 +193,7 @@ class TestSearchBusinesses:
         assert "Old" not in names
 
     def test_filter_by_has_website(self):
-        self._create_business(
-            display_name="With Site", website="https://example.com"
-        )
+        self._create_business(display_name="With Site", website="https://example.com")
         self._create_business(display_name="No Site", website="")
         results = ExploreSelector.search_businesses(has_website=True)
         names = [b.profile.display_name for b in results]
@@ -366,9 +364,15 @@ class TestSuggestTags:
         assert "inactive-tag" not in names
 
     def test_filter_by_category_user(self):
-        SuggestedTagFactory(name="user-tag", category=TagCategory.USER, usage_count=9999)
-        SuggestedTagFactory(name="biz-tag", category=TagCategory.BUSINESS, usage_count=9999)
-        SuggestedTagFactory(name="both-tag", category=TagCategory.BOTH, usage_count=9999)
+        SuggestedTagFactory(
+            name="user-tag", category=TagCategory.USER, usage_count=9999
+        )
+        SuggestedTagFactory(
+            name="biz-tag", category=TagCategory.BUSINESS, usage_count=9999
+        )
+        SuggestedTagFactory(
+            name="both-tag", category=TagCategory.BOTH, usage_count=9999
+        )
         results = ExploreSelector.suggest_tags(category="user")
         names = [t.name for t in results]
         assert "user-tag" in names
@@ -376,9 +380,15 @@ class TestSuggestTags:
         assert "biz-tag" not in names
 
     def test_filter_by_category_business(self):
-        SuggestedTagFactory(name="user-tag2", category=TagCategory.USER, usage_count=9999)
-        SuggestedTagFactory(name="biz-tag2", category=TagCategory.BUSINESS, usage_count=9999)
-        SuggestedTagFactory(name="both-tag2", category=TagCategory.BOTH, usage_count=9999)
+        SuggestedTagFactory(
+            name="user-tag2", category=TagCategory.USER, usage_count=9999
+        )
+        SuggestedTagFactory(
+            name="biz-tag2", category=TagCategory.BUSINESS, usage_count=9999
+        )
+        SuggestedTagFactory(
+            name="both-tag2", category=TagCategory.BOTH, usage_count=9999
+        )
         results = ExploreSelector.suggest_tags(category="business")
         names = [t.name for t in results]
         assert "biz-tag2" in names

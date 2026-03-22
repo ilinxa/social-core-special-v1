@@ -25,15 +25,14 @@ from apps.email.models import EmailLog, EmailTemplate
 from apps.email.services.email_service import EmailService
 from apps.email.services.template_renderer import TemplateRenderer
 from apps.email.tests.factories import (
+    ArchivedEmailTemplateFactory,
     EmailLogFactory,
     EmailTemplateFactory,
     FailedEmailLogFactory,
     InactiveEmailTemplateFactory,
-    ArchivedEmailTemplateFactory,
     QueuedEmailLogFactory,
     SentEmailLogFactory,
 )
-
 
 # =============================================================================
 # TestEmailServiceSend

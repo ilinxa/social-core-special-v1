@@ -16,7 +16,7 @@ Usage:
 """
 
 import functools
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from apps.core.observability.audit.models import AuditLog
 from apps.core.observability.audit.service import AuditService
@@ -25,7 +25,7 @@ from apps.core.observability.audit.service import AuditService
 def audited(
     action: str,
     *,
-    resource_param: Optional[str] = None,
+    resource_param: str | None = None,
     actor_param: str = "actor",
     request_param: str = "request",
     include_result: bool = False,

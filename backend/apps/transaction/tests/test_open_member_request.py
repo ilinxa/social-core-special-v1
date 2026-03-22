@@ -1,13 +1,14 @@
-import pytest
 from uuid import uuid4
 
-from apps.core.exceptions import BusinessRuleViolation
+import pytest
+
 from apps.core.constants import AccountType
-from apps.transaction.services import TransactionService
+from apps.core.exceptions import BusinessRuleViolation
 from apps.organization.tests.factories import (
     BusinessAccountWithProfileFactory,
     PlatformAccountFactory,
 )
+from apps.transaction.services import TransactionService
 from apps.users.tests.factories import UserFactory
 
 
@@ -18,7 +19,8 @@ class TestOpenMemberRequestPrecheck:
     def test_business_request_rejected_when_closed(self):
         """create_request() raises BusinessRuleViolation when open_member_request=False."""
         business = BusinessAccountWithProfileFactory(
-            open_member_request=False, max_members=6,
+            open_member_request=False,
+            max_members=6,
         )
         user = UserFactory()
 
@@ -34,7 +36,8 @@ class TestOpenMemberRequestPrecheck:
     def test_business_request_succeeds_when_open(self):
         """create_request() succeeds when open_member_request=True and quota available."""
         business = BusinessAccountWithProfileFactory(
-            open_member_request=True, max_members=6,
+            open_member_request=True,
+            max_members=6,
         )
         user = UserFactory()
 
@@ -93,7 +96,8 @@ class TestOpenMemberRequestPrecheck:
     def test_closed_check_runs_before_quota_check(self):
         """When open_member_request=False AND quota full, gets member_requests_closed (not quota)."""
         business = BusinessAccountWithProfileFactory(
-            open_member_request=False, max_members=1,
+            open_member_request=False,
+            max_members=1,
         )
         user = UserFactory()
 

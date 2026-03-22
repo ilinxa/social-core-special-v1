@@ -13,36 +13,29 @@ Covers:
 - PENDING_APPROVAL membership counts toward quota
 """
 
-import pytest
 from uuid import uuid4
 
+import pytest
+
 from apps.core.constants import AccountType, MembershipStatus, OwnerType
-from apps.core.exceptions import ValidationError, PermissionDenied
+from apps.core.exceptions import PermissionDenied, ValidationError
 from apps.core.types import ActorContext
 from apps.forms.services import FormResponseService
-from apps.forms.tests.factories import (
-    ActiveFormTemplateFactory,
-    FormFieldFactory,
-)
+from apps.forms.tests.factories import ActiveFormTemplateFactory, FormFieldFactory
 from apps.rbac.models import Membership, Permission, Role, RolePermission
 from apps.rbac.selectors import MembershipSelector
 from apps.rbac.services import RBACService
 from apps.rbac.tests.factories import (
-    BusinessAccountFactory,
     BaseMemberRoleFactory,
+    BusinessAccountFactory,
     MembershipFactory,
     OwnerRoleFactory,
     PlatformAccountFactory,
 )
-from apps.transaction.constants import (
-    TransactionMode,
-    TransactionStatus,
-    PartyType,
-)
+from apps.transaction.constants import PartyType, TransactionMode, TransactionStatus
 from apps.transaction.models import TransactionFormMapping
 from apps.transaction.services import TransactionService
 from apps.users.tests.factories import UserFactory
-
 
 # =========================================================================
 # Helpers
@@ -57,7 +50,8 @@ def _setup_business_with_owner():
     owner = UserFactory()
     business = BusinessAccountFactory(created_by=owner)
     owner_membership = RBACService.initialize_business_account(
-        business_id=business.id, owner=owner,
+        business_id=business.id,
+        owner=owner,
     )
 
     # Grant can_invite_member permission to owner role
@@ -93,7 +87,8 @@ def _setup_business_with_owner():
     )
 
     owner_ctx = RBACService.build_actor_context(
-        membership=owner_membership, request=None,
+        membership=owner_membership,
+        request=None,
     )
     return owner, business, owner_membership, owner_ctx
 
@@ -147,13 +142,16 @@ def _create_form_mapping(business, template, is_required=True):
     )
 
 
-def _create_invitation_and_accept_with_form(owner, business, owner_ctx, target_user, template):
+def _create_invitation_and_accept_with_form(
+    owner, business, owner_ctx, target_user, template
+):
     """Helper: create invitation, set up form mapping, target accepts with form response.
 
     Returns (txn, form_response).
     """
     # Get the base member role for the invitation payload
     from apps.rbac.models import Role
+
     base_role = Role.objects.get(
         account_type=AccountType.BUSINESS,
         account_id=business.id,
@@ -200,7 +198,11 @@ class TestAcceptInvitationWithForm:
         template = _create_form_template_with_fields()
 
         txn, form_response = _create_invitation_and_accept_with_form(
-            owner, business, owner_ctx, target_user, template,
+            owner,
+            business,
+            owner_ctx,
+            target_user,
+            template,
         )
 
         # Transaction should be PENDING_REVIEW
@@ -224,6 +226,7 @@ class TestAcceptInvitationWithForm:
         target_user = UserFactory()
 
         from apps.rbac.models import Role
+
         base_role = Role.objects.get(
             account_type=AccountType.BUSINESS,
             account_id=business.id,
@@ -275,7 +278,11 @@ class TestApprovePendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_invitation_and_accept_with_form(
-            owner, business, owner_ctx, target_user, template,
+            owner,
+            business,
+            owner_ctx,
+            target_user,
+            template,
         )
         assert txn.status == TransactionStatus.PENDING_REVIEW
 
@@ -306,6 +313,7 @@ class TestApprovePendingReview:
         target_user = UserFactory()
 
         from apps.rbac.models import Role
+
         base_role = Role.objects.get(
             account_type=AccountType.BUSINESS,
             account_id=business.id,
@@ -336,7 +344,11 @@ class TestApprovePendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_invitation_and_accept_with_form(
-            owner, business, owner_ctx, target_user, template,
+            owner,
+            business,
+            owner_ctx,
+            target_user,
+            template,
         )
         assert txn.status == TransactionStatus.PENDING_REVIEW
 
@@ -367,7 +379,11 @@ class TestDenyFromPendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_invitation_and_accept_with_form(
-            owner, business, owner_ctx, target_user, template,
+            owner,
+            business,
+            owner_ctx,
+            target_user,
+            template,
         )
         assert txn.status == TransactionStatus.PENDING_REVIEW
 
@@ -412,7 +428,11 @@ class TestCancelFromPendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_invitation_and_accept_with_form(
-            owner, business, owner_ctx, target_user, template,
+            owner,
+            business,
+            owner_ctx,
+            target_user,
+            template,
         )
         assert txn.status == TransactionStatus.PENDING_REVIEW
 
@@ -442,7 +462,11 @@ class TestCancelFromPendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_invitation_and_accept_with_form(
-            owner, business, owner_ctx, target_user, template,
+            owner,
+            business,
+            owner_ctx,
+            target_user,
+            template,
         )
         assert txn.status == TransactionStatus.PENDING_REVIEW
 
@@ -471,7 +495,11 @@ class TestCancelFromPendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_invitation_and_accept_with_form(
-            owner, business, owner_ctx, target_user, template,
+            owner,
+            business,
+            owner_ctx,
+            target_user,
+            template,
         )
 
         outsider = UserFactory()
@@ -500,7 +528,11 @@ class TestRequestInfoFromPendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_invitation_and_accept_with_form(
-            owner, business, owner_ctx, target_user, template,
+            owner,
+            business,
+            owner_ctx,
+            target_user,
+            template,
         )
         assert txn.status == TransactionStatus.PENDING_REVIEW
 
@@ -537,7 +569,11 @@ class TestResubmitReturnsToPendingReview:
         template = _create_form_template_with_fields()
 
         txn, form_response = _create_invitation_and_accept_with_form(
-            owner, business, owner_ctx, target_user, template,
+            owner,
+            business,
+            owner_ctx,
+            target_user,
+            template,
         )
         assert txn.status == TransactionStatus.PENDING_REVIEW
 
@@ -566,7 +602,11 @@ class TestResubmitReturnsToPendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_invitation_and_accept_with_form(
-            owner, business, owner_ctx, target_user, template,
+            owner,
+            business,
+            owner_ctx,
+            target_user,
+            template,
         )
 
         # Owner requests info
@@ -610,7 +650,11 @@ class TestPendingApprovalQuota:
 
         # Accept invitation with form -> PENDING_APPROVAL membership created
         txn, _ = _create_invitation_and_accept_with_form(
-            owner, business, owner_ctx, target_user, template,
+            owner,
+            business,
+            owner_ctx,
+            target_user,
+            template,
         )
         assert txn.status == TransactionStatus.PENDING_REVIEW
 
@@ -655,7 +699,8 @@ def _setup_platform_with_owner():
     )
 
     owner_ctx = RBACService.build_actor_context(
-        membership=owner_membership, request=None,
+        membership=owner_membership,
+        request=None,
     )
     return owner, platform, owner_membership, owner_ctx
 
@@ -672,7 +717,11 @@ def _create_platform_form_mapping(platform, template, is_required=True):
 
 
 def _create_platform_invitation_and_accept_with_form(
-    owner, platform, owner_ctx, target_user, template,
+    owner,
+    platform,
+    owner_ctx,
+    target_user,
+    template,
 ):
     """Helper: create platform invitation, set up form mapping, target accepts with form.
 
@@ -719,7 +768,11 @@ class TestPlatformPendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_platform_invitation_and_accept_with_form(
-            owner, platform, owner_ctx, target_user, template,
+            owner,
+            platform,
+            owner_ctx,
+            target_user,
+            template,
         )
 
         assert txn.status == TransactionStatus.PENDING_REVIEW
@@ -740,7 +793,11 @@ class TestPlatformPendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_platform_invitation_and_accept_with_form(
-            owner, platform, owner_ctx, target_user, template,
+            owner,
+            platform,
+            owner_ctx,
+            target_user,
+            template,
         )
         assert txn.status == TransactionStatus.PENDING_REVIEW
 
@@ -769,7 +826,11 @@ class TestPlatformPendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_platform_invitation_and_accept_with_form(
-            owner, platform, owner_ctx, target_user, template,
+            owner,
+            platform,
+            owner_ctx,
+            target_user,
+            template,
         )
         assert txn.status == TransactionStatus.PENDING_REVIEW
 
@@ -801,7 +862,11 @@ class TestPlatformPendingReview:
         template = _create_form_template_with_fields()
 
         txn, _ = _create_platform_invitation_and_accept_with_form(
-            owner, platform, owner_ctx, target_user, template,
+            owner,
+            platform,
+            owner_ctx,
+            target_user,
+            template,
         )
         assert txn.status == TransactionStatus.PENDING_REVIEW
 

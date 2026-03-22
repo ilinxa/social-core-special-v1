@@ -13,25 +13,24 @@ Provides:
 import pytest
 from rest_framework.test import APIClient
 
-from apps.users.tests.factories import UserFactory
-from apps.rbac.tests.factories import (
-    BusinessAccountFactory,
-    PlatformAccountFactory,
-    OwnerRoleFactory,
-    BaseMemberRoleFactory,
-    MembershipFactory,
-)
-from apps.rbac.models import Permission, RolePermission
-from apps.rbac.services import RBACService
 from apps.core.constants import AccountType, FormScope
 from apps.forms.tests.factories import (
-    FormTemplateFactory,
     ActiveFormTemplateFactory,
     FormFieldFactory,
     FormResponseFactory,
+    FormTemplateFactory,
     SubmittedFormResponseFactory,
 )
-
+from apps.rbac.models import Permission, RolePermission
+from apps.rbac.services import RBACService
+from apps.rbac.tests.factories import (
+    BaseMemberRoleFactory,
+    BusinessAccountFactory,
+    MembershipFactory,
+    OwnerRoleFactory,
+    PlatformAccountFactory,
+)
+from apps.users.tests.factories import UserFactory
 
 # =========================================================================
 # API Clients
@@ -241,14 +240,16 @@ def owner_with_form_perms(
 @pytest.fixture
 def owner_actor_context(owner_with_form_perms):
     return RBACService.build_actor_context(
-        membership=owner_with_form_perms, request=None,
+        membership=owner_with_form_perms,
+        request=None,
     )
 
 
 @pytest.fixture
 def no_perms_actor_context(member_membership):
     return RBACService.build_actor_context(
-        membership=member_membership, request=None,
+        membership=member_membership,
+        request=None,
     )
 
 

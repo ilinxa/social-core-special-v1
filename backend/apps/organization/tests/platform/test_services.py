@@ -45,7 +45,9 @@ class TestPlatformAccountService:
         assert platform.is_configured is True
         assert platform.profile.name == "Configured Platform"
 
-    def test_configure_already_configured_raises_error(self, configured_platform, superuser):
+    def test_configure_already_configured_raises_error(
+        self, configured_platform, superuser
+    ):
         """Test that configuring an already configured platform raises error."""
         with pytest.raises(ConflictError) as exc_info:
             PlatformAccountService.configure(
@@ -69,7 +71,9 @@ class TestPlatformAccountService:
         assert platform.settings["existing"] == "value"
         assert platform.settings["new_key"] == "new_value"
 
-    def test_update_settings_overwrites_existing_keys(self, platform_account, superuser):
+    def test_update_settings_overwrites_existing_keys(
+        self, platform_account, superuser
+    ):
         """Test that updating settings overwrites existing keys."""
         platform_account.settings = {"key": "old_value"}
         platform_account.save()
@@ -147,7 +151,9 @@ class TestPlatformProfileService:
         assert profile.contact_phone == "+9876543210"
         assert profile.address == "456 New Street"
 
-    def test_update_profile_updates_platform_updated_by(self, platform_profile, superuser):
+    def test_update_profile_updates_platform_updated_by(
+        self, platform_profile, superuser
+    ):
         """Test that updating profile also updates platform.updated_by."""
         platform = platform_profile.platform
         original_updated_by = platform.updated_by

@@ -64,6 +64,12 @@ describe("ApiError", () => {
     expect(error.isConflict).toBe(true);
     expect(error.isNotFound).toBe(false);
   });
+
+  it("isForbidden returns true for 403", () => {
+    const error = new ApiError(403, "Forbidden", "permission_denied");
+    expect(error.isForbidden).toBe(true);
+    expect(error.isUnauthorized).toBe(false);
+  });
 });
 
 // =============================================================================

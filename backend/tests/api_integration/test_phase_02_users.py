@@ -9,10 +9,10 @@ import uuid
 
 import pytest
 
-
 # =============================================================================
 # U01–U04: CURRENT USER & PROFILE
 # =============================================================================
+
 
 class TestUserProfile:
     """Test /users/me/ and /users/me/profile/ endpoints."""
@@ -30,9 +30,12 @@ class TestUserProfile:
     def test_u02_patch_current_user(self, api, state):
         """PATCH /users/me/ updates user fields."""
         api.set_token(state.get_token("alice"))
-        r = api.patch("users/me/", json={
-            "username": "alice_updated",
-        })
+        r = api.patch(
+            "users/me/",
+            json={
+                "username": "alice_updated",
+            },
+        )
         assert r.status_code == 200
         data = r.json()
         assert data["username"] == "alice_updated"
@@ -49,16 +52,20 @@ class TestUserProfile:
     def test_u04_patch_profile(self, api, state):
         """PATCH /users/me/profile/ updates profile fields."""
         api.set_token(state.get_token("alice"))
-        r = api.patch("users/me/profile/", json={
-            "display_name": "Alice Test",
-            "bio": "Integration test user",
-        })
+        r = api.patch(
+            "users/me/profile/",
+            json={
+                "display_name": "Alice Test",
+                "bio": "Integration test user",
+            },
+        )
         assert r.status_code == 200
 
 
 # =============================================================================
 # U05–U07: AVATAR
 # =============================================================================
+
 
 class TestUserAvatar:
     """Test avatar upload, retrieval, and deletion."""
@@ -75,11 +82,12 @@ class TestUserAvatar:
         api.set_token(state.get_token("alice"))
         # Create a minimal valid PNG (1x1 pixel)
         import io
+
         png_data = (
-            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01'
-            b'\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00'
-            b'\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00'
-            b'\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82'
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+            b"\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00"
+            b"\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
         )
         files = {"avatar": ("test.png", io.BytesIO(png_data), "image/png")}
         r = api.session.post(
@@ -87,7 +95,11 @@ class TestUserAvatar:
             files=files,
         )
         # 200/201 on success, 400 if field name or format doesn't match
-        assert r.status_code in (200, 201, 400), f"Avatar upload: {r.status_code} {r.text}"
+        assert r.status_code in (
+            200,
+            201,
+            400,
+        ), f"Avatar upload: {r.status_code} {r.text}"
 
     def test_u07_delete_avatar(self, api, state):
         """DELETE /users/me/avatar/ removes the avatar."""
@@ -99,6 +111,7 @@ class TestUserAvatar:
 # =============================================================================
 # U08–U10: MEMBERSHIPS
 # =============================================================================
+
 
 class TestUserMemberships:
     """Test membership listing."""
@@ -131,6 +144,7 @@ class TestUserMemberships:
 # U11: DEACTIVATE ACCOUNT
 # =============================================================================
 
+
 class TestUserDeactivate:
     """Test account deactivation.
 
@@ -162,8 +176,11 @@ class TestUserDeactivate:
 
         # Verify login is blocked
         api.clear_token()
-        r = api.post("auth/login/", json={
-            "email": "deactivate@test.com",
-            "password": "TestPass123!",
-        })
+        r = api.post(
+            "auth/login/",
+            json={
+                "email": "deactivate@test.com",
+                "password": "TestPass123!",
+            },
+        )
         assert r.status_code == 401

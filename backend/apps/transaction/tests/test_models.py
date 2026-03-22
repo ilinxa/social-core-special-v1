@@ -15,6 +15,7 @@ from datetime import timedelta
 import pytest
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+
 from apps.core.constants import ContextType
 from apps.transaction.constants import (
     TERMINAL_STATES,
@@ -25,7 +26,6 @@ from apps.transaction.constants import (
 )
 from apps.transaction.models import Transaction, TransactionLog
 from apps.transaction.tests.factories import TransactionFactory, TransactionLogFactory
-
 
 # =============================================================================
 # TRANSACTION MODEL
@@ -103,14 +103,17 @@ class TestTransactionUUIDPrimaryKey:
 class TestTransactionIsTerminal:
     """Tests for Transaction.is_terminal property."""
 
-    @pytest.mark.parametrize("status", [
-        TransactionStatus.ACCEPTED,
-        TransactionStatus.DENIED,
-        TransactionStatus.CANCELLED,
-        TransactionStatus.EXPIRED,
-        TransactionStatus.DISMISSED,
-        TransactionStatus.INVALIDATED,
-    ])
+    @pytest.mark.parametrize(
+        "status",
+        [
+            TransactionStatus.ACCEPTED,
+            TransactionStatus.DENIED,
+            TransactionStatus.CANCELLED,
+            TransactionStatus.EXPIRED,
+            TransactionStatus.DISMISSED,
+            TransactionStatus.INVALIDATED,
+        ],
+    )
     def test_is_terminal_true_for_terminal_states(self, status):
         """is_terminal returns True for all 6 terminal states."""
         txn = TransactionFactory(status=status)
@@ -207,14 +210,17 @@ class TestTransactionCanTransitionTo:
 
     # -- PENDING transitions --
 
-    @pytest.mark.parametrize("target_status", [
-        TransactionStatus.ACCEPTED,
-        TransactionStatus.DENIED,
-        TransactionStatus.CANCELLED,
-        TransactionStatus.DISMISSED,
-        TransactionStatus.EXPIRED,
-        TransactionStatus.INVALIDATED,
-    ])
+    @pytest.mark.parametrize(
+        "target_status",
+        [
+            TransactionStatus.ACCEPTED,
+            TransactionStatus.DENIED,
+            TransactionStatus.CANCELLED,
+            TransactionStatus.DISMISSED,
+            TransactionStatus.EXPIRED,
+            TransactionStatus.INVALIDATED,
+        ],
+    )
     def test_pending_can_transition_to_all_terminal_states(self, target_status):
         """PENDING can transition to all 6 terminal states."""
         txn = TransactionFactory(status=TransactionStatus.PENDING)
@@ -223,14 +229,17 @@ class TestTransactionCanTransitionTo:
 
     # -- Terminal states cannot transition --
 
-    @pytest.mark.parametrize("terminal_status", [
-        TransactionStatus.ACCEPTED,
-        TransactionStatus.DENIED,
-        TransactionStatus.CANCELLED,
-        TransactionStatus.EXPIRED,
-        TransactionStatus.DISMISSED,
-        TransactionStatus.INVALIDATED,
-    ])
+    @pytest.mark.parametrize(
+        "terminal_status",
+        [
+            TransactionStatus.ACCEPTED,
+            TransactionStatus.DENIED,
+            TransactionStatus.CANCELLED,
+            TransactionStatus.EXPIRED,
+            TransactionStatus.DISMISSED,
+            TransactionStatus.INVALIDATED,
+        ],
+    )
     def test_terminal_states_cannot_transition(self, terminal_status):
         """Terminal states cannot transition to any other status."""
         txn = TransactionFactory(status=terminal_status)

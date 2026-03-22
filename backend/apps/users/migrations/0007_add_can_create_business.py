@@ -12,14 +12,16 @@ def grant_existing_business_owners(apps, schema_editor):
     """
     if schema_editor.connection.vendor == "postgresql":
         with schema_editor.connection.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE users SET can_create_business = TRUE
                 WHERE id IN (
                     SELECT DISTINCT user_id FROM rbac_membership
                     WHERE is_owner = TRUE AND account_type = 'business'
                     AND is_deleted = FALSE
                 )
-            """)
+            """
+            )
     else:
         # SQLite path for unit tests
         Membership = apps.get_model("rbac", "Membership")

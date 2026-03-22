@@ -1,8 +1,9 @@
-import pytest
 from uuid import uuid4
 
+import pytest
+
 from apps.core.exceptions import RateLimitExceeded
-from apps.transaction.rate_limits import check_rate_limit, RATE_LIMITS
+from apps.transaction.rate_limits import RATE_LIMITS, check_rate_limit
 
 
 @pytest.fixture
@@ -54,7 +55,9 @@ class TestCheckRateLimit:
 
         # Different limit type should still work
         check_rate_limit(
-            user_id, "business_invitations_per_day", "per_day",
+            user_id,
+            "business_invitations_per_day",
+            "per_day",
         )
 
     def test_unknown_limit_type_uses_default(self, locmem_cache):

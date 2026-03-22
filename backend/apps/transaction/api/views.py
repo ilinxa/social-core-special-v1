@@ -1,35 +1,38 @@
 from uuid import UUID
-from rest_framework.views import APIView
+
+from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema
+from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
-from rest_framework import status
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from rest_framework.views import APIView
 
-from apps.core.permissions import IsAuthenticated
 from apps.core.pagination import StandardPagination
+from apps.core.permissions import IsAuthenticated
 from apps.core.types import ActorContext
 from apps.core.views import PermissionInjectMixin
-from apps.rbac.services import RBACService
 from apps.rbac.selectors import MembershipSelector
-
+from apps.rbac.services import RBACService
 from apps.transaction.api.serializers import (
+    AcceptTransactionInputSerializer,
     CreateInvitationInputSerializer,
     CreateRequestInputSerializer,
-    AcceptTransactionInputSerializer,
     DenyTransactionInputSerializer,
-    RequestInfoInputSerializer,
     FormResponseUpdateInputSerializer,
-    TransactionOutputSerializer,
-    TransactionListSerializer,
-    TransactionFormMappingOutputSerializer,
+    RequestInfoInputSerializer,
     TransactionFormMappingInputSerializer,
+    TransactionFormMappingOutputSerializer,
+    TransactionListSerializer,
+    TransactionOutputSerializer,
 )
+from apps.transaction.constants import ApproverPolicy, PartyType, TransactionStatus
 from apps.transaction.models import Transaction, TransactionFormMapping
+from apps.transaction.policies import TransactionPolicy
 from apps.transaction.selectors import TransactionSelector
 from apps.transaction.services import TransactionService
-from apps.transaction.policies import TransactionPolicy
 from apps.transaction.types import get_transaction_type
-from apps.transaction.constants import ApproverPolicy, TransactionStatus
+
+User = get_user_model()
 
 
 class TransactionContextMixin:
@@ -50,7 +53,8 @@ class TransactionContextMixin:
             )
             if membership:
                 return RBACService.build_actor_context(
-                    membership=membership, request=request,
+                    membership=membership,
+                    request=request,
                 )
             return ActorContext.for_user_context(request.user, request)
 
@@ -68,13 +72,15 @@ class TransactionContextMixin:
             )
             if not membership:
                 from apps.core.exceptions import PermissionDenied
+
                 raise PermissionDenied(
                     message="Not a member of the account this transaction belongs to",
                     action="resolve_transaction",
                     resource="Transaction",
                 )
             return RBACService.build_actor_context(
-                membership=membership, request=request,
+                membership=membership,
+                request=request,
             )
 
         return ActorContext.for_user_context(request.user, request)
@@ -84,6 +90,47 @@ class TransactionListView(ListAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = StandardPagination
     serializer_class = TransactionListSerializer
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        items = page if page is not None else list(queryset)
+        extra_context = self._batch_load_parties(items)
+        serializer = self.get_serializer(items, many=True)
+        serializer.context.update(extra_context)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
+    def _batch_load_parties(self, transactions):
+        """Batch-load User and BusinessAccount objects for party resolution."""
+        from apps.organization.business.models import BusinessAccount
+
+        user_ids = set()
+        account_ids = set()
+        for txn in transactions:
+            if txn.initiator_type == PartyType.USER:
+                user_ids.add(txn.initiator_id)
+            elif txn.initiator_type == PartyType.MEMBERSHIP_ACTOR:
+                uid = (txn.initiator_context or {}).get("user_id")
+                if uid:
+                    user_ids.add(UUID(uid) if isinstance(uid, str) else uid)
+            if txn.target_type == PartyType.USER:
+                user_ids.add(txn.target_id)
+            elif txn.target_type == PartyType.ACCOUNT:
+                account_ids.add(txn.target_id)
+
+        party_users = {}
+        if user_ids:
+            for u in User.objects.select_related("profile").filter(id__in=user_ids):
+                party_users[u.id] = u
+
+        party_accounts = {}
+        if account_ids:
+            for a in BusinessAccount.objects.filter(id__in=account_ids):
+                party_accounts[a.id] = a
+
+        return {"party_users": party_users, "party_accounts": party_accounts}
 
     def get_queryset(self):
         user_id = self.request.user.id
@@ -112,17 +159,25 @@ class TransactionListView(ListAPIView):
                     context_id=context_id,
                     include_terminal=True,
                 )
+                # Filter out permission-gated transaction types the viewer can't approve
+                actor_context = RBACService.build_actor_context(
+                    membership=membership,
+                    request=self.request,
+                )
+                qs = TransactionSelector.apply_permission_filters(qs, actor_context)
             elif role in ("initiator", "target"):
                 # Non-member with explicit role: show only their own
                 # transactions within this context (e.g., pending membership
                 # request they sent to a business they haven't joined yet).
                 if role == "initiator":
                     qs = TransactionSelector.list_for_user_as_initiator(
-                        user_id=user_id, include_terminal=True,
+                        user_id=user_id,
+                        include_terminal=True,
                     )
                 else:
                     qs = TransactionSelector.list_for_user_as_target(
-                        user_id=user_id, include_terminal=True,
+                        user_id=user_id,
+                        include_terminal=True,
                     )
                 qs = qs.filter(context_type=context_type, context_id=context_id)
             else:
@@ -144,18 +199,22 @@ class TransactionListView(ListAPIView):
         # User-level querying (no account context specified)
         if role == "initiator":
             qs = TransactionSelector.list_for_user_as_initiator(
-                user_id=user_id, include_terminal=True,
+                user_id=user_id,
+                include_terminal=True,
             )
         elif role == "target":
             qs = TransactionSelector.list_for_user_as_target(
-                user_id=user_id, include_terminal=True,
+                user_id=user_id,
+                include_terminal=True,
             )
         else:
             i = TransactionSelector.list_for_user_as_initiator(
-                user_id=user_id, include_terminal=True,
+                user_id=user_id,
+                include_terminal=True,
             )
             t = TransactionSelector.list_for_user_as_target(
-                user_id=user_id, include_terminal=True,
+                user_id=user_id,
+                include_terminal=True,
             )
             qs = i.order_by().union(t.order_by()).order_by("-created_at")
 
@@ -168,7 +227,8 @@ class TransactionListView(ListAPIView):
         if has_filters and role == "all":
             # Re-query without UNION to support filtering
             qs = TransactionSelector.list_for_user(
-                user_id=user_id, include_terminal=True,
+                user_id=user_id,
+                include_terminal=True,
             )
 
         if mode:
@@ -209,14 +269,16 @@ class TransactionDetailView(TransactionContextMixin, PermissionInjectMixin, APIV
         except Exception:
             rich_ctx = user_context
         TransactionPolicy.can_view(
-            transaction=txn, actor_context=rich_ctx,
+            transaction=txn,
+            actor_context=rich_ctx,
         )
         self._transaction = txn
         self._rich_actor_context = rich_ctx
         self._inject_permissions = True
         return Response(
             TransactionOutputSerializer(
-                txn, context={"request": request},
+                txn,
+                context={"request": request},
             ).data,
         )
 
@@ -243,6 +305,7 @@ class CreateInvitationView(APIView):
         )
         if not membership:
             from apps.core.exceptions import PermissionDenied
+
             raise PermissionDenied(
                 message="Not a member of this account",
                 action="create_invitation",
@@ -250,7 +313,8 @@ class CreateInvitationView(APIView):
             )
 
         actor_context = RBACService.build_actor_context(
-            membership=membership, request=request,
+            membership=membership,
+            request=request,
         )
 
         txn = TransactionService.create_invitation(
@@ -263,7 +327,8 @@ class CreateInvitationView(APIView):
         )
         return Response(
             TransactionOutputSerializer(
-                txn, context={"request": request},
+                txn,
+                context={"request": request},
             ).data,
             status=status.HTTP_201_CREATED,
         )
@@ -296,7 +361,8 @@ class CreateRequestView(APIView):
         )
         return Response(
             TransactionOutputSerializer(
-                txn, context={"request": request},
+                txn,
+                context={"request": request},
             ).data,
             status=status.HTTP_201_CREATED,
         )
@@ -331,13 +397,15 @@ class AcceptTransactionView(TransactionContextMixin, APIView):
         )
         return Response(
             TransactionOutputSerializer(
-                result, context={"request": request},
+                result,
+                context={"request": request},
             ).data,
         )
 
 
 class ApproveTransactionReviewView(TransactionContextMixin, APIView):
     """Approve a PENDING_REVIEW transaction (business approves the submitted form)."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -357,7 +425,8 @@ class ApproveTransactionReviewView(TransactionContextMixin, APIView):
         )
         return Response(
             TransactionOutputSerializer(
-                result, context={"request": request},
+                result,
+                context={"request": request},
             ).data,
         )
 
@@ -385,7 +454,8 @@ class DenyTransactionView(TransactionContextMixin, APIView):
         )
         return Response(
             TransactionOutputSerializer(
-                result, context={"request": request},
+                result,
+                context={"request": request},
             ).data,
         )
 
@@ -409,7 +479,8 @@ class CancelTransactionView(APIView):
         )
         return Response(
             TransactionOutputSerializer(
-                result, context={"request": request},
+                result,
+                context={"request": request},
             ).data,
         )
 
@@ -434,13 +505,15 @@ class DismissTransactionView(TransactionContextMixin, APIView):
         )
         return Response(
             TransactionOutputSerializer(
-                result, context={"request": request},
+                result,
+                context={"request": request},
             ).data,
         )
 
 
 class TransactionFormSchemaView(APIView):
     """GET form schema for a transaction type."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -449,23 +522,26 @@ class TransactionFormSchemaView(APIView):
         tags=["Transaction"],
     )
     def get(self, request, transaction_type: str):
-        from apps.forms.api.serializers import (
-            FormTemplateDetailOutputSerializer,
-        )
+        from apps.forms.api.serializers import FormTemplateDetailOutputSerializer
+
         form_template = TransactionSelector.get_form_template_for_type(
             transaction_type=transaction_type,
         )
         if not form_template:
             return Response({"form_template": None})
-        return Response({
-            "form_template": FormTemplateDetailOutputSerializer(
-                form_template, context={"request": request},
-            ).data,
-        })
+        return Response(
+            {
+                "form_template": FormTemplateDetailOutputSerializer(
+                    form_template,
+                    context={"request": request},
+                ).data,
+            }
+        )
 
 
 class TransactionTypeListView(APIView):
     """GET list of all transaction types with their configuration."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -475,35 +551,39 @@ class TransactionTypeListView(APIView):
     )
     def get(self, request):
         from apps.transaction.types import TRANSACTION_TYPES
+
         context_type = request.query_params.get("context_type")
 
         types_list = []
-        for type_id, config in TRANSACTION_TYPES.items():
+        for _type_id, config in TRANSACTION_TYPES.items():
             if context_type and config.context_type != context_type:
                 continue
             if not config.enabled:
                 continue
-            types_list.append({
-                "id": config.id,
-                "name": config.name,
-                "mode": config.mode,
-                "category": config.category,
-                "context_type": config.context_type,
-                "initiator_types": config.initiator_types,
-                "target_types": config.target_types,
-                "approver_policy": config.approver_policy,
-                "required_permissions": config.required_permissions,
-                "owner_only": config.owner_only,
-                "requires_form": config.requires_form,
-                "has_optional_form": config.has_optional_form,
-                "expiration_days": config.expiration_days,
-                "user_configurable": config.user_configurable,
-            })
+            types_list.append(
+                {
+                    "id": config.id,
+                    "name": config.name,
+                    "mode": config.mode,
+                    "category": config.category,
+                    "context_type": config.context_type,
+                    "initiator_types": config.initiator_types,
+                    "target_types": config.target_types,
+                    "approver_policy": config.approver_policy,
+                    "required_permissions": config.required_permissions,
+                    "owner_only": config.owner_only,
+                    "requires_form": config.requires_form,
+                    "has_optional_form": config.has_optional_form,
+                    "expiration_days": config.expiration_days,
+                    "user_configurable": config.user_configurable,
+                }
+            )
         return Response(types_list)
 
 
 class TransactionRequestInfoView(TransactionContextMixin, APIView):
     """POST to request more info from initiator."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -530,13 +610,15 @@ class TransactionRequestInfoView(TransactionContextMixin, APIView):
         )
         return Response(
             TransactionOutputSerializer(
-                result, context={"request": request},
+                result,
+                context={"request": request},
             ).data,
         )
 
 
 class TransactionResubmitView(APIView):
     """POST to resubmit after updating form response."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -555,13 +637,15 @@ class TransactionResubmitView(APIView):
         )
         return Response(
             TransactionOutputSerializer(
-                result, context={"request": request},
+                result,
+                context={"request": request},
             ).data,
         )
 
 
 class TransactionFormResponseView(APIView):
     """GET/PATCH form response linked to a transaction."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -570,13 +654,14 @@ class TransactionFormResponseView(APIView):
         tags=["Transaction"],
     )
     def get(self, request, transaction_id: UUID):
-        from apps.forms.selectors import FormResponseSelector
         from apps.forms.api.serializers import FormResponseDetailOutputSerializer
+        from apps.forms.selectors import FormResponseSelector
 
         txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
         actor_context = ActorContext.for_user_context(request.user, request)
         TransactionPolicy.can_view(
-            transaction=txn, actor_context=actor_context,
+            transaction=txn,
+            actor_context=actor_context,
         )
 
         if not txn.form_response_id:
@@ -587,7 +672,8 @@ class TransactionFormResponseView(APIView):
         )
         return Response(
             FormResponseDetailOutputSerializer(
-                response, context={"request": request},
+                response,
+                context={"request": request},
             ).data,
         )
 
@@ -606,6 +692,7 @@ class TransactionFormResponseView(APIView):
         txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
         if not txn.form_response_id:
             from apps.core.exceptions import ValidationError
+
             raise ValidationError(
                 message="Transaction has no form response",
                 field="form_response_id",
@@ -621,9 +708,11 @@ class TransactionFormResponseView(APIView):
         )
 
         from apps.forms.api.serializers import FormResponseDetailOutputSerializer
+
         return Response(
             FormResponseDetailOutputSerializer(
-                result, context={"request": request},
+                result,
+                context={"request": request},
             ).data,
         )
 
@@ -632,6 +721,7 @@ class TransactionRequiredFormView(TransactionContextMixin, APIView):
     """GET form template required by a transaction's form mapping.
     POST to create and submit a form response for the transaction.
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -652,7 +742,8 @@ class TransactionRequiredFormView(TransactionContextMixin, APIView):
         except Exception:
             actor_context = user_context
         TransactionPolicy.can_view(
-            transaction=txn, actor_context=actor_context,
+            transaction=txn,
+            actor_context=actor_context,
         )
 
         # If a response already exists, return the template it was submitted
@@ -665,13 +756,15 @@ class TransactionRequiredFormView(TransactionContextMixin, APIView):
                 mapping = TransactionSelector.get_form_mapping_for_transaction(
                     transaction=txn,
                 )
-                return Response({
-                    "form_template": FormTemplateDetailOutputSerializer(
-                        form_response.form_template,
-                        context={"request": request},
-                    ).data,
-                    "is_required": mapping.is_required if mapping else False,
-                })
+                return Response(
+                    {
+                        "form_template": FormTemplateDetailOutputSerializer(
+                            form_response.form_template,
+                            context={"request": request},
+                        ).data,
+                        "is_required": mapping.is_required if mapping else False,
+                    }
+                )
 
         mapping = TransactionSelector.get_form_mapping_for_transaction(
             transaction=txn,
@@ -679,28 +772,32 @@ class TransactionRequiredFormView(TransactionContextMixin, APIView):
         if not mapping:
             return Response({"form_template": None})
 
-        return Response({
-            "form_template": FormTemplateDetailOutputSerializer(
-                mapping.form_template, context={"request": request},
-            ).data,
-            "is_required": mapping.is_required,
-        })
+        return Response(
+            {
+                "form_template": FormTemplateDetailOutputSerializer(
+                    mapping.form_template,
+                    context={"request": request},
+                ).data,
+                "is_required": mapping.is_required,
+            }
+        )
 
     @extend_schema(
         summary="Submit required form for transaction",
         description="Create and submit a form response for the transaction's required form. "
-                    "Bypasses account membership checks — any transaction party can submit.",
+        "Bypasses account membership checks — any transaction party can submit.",
         tags=["Transaction"],
         request=FormResponseUpdateInputSerializer,
     )
     def post(self, request, transaction_id: UUID):
-        from apps.forms.services import FormResponseService
         from apps.forms.api.serializers import FormResponseDetailOutputSerializer
+        from apps.forms.services import FormResponseService
 
         txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
         actor_context = ActorContext.for_user_context(request.user, request)
         TransactionPolicy.can_view(
-            transaction=txn, actor_context=actor_context,
+            transaction=txn,
+            actor_context=actor_context,
         )
 
         mapping = TransactionSelector.get_form_mapping_for_transaction(
@@ -708,6 +805,7 @@ class TransactionRequiredFormView(TransactionContextMixin, APIView):
         )
         if not mapping:
             from apps.core.exceptions import ValidationError
+
             raise ValidationError(
                 message="No form mapping exists for this transaction",
                 field="form_mapping",
@@ -728,7 +826,8 @@ class TransactionRequiredFormView(TransactionContextMixin, APIView):
 
         return Response(
             FormResponseDetailOutputSerializer(
-                response, context={"request": request},
+                response,
+                context={"request": request},
             ).data,
             status=status.HTTP_201_CREATED,
         )
@@ -738,6 +837,7 @@ class TransactionRequiredFormView(TransactionContextMixin, APIView):
 # FORM MAPPING CHECK (pre-creation form lookup + submit)
 # =========================================================================
 
+
 class RequestFormCheckView(APIView):
     """Check if a form is required before creating a request, and submit responses.
 
@@ -746,6 +846,7 @@ class RequestFormCheckView(APIView):
     POST {form_mapping_id, data: {...}}
          Creates and submits a form response for the form template in the mapping.
     """
+
     permission_classes = []  # GET is public, POST checks auth inline
 
     @extend_schema(
@@ -761,34 +862,43 @@ class RequestFormCheckView(APIView):
         if not all([transaction_type, account_type, account_id]):
             return Response({"form_required": False})
 
-        mapping = TransactionFormMapping.objects.filter(
-            account_type=account_type,
-            account_id=account_id,
-            transaction_type=transaction_type,
-            is_deleted=False,
-        ).select_related("form_template").first()
+        mapping = (
+            TransactionFormMapping.objects.filter(
+                account_type=account_type,
+                account_id=account_id,
+                transaction_type=transaction_type,
+                is_deleted=False,
+            )
+            .select_related("form_template")
+            .first()
+        )
 
         if not mapping:
             return Response({"form_required": False})
 
         from apps.forms.api.serializers import FormTemplateDetailOutputSerializer
-        return Response({
-            "form_required": mapping.is_required,
-            "form_mapping_id": str(mapping.id),
-            "form_template": FormTemplateDetailOutputSerializer(
-                mapping.form_template, context={"request": request},
-            ).data,
-        })
+
+        return Response(
+            {
+                "form_required": mapping.is_required,
+                "form_mapping_id": str(mapping.id),
+                "form_template": FormTemplateDetailOutputSerializer(
+                    mapping.form_template,
+                    context={"request": request},
+                ).data,
+            }
+        )
 
     @extend_schema(
         summary="Submit form for request",
         description="Create and submit a form response before creating a request. "
-                    "Returns the form_response_id to include in the create-request call.",
+        "Returns the form_response_id to include in the create-request call.",
         tags=["Transaction"],
     )
     def post(self, request):
         if not request.user or not request.user.is_authenticated:
             from apps.core.exceptions import PermissionDenied
+
             raise PermissionDenied(
                 message="Authentication required",
                 action="submit_request_form",
@@ -800,22 +910,30 @@ class RequestFormCheckView(APIView):
 
         if not mapping_id:
             from apps.core.exceptions import ValidationError
+
             raise ValidationError(
                 message="form_mapping_id is required",
                 field="form_mapping_id",
             )
 
-        mapping = TransactionFormMapping.objects.filter(
-            id=mapping_id, is_deleted=False,
-        ).select_related("form_template").first()
+        mapping = (
+            TransactionFormMapping.objects.filter(
+                id=mapping_id,
+                is_deleted=False,
+            )
+            .select_related("form_template")
+            .first()
+        )
         if not mapping:
             from apps.core.exceptions import NotFound
+
             raise NotFound(
                 resource="TransactionFormMapping",
                 resource_id=str(mapping_id),
             )
 
         from apps.forms.services import FormResponseService
+
         actor_context = ActorContext.for_user_context(request.user, request)
         response = FormResponseService.create_and_submit(
             form_template=mapping.form_template,
@@ -837,8 +955,10 @@ class RequestFormCheckView(APIView):
 # FORM MAPPING VIEWS
 # =========================================================================
 
+
 class TransactionFormMappingListCreateView(APIView):
     """List and create form mappings for a context."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -852,6 +972,7 @@ class TransactionFormMappingListCreateView(APIView):
         account_id = request.query_params.get("account_id")
         if not account_type or not account_id:
             from apps.core.exceptions import ValidationError
+
             raise ValidationError(
                 message="account_type and account_id are required",
                 field="account_type",
@@ -864,27 +985,34 @@ class TransactionFormMappingListCreateView(APIView):
         )
         if not membership:
             from apps.core.exceptions import PermissionDenied
+
             raise PermissionDenied(
                 message="Not a member of this account",
                 action="list_form_mappings",
                 resource="TransactionFormMapping",
             )
         actor_context = RBACService.build_actor_context(
-            membership=membership, request=request,
+            membership=membership,
+            request=request,
         )
         if not actor_context.has_permission("can_configure_transactions"):
             from apps.core.exceptions import PermissionDenied
+
             raise PermissionDenied(
                 message="Missing can_configure_transactions permission",
                 action="list_form_mappings",
                 resource="TransactionFormMapping",
             )
 
-        mappings = TransactionFormMapping.objects.filter(
-            account_type=account_type,
-            account_id=account_id,
-            is_deleted=False,
-        ).select_related('form_template').order_by('transaction_type')
+        mappings = (
+            TransactionFormMapping.objects.filter(
+                account_type=account_type,
+                account_id=account_id,
+                is_deleted=False,
+            )
+            .select_related("form_template")
+            .order_by("transaction_type")
+        )
         return Response(
             TransactionFormMappingOutputSerializer(mappings, many=True).data,
         )
@@ -898,10 +1026,15 @@ class TransactionFormMappingListCreateView(APIView):
     )
     def post(self, request):
         # Build actor context - require membership with can_configure_transactions
-        account_type = request.data.get("account_type") or request.query_params.get("account_type")
-        account_id = request.data.get("account_id") or request.query_params.get("account_id")
+        account_type = request.data.get("account_type") or request.query_params.get(
+            "account_type"
+        )
+        account_id = request.data.get("account_id") or request.query_params.get(
+            "account_id"
+        )
         if not account_type or not account_id:
             from apps.core.exceptions import ValidationError
+
             raise ValidationError(
                 message="account_type and account_id are required",
                 field="account_type",
@@ -914,16 +1047,19 @@ class TransactionFormMappingListCreateView(APIView):
         )
         if not membership:
             from apps.core.exceptions import PermissionDenied
+
             raise PermissionDenied(
                 message="Not a member of this account",
                 action="create_form_mapping",
                 resource="TransactionFormMapping",
             )
         actor_context = RBACService.build_actor_context(
-            membership=membership, request=request,
+            membership=membership,
+            request=request,
         )
         if not actor_context.has_permission("can_configure_transactions"):
             from apps.core.exceptions import PermissionDenied
+
             raise PermissionDenied(
                 message="Missing can_configure_transactions permission",
                 action="create_form_mapping",
@@ -950,6 +1086,7 @@ class TransactionFormMappingListCreateView(APIView):
 
 class TransactionFormMappingDeleteView(APIView):
     """Delete a form mapping."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -960,10 +1097,12 @@ class TransactionFormMappingDeleteView(APIView):
     )
     def delete(self, request, mapping_id: UUID):
         mapping = TransactionFormMapping.objects.filter(
-            id=mapping_id, is_deleted=False,
+            id=mapping_id,
+            is_deleted=False,
         ).first()
         if not mapping:
             from apps.core.exceptions import NotFound
+
             raise NotFound(
                 resource="TransactionFormMapping",
                 resource_id=str(mapping_id),
@@ -976,16 +1115,19 @@ class TransactionFormMappingDeleteView(APIView):
         )
         if not membership:
             from apps.core.exceptions import PermissionDenied
+
             raise PermissionDenied(
                 message="Not a member of this account",
                 action="delete_form_mapping",
                 resource="TransactionFormMapping",
             )
         actor_context = RBACService.build_actor_context(
-            membership=membership, request=request,
+            membership=membership,
+            request=request,
         )
         if not actor_context.has_permission("can_configure_transactions"):
             from apps.core.exceptions import PermissionDenied
+
             raise PermissionDenied(
                 message="Missing can_configure_transactions permission",
                 action="delete_form_mapping",

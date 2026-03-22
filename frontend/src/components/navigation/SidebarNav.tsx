@@ -15,7 +15,7 @@ export function SidebarNav({ sections, context }: SidebarNavProps) {
   const pathname = usePathname();
 
   return (
-    <nav className="space-y-6 ">
+    <nav aria-label="Sidebar navigation" className="space-y-6 ">
       {sections.map((section) => (
         <div key={section.label} className="space-y-1 ">
           <p className="px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">

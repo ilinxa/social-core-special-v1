@@ -171,4 +171,11 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# Pip artifacts (stray output files like =24.1.0)
+=*
+
+# Temporary test/lint output files
+test_output*.txt
+flake8_output.txt
+
 # End of https://www.toptal.com/developers/gitignore/api/django

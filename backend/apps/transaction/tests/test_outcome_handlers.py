@@ -1,31 +1,36 @@
-import pytest
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
-from unittest.mock import patch, MagicMock
 
+import pytest
+
+from apps.core.constants import AccountType, ContextType
 from apps.core.types import ActorContext
-from apps.core.constants import ContextType, AccountType
+from apps.transaction.constants import PartyType, TransactionMode, TransactionStatus
 from apps.transaction.outcome_handlers import (
-    OutcomeHandlerRegistry,
     MembershipOutcomeHandler,
-    VerificationOutcomeHandler,
+    OutcomeHandlerRegistry,
     OwnershipOutcomeHandler,
     PermissionOutcomeHandler,
+    VerificationOutcomeHandler,
     register_all_handlers,
 )
 from apps.transaction.tests.factories import TransactionFactory
-from apps.transaction.constants import TransactionStatus, PartyType, TransactionMode
 from apps.users.tests.factories import UserFactory
-
 
 # =========================================================================
 # REGISTRY
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestOutcomeHandlerRegistry:
 
     def setup_method(self):
+        self._saved_handlers = OutcomeHandlerRegistry._handlers.copy()
         OutcomeHandlerRegistry._handlers = {}
+
+    def teardown_method(self):
+        OutcomeHandlerRegistry._handlers = self._saved_handlers
 
     def test_register_and_execute(self):
         handler = MagicMock()
@@ -36,7 +41,9 @@ class TestOutcomeHandlerRegistry:
         OutcomeHandlerRegistry.execute(transaction=txn, actor_context=ctx)
 
         handler.assert_called_once_with(
-            transaction=txn, actor_context=ctx, acceptance_payload={},
+            transaction=txn,
+            actor_context=ctx,
+            acceptance_payload={},
         )
 
     def test_execute_forwards_acceptance_payload(self):
@@ -47,11 +54,15 @@ class TestOutcomeHandlerRegistry:
         ctx = ActorContext.for_system()
         payload = {"role_id": str(uuid4())}
         OutcomeHandlerRegistry.execute(
-            transaction=txn, actor_context=ctx, acceptance_payload=payload,
+            transaction=txn,
+            actor_context=ctx,
+            acceptance_payload=payload,
         )
 
         handler.assert_called_once_with(
-            transaction=txn, actor_context=ctx, acceptance_payload=payload,
+            transaction=txn,
+            actor_context=ctx,
+            acceptance_payload=payload,
         )
 
     def test_execute_no_handler_does_nothing(self):
@@ -64,6 +75,7 @@ class TestOutcomeHandlerRegistry:
 # =========================================================================
 # MEMBERSHIP OUTCOME HANDLER
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestMembershipOutcomeHandler:
@@ -88,7 +100,8 @@ class TestMembershipOutcomeHandler:
         )
 
         MembershipOutcomeHandler.handle_invitation_accepted(
-            transaction=txn, actor_context=actor_ctx,
+            transaction=txn,
+            actor_context=actor_ctx,
         )
 
         mock_create.assert_called_once()
@@ -100,7 +113,9 @@ class TestMembershipOutcomeHandler:
     @patch("apps.rbac.services.RBACService.create_membership")
     @patch("apps.rbac.selectors.RoleSelector.get_base_member_role")
     def test_handle_request_approved_with_base_role_fallback(
-        self, mock_get_base_role, mock_create,
+        self,
+        mock_get_base_role,
+        mock_create,
     ):
         user = UserFactory()
         approver = UserFactory()
@@ -123,7 +138,8 @@ class TestMembershipOutcomeHandler:
         )
 
         MembershipOutcomeHandler.handle_request_approved(
-            transaction=txn, actor_context=actor_ctx,
+            transaction=txn,
+            actor_context=actor_ctx,
         )
 
         mock_get_base_role.assert_called_once()
@@ -150,7 +166,8 @@ class TestMembershipOutcomeHandler:
         )
 
         MembershipOutcomeHandler.handle_request_approved(
-            transaction=txn, actor_context=actor_ctx,
+            transaction=txn,
+            actor_context=actor_ctx,
         )
 
         call_kwargs = mock_create.call_args[1]
@@ -158,7 +175,8 @@ class TestMembershipOutcomeHandler:
 
     @patch("apps.rbac.services.RBACService.create_membership")
     def test_handle_request_approved_acceptance_payload_overrides_transaction(
-        self, mock_create,
+        self,
+        mock_create,
     ):
         """acceptance_payload role_id takes priority over transaction payload."""
         user = UserFactory()
@@ -179,7 +197,8 @@ class TestMembershipOutcomeHandler:
         )
 
         MembershipOutcomeHandler.handle_request_approved(
-            transaction=txn, actor_context=actor_ctx,
+            transaction=txn,
+            actor_context=actor_ctx,
             acceptance_payload={"role_id": acceptance_role_id},
         )
 
@@ -191,10 +210,13 @@ class TestMembershipOutcomeHandler:
 # VERIFICATION OUTCOME HANDLER
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestVerificationOutcomeHandler:
 
-    @patch("apps.organization.business.services.BusinessAccountService.update_verification_status")
+    @patch(
+        "apps.organization.business.services.BusinessAccountService.update_verification_status"
+    )
     @patch("apps.organization.business.selectors.BusinessAccountSelector.get_by_id")
     def test_handle_accepted(self, mock_get_by_id, mock_update_status):
         actor = UserFactory()
@@ -204,9 +226,13 @@ class TestVerificationOutcomeHandler:
         mock_get_by_id.return_value = mock_business
 
         initiator_ctx = ActorContext(
-            user_id=uuid4(), account_type="business",
-            account_id=account_id, membership_id=uuid4(),
-            role_id=uuid4(), role_name="Owner", role_level=0,
+            user_id=uuid4(),
+            account_type="business",
+            account_id=account_id,
+            membership_id=uuid4(),
+            role_id=uuid4(),
+            role_name="Owner",
+            role_level=0,
             is_owner=True,
         )
         actor_ctx = ActorContext.for_user_context(actor)
@@ -220,7 +246,8 @@ class TestVerificationOutcomeHandler:
         )
 
         VerificationOutcomeHandler.handle_accepted(
-            transaction=txn, actor_context=actor_ctx,
+            transaction=txn,
+            actor_context=actor_ctx,
         )
 
         mock_get_by_id.assert_called_once_with(
@@ -232,6 +259,7 @@ class TestVerificationOutcomeHandler:
 # =========================================================================
 # OWNERSHIP OUTCOME HANDLER
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestOwnershipOutcomeHandler:
@@ -250,7 +278,8 @@ class TestOwnershipOutcomeHandler:
         )
 
         OwnershipOutcomeHandler.handle_accepted(
-            transaction=txn, actor_context=actor_ctx,
+            transaction=txn,
+            actor_context=actor_ctx,
         )
 
         mock_transfer.assert_called_once()
@@ -262,6 +291,7 @@ class TestOwnershipOutcomeHandler:
 # =========================================================================
 # PERMISSION OUTCOME HANDLER
 # =========================================================================
+
 
 @pytest.mark.django_db
 class TestPermissionOutcomeHandler:
@@ -285,7 +315,8 @@ class TestPermissionOutcomeHandler:
         )
 
         PermissionOutcomeHandler.handle_business_creation_approved(
-            transaction=txn, actor_context=actor_ctx,
+            transaction=txn,
+            actor_context=actor_ctx,
         )
 
         user.refresh_from_db()
@@ -310,7 +341,8 @@ class TestPermissionOutcomeHandler:
         )
 
         PermissionOutcomeHandler.handle_business_creation_approved(
-            transaction=txn, actor_context=actor_ctx,
+            transaction=txn,
+            actor_context=actor_ctx,
         )
 
         log = AuditLog.objects.filter(
@@ -335,7 +367,8 @@ class TestPermissionOutcomeHandler:
         )
 
         PermissionOutcomeHandler.handle_business_creation_approved(
-            transaction=txn, actor_context=actor_ctx,
+            transaction=txn,
+            actor_context=actor_ctx,
         )
 
         user.refresh_from_db()
@@ -346,31 +379,36 @@ class TestPermissionOutcomeHandler:
 # REGISTER ALL HANDLERS
 # =========================================================================
 
+
 @pytest.mark.django_db
 class TestRegisterAllHandlers:
 
     def test_all_types_registered(self):
-        OutcomeHandlerRegistry._handlers = {}
-        register_all_handlers()
+        saved = OutcomeHandlerRegistry._handlers.copy()
+        try:
+            OutcomeHandlerRegistry._handlers = {}
+            register_all_handlers()
 
-        expected_types = [
-            "platform_membership_invitation",
-            "platform_membership_request",
-            "business_membership_invitation",
-            "business_membership_request",
-            "business_verification_request",
-            "platform_ownership_transfer",
-            "business_ownership_transfer",
-            "user_connection_request",
-            "business_follow_request",
-            "business_creation_permission_request",
-            # Network handlers
-            "business_follow_approval_request",
-            "platform_follow_request",
-            "business_connection_request",
-            "business_platform_connection_request",
-        ]
-        for t in expected_types:
-            assert t in OutcomeHandlerRegistry._handlers, f"Missing handler for {t}"
+            expected_types = [
+                "platform_membership_invitation",
+                "platform_membership_request",
+                "business_membership_invitation",
+                "business_membership_request",
+                "business_verification_request",
+                "platform_ownership_transfer",
+                "business_ownership_transfer",
+                "user_connection_request",
+                "business_follow_request",
+                "business_creation_permission_request",
+                # Network handlers
+                "business_follow_approval_request",
+                "platform_follow_request",
+                "business_connection_request",
+                "business_platform_connection_request",
+            ]
+            for t in expected_types:
+                assert t in OutcomeHandlerRegistry._handlers, f"Missing handler for {t}"
 
-        assert len(OutcomeHandlerRegistry._handlers) == 14
+            assert len(OutcomeHandlerRegistry._handlers) == 14
+        finally:
+            OutcomeHandlerRegistry._handlers = saved

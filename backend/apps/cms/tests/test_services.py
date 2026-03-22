@@ -1,18 +1,28 @@
 # apps/cms/tests/test_services.py
 import pytest
-from apps.core.exceptions import (
-    ValidationError, ConflictError, BusinessRuleViolation, NotFound,
-)
+
+from apps.cms.constants import BlockPlacementStatus, PageStatus
 from apps.cms.services import (
-    CMSSiteService, CMSTemplateService, CMSPageService,
-    CMSContentService, CMSApiKeyService,
+    CMSApiKeyService,
+    CMSContentService,
+    CMSPageService,
+    CMSSiteService,
+    CMSTemplateService,
 )
-from apps.cms.constants import PageStatus, BlockPlacementStatus
 from apps.cms.tests.factories import (
-    SiteFactory, PageFactory, ContentVersionFactory,
-    SectionBlockPlacementFactory, PageSectionPlacementFactory,
+    ContentVersionFactory,
+    PageFactory,
+    PageSectionPlacementFactory,
+    SectionBlockPlacementFactory,
+    SiteFactory,
 )
 from apps.core.constants import OwnerType
+from apps.core.exceptions import (
+    BusinessRuleViolation,
+    ConflictError,
+    NotFound,
+    ValidationError,
+)
 
 
 @pytest.mark.django_db
@@ -67,7 +77,9 @@ class TestCMSTemplateService:
         )
         assert template.slug == "hero-section"
 
-    def test_create_section_template_duplicate_slug(self, actor_context, section_template):
+    def test_create_section_template_duplicate_slug(
+        self, actor_context, section_template
+    ):
         with pytest.raises(ConflictError):
             CMSTemplateService.create_section_template(
                 actor_context=actor_context,
@@ -120,8 +132,11 @@ class TestCMSTemplateService:
         assert result.schema_version == 2
         assert len(result.schema["fields"]) == 2
 
-    def test_reorder_section_placements(self, actor_context, page, section_template, user):
+    def test_reorder_section_placements(
+        self, actor_context, page, section_template, user
+    ):
         from apps.cms.tests.factories import SectionTemplateFactory
+
         t2 = SectionTemplateFactory(created_by=user, updated_by=user)
         sp1 = PageSectionPlacementFactory(page=page, template=section_template, order=0)
         sp2 = PageSectionPlacementFactory(page=page, template=t2, order=1)
@@ -139,6 +154,7 @@ class TestCMSTemplateService:
 
     def test_reorder_section_placements_wrong_ids(self, actor_context, page):
         import uuid
+
         with pytest.raises(ValidationError):
             CMSTemplateService.reorder_section_placements(
                 actor_context=actor_context,
@@ -174,21 +190,29 @@ class TestCMSPageService:
                 order=999,
             )
 
-    def test_publish_page_copies_draft_to_published(self, actor_context, page, block_placement):
+    def test_publish_page_copies_draft_to_published(
+        self, actor_context, page, block_placement
+    ):
         block_placement.draft_content = {"title": "Hello World", "body": "Content"}
         block_placement.save()
 
         result = CMSPageService.publish_page(
-            actor_context=actor_context, page_id=page.id,
+            actor_context=actor_context,
+            page_id=page.id,
         )
 
         block_placement.refresh_from_db()
-        assert block_placement.published_content == {"title": "Hello World", "body": "Content"}
+        assert block_placement.published_content == {
+            "title": "Hello World",
+            "body": "Content",
+        }
         assert block_placement.status == BlockPlacementStatus.PUBLISHED
         assert result.status == PageStatus.PUBLISHED
         assert result.published_at is not None
 
-    def test_publish_page_validates_all_blocks(self, actor_context, page, block_placement):
+    def test_publish_page_validates_all_blocks(
+        self, actor_context, page, block_placement
+    ):
         """Publish fails if required fields are empty."""
         block_placement.draft_content = {"title": "", "body": ""}
         block_placement.is_visible = True
@@ -196,33 +220,41 @@ class TestCMSPageService:
 
         with pytest.raises(ValidationError) as exc:
             CMSPageService.publish_page(
-                actor_context=actor_context, page_id=page.id,
+                actor_context=actor_context,
+                page_id=page.id,
             )
         assert "publish_errors" in exc.value.details
 
     def test_unpublish_reverts_status(self, actor_context, published_page):
         page = CMSPageService.unpublish_page(
-            actor_context=actor_context, page_id=published_page.id,
+            actor_context=actor_context,
+            page_id=published_page.id,
         )
         assert page.status == PageStatus.DRAFT
 
     def test_unpublish_draft_page_fails(self, actor_context, page):
         with pytest.raises(BusinessRuleViolation):
             CMSPageService.unpublish_page(
-                actor_context=actor_context, page_id=page.id,
+                actor_context=actor_context,
+                page_id=page.id,
             )
 
     def test_export_page(self, actor_context, page, block_placement):
         export_data = CMSPageService.export_page(
-            actor_context=actor_context, page_id=page.id,
+            actor_context=actor_context,
+            page_id=page.id,
         )
         assert export_data["export_version"] == "3.1"
         assert "page" in export_data
         assert export_data["page"]["slug"] == page.slug
 
     def test_reorder_pages(self, actor_context, site, user):
-        p1 = PageFactory(site=site, order=0, slug="p1", path="/p1", created_by=user, updated_by=user)
-        p2 = PageFactory(site=site, order=1, slug="p2", path="/p2", created_by=user, updated_by=user)
+        p1 = PageFactory(
+            site=site, order=0, slug="p1", path="/p1", created_by=user, updated_by=user
+        )
+        p2 = PageFactory(
+            site=site, order=1, slug="p2", path="/p2", created_by=user, updated_by=user
+        )
 
         CMSPageService.reorder_pages(
             actor_context=actor_context,

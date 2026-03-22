@@ -4,14 +4,18 @@ Form Builder Models
 FormTemplate, FormField, FormResponse, and Index Tables.
 """
 
-from django.db import models
 from django.conf import settings
+from django.db import models
 
-from apps.core.models import UUIDModel, AuditModel
 from apps.core.constants import (
-    OwnerType, FormScope, FormStatus, ResponseStatus, FieldType,
+    FieldType,
+    FormScope,
+    FormStatus,
+    OwnerType,
+    ResponseStatus,
 )
-from apps.forms.managers import FormTemplateManager, FormResponseManager
+from apps.core.models import AuditModel, UUIDModel
+from apps.forms.managers import FormResponseManager, FormTemplateManager
 
 
 class FormTemplate(UUIDModel, AuditModel):
@@ -27,7 +31,9 @@ class FormTemplate(UUIDModel, AuditModel):
     name = models.CharField(max_length=255, help_text="Form display name")
     slug = models.SlugField(max_length=100, help_text="URL-friendly identifier")
     description = models.TextField(
-        blank=True, default="", help_text="Form description",
+        blank=True,
+        default="",
+        help_text="Form description",
     )
 
     # Ownership (who owns this form)
@@ -113,6 +119,7 @@ class FormTemplate(UUIDModel, AuditModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["owner_type", "owner_id", "slug", "version"],
+                condition=models.Q(is_deleted=False),
                 name="unique_form_slug_per_owner_version",
             ),
         ]
@@ -169,10 +176,15 @@ class FormField(UUIDModel):
     # Display
     label = models.CharField(max_length=255, help_text="Field label")
     description = models.TextField(
-        blank=True, default="", help_text="Help text for the field",
+        blank=True,
+        default="",
+        help_text="Help text for the field",
     )
     placeholder = models.CharField(
-        max_length=255, blank=True, default="", help_text="Placeholder text",
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Placeholder text",
     )
 
     # Structure
@@ -380,6 +392,7 @@ class FormResponse(UUIDModel, AuditModel):
 # INDEX TABLES
 # =============================================================================
 
+
 class BaseFieldIndex(UUIDModel):
     """Abstract base for typed field index tables."""
 
@@ -403,6 +416,8 @@ class TextFieldIndex(BaseFieldIndex):
 
     class Meta:
         db_table = "form_text_field_index"
+        verbose_name = "text field index"
+        verbose_name_plural = "text field indexes"
         indexes = [
             models.Index(fields=["response", "field_key"]),
             models.Index(fields=["field_key", "value"]),
@@ -414,6 +429,8 @@ class IntegerFieldIndex(BaseFieldIndex):
 
     class Meta:
         db_table = "form_integer_field_index"
+        verbose_name = "integer field index"
+        verbose_name_plural = "integer field indexes"
         indexes = [
             models.Index(fields=["response", "field_key"]),
             models.Index(fields=["field_key", "value"]),
@@ -429,6 +446,8 @@ class DecimalFieldIndex(BaseFieldIndex):
 
     class Meta:
         db_table = "form_decimal_field_index"
+        verbose_name = "decimal field index"
+        verbose_name_plural = "decimal field indexes"
         indexes = [
             models.Index(fields=["response", "field_key"]),
             models.Index(fields=["field_key", "value"]),
@@ -440,6 +459,8 @@ class BooleanFieldIndex(BaseFieldIndex):
 
     class Meta:
         db_table = "form_boolean_field_index"
+        verbose_name = "boolean field index"
+        verbose_name_plural = "boolean field indexes"
         indexes = [
             models.Index(fields=["response", "field_key"]),
             models.Index(fields=["field_key", "value"]),
@@ -451,6 +472,8 @@ class DateFieldIndex(BaseFieldIndex):
 
     class Meta:
         db_table = "form_date_field_index"
+        verbose_name = "date field index"
+        verbose_name_plural = "date field indexes"
         indexes = [
             models.Index(fields=["response", "field_key"]),
             models.Index(fields=["field_key", "value"]),
@@ -462,6 +485,8 @@ class DateTimeFieldIndex(BaseFieldIndex):
 
     class Meta:
         db_table = "form_datetime_field_index"
+        verbose_name = "datetime field index"
+        verbose_name_plural = "datetime field indexes"
         indexes = [
             models.Index(fields=["response", "field_key"]),
             models.Index(fields=["field_key", "value"]),

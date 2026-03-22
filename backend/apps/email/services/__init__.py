@@ -12,4 +12,4 @@ Components:
 from apps.email.services.email_service import EmailService
 from apps.email.services.template_renderer import TemplateRenderer
 
-__all__ = ['EmailService', 'TemplateRenderer']
+__all__ = ["EmailService", "TemplateRenderer"]

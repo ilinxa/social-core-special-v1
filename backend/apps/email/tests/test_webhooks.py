@@ -15,14 +15,13 @@ Covers:
 """
 
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.test import Client
 
 from apps.email.models import EmailLog
 from apps.email.tests.factories import SentEmailLogFactory
-
 
 # =============================================================================
 # HELPERS — SNS payload builders
@@ -55,7 +54,9 @@ def _sns_envelope(message_type, message_body=None, **overrides):
         payload["Subject"] = "Amazon SES Email Event Notification"
     elif message_type == "SubscriptionConfirmation":
         payload["Message"] = "You have chosen to subscribe to the topic arn:aws:sns:..."
-        payload["SubscribeURL"] = "https://sns.us-east-1.amazonaws.com/?Action=ConfirmSubscription&Token=abc123"
+        payload["SubscribeURL"] = (
+            "https://sns.us-east-1.amazonaws.com/?Action=ConfirmSubscription&Token=abc123"
+        )
         payload["Token"] = "abc123"
     payload.update(overrides)
     return payload
@@ -196,8 +197,10 @@ class TestSESWebhook:
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
 
-        with patch(VERIFIER_PATH, return_value=True), \
-             patch(REQUESTS_GET_PATH, return_value=mock_response) as mock_get:
+        with (
+            patch(VERIFIER_PATH, return_value=True),
+            patch(REQUESTS_GET_PATH, return_value=mock_response) as mock_get,
+        ):
             response = client.post(
                 SES_WEBHOOK_URL,
                 data=json.dumps(payload),
@@ -214,7 +217,9 @@ class TestSESWebhook:
     def test_delivery_notification_updates_log_to_delivered(self):
         """Delivery notification updates matching EmailLog to DELIVERED status."""
         email_log = SentEmailLogFactory(message_id="ses-delivery-001")
-        payload = _sns_envelope("Notification", _delivery_notification("ses-delivery-001"))
+        payload = _sns_envelope(
+            "Notification", _delivery_notification("ses-delivery-001")
+        )
 
         client = Client()
         with patch(VERIFIER_PATH, return_value=True):
@@ -283,7 +288,9 @@ class TestSESWebhook:
         email_log = SentEmailLogFactory(message_id="ses-bounce-002")
         payload = _sns_envelope(
             "Notification",
-            _bounce_notification("ses-bounce-002", bounce_type="Transient", bounce_subtype="MailboxFull"),
+            _bounce_notification(
+                "ses-bounce-002", bounce_type="Transient", bounce_subtype="MailboxFull"
+            ),
         )
 
         client = Client()
@@ -306,7 +313,9 @@ class TestSESWebhook:
     def test_complaint_notification_updates_log_to_complained(self):
         """Complaint notification updates matching EmailLog to COMPLAINED status."""
         email_log = SentEmailLogFactory(message_id="ses-complaint-001")
-        payload = _sns_envelope("Notification", _complaint_notification("ses-complaint-001"))
+        payload = _sns_envelope(
+            "Notification", _complaint_notification("ses-complaint-001")
+        )
 
         client = Client()
         with patch(VERIFIER_PATH, return_value=True):

@@ -9,11 +9,10 @@ Design:
 
 from rest_framework import serializers
 
+from apps.core.constants import BusinessType, CompanySize
 from apps.core.serializers import BaseInputSerializer, BaseOutputSerializer
-from apps.core.constants import BusinessType, BusinessStatus, VerificationStatus, CompanySize
 from apps.core.visibility.serializers import VisibilityAwareSerializerMixin
 from apps.organization.business.models import BusinessAccount, BusinessProfile
-
 
 # =============================================================================
 # INPUT SERIALIZERS
@@ -73,9 +72,10 @@ class BusinessUpdateInput(BaseInputSerializer):
         """Validate city against predefined city list when country is provided."""
         if not value:
             return value
-        country = self.initial_data.get('country', '')
+        country = self.initial_data.get("country", "")
         if country:
             from apps.core.utils.city_data import is_valid_city
+
             if not is_valid_city(country, value):
                 raise serializers.ValidationError(
                     f'"{value}" is not a valid city for country "{country}".'
@@ -105,7 +105,9 @@ class BusinessProfileUpdateInput(BaseInputSerializer):
     cover_image = serializers.ImageField(required=False, allow_null=True)
     website = serializers.URLField(required=False, allow_blank=True)
     contact_email = serializers.EmailField(required=False, allow_blank=True)
-    contact_phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    contact_phone = serializers.CharField(
+        max_length=20, required=False, allow_blank=True
+    )
     industry = serializers.CharField(max_length=100, required=False, allow_blank=True)
     company_size = serializers.ChoiceField(
         choices=CompanySize.choices, required=False, allow_blank=True
@@ -175,9 +177,7 @@ class BusinessAccountOutput(VisibilityAwareSerializerMixin, BaseOutputSerializer
     business_type_display = serializers.CharField(
         source="get_business_type_display", read_only=True
     )
-    status_display = serializers.CharField(
-        source="get_status_display", read_only=True
-    )
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
     verification_status_display = serializers.CharField(
         source="get_verification_status_display", read_only=True
     )

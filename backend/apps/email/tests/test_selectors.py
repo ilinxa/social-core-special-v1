@@ -14,19 +14,18 @@ import pytest
 from django.utils import timezone
 
 from apps.email.models import EmailLog
-from apps.email.selectors import EmailTemplateSelector, EmailLogSelector
+from apps.email.selectors import EmailLogSelector, EmailTemplateSelector
 from apps.email.tests.factories import (
-    EmailTemplateFactory,
-    InactiveEmailTemplateFactory,
     ArchivedEmailTemplateFactory,
-    EmailLogFactory,
-    FailedEmailLogFactory,
     BouncedEmailLogFactory,
     ComplainedEmailLogFactory,
+    EmailLogFactory,
+    EmailTemplateFactory,
+    FailedEmailLogFactory,
+    InactiveEmailTemplateFactory,
     QueuedEmailLogFactory,
     SentEmailLogFactory,
 )
-
 
 # =============================================================================
 # EMAIL TEMPLATE SELECTOR

@@ -16,7 +16,7 @@ Metric Types:
 import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Dict, Generator, Optional
+from typing import Dict, Generator
 
 
 class MetricsInterface(ABC):
@@ -34,7 +34,7 @@ class MetricsInterface(ABC):
     """
 
     @staticmethod
-    def _normalize_tags(tags: Optional[Dict[str, str]]) -> Optional[Dict[str, str]]:
+    def _normalize_tags(tags: Dict[str, str] | None) -> Dict[str, str] | None:
         """
         Normalize tag values to strings.
 
@@ -49,7 +49,7 @@ class MetricsInterface(ABC):
         self,
         name: str,
         value: float = 1,
-        tags: Optional[Dict[str, str]] = None,
+        tags: Dict[str, str] | None = None,
     ) -> None:
         """
         Increment a counter metric.
@@ -73,7 +73,7 @@ class MetricsInterface(ABC):
         self,
         name: str,
         value: float,
-        tags: Optional[Dict[str, str]] = None,
+        tags: Dict[str, str] | None = None,
     ) -> None:
         """
         Set a gauge metric to a specific value.
@@ -97,7 +97,7 @@ class MetricsInterface(ABC):
         self,
         name: str,
         value: float,
-        tags: Optional[Dict[str, str]] = None,
+        tags: Dict[str, str] | None = None,
     ) -> None:
         """
         Record a value in a histogram (distribution).
@@ -120,7 +120,7 @@ class MetricsInterface(ABC):
     def timer(
         self,
         name: str,
-        tags: Optional[Dict[str, str]] = None,
+        tags: Dict[str, str] | None = None,
     ) -> Generator[None, None, None]:
         """
         Context manager to time an operation.

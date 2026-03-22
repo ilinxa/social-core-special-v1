@@ -8,53 +8,68 @@ Admin views use PlatformContextMixin (platform-only).
 Public views use CMS API key authentication.
 """
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status as http_status
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from apps.core.permissions import IsAuthenticated
-from apps.core.pagination import StandardPagination
-from apps.rbac.views import PlatformContextMixin
-from apps.cms.models import Page
-from apps.cms.constants import PageStatus
-from apps.cms.services import (
-    CMSSiteService, CMSTemplateService, CMSPageService,
-    CMSContentService, CMSMediaService, CMSApiKeyService,
-)
-from apps.cms.selectors import (
-    CMSSiteSelector, CMSPageSelector, CMSTemplateSelector,
-    CMSBlockPlacementSelector, CMSMediaSelector,
-    CMSContentVersionSelector, CMSApiKeySelector,
-)
-from apps.cms.api.serializers import (
-    # Input serializers
-    SiteCreateSerializer, SiteUpdateSerializer,
-    PageCreateSerializer,
-    SectionTemplateCreateSerializer, BlockTemplateCreateSerializer,
-    DraftContentUpdateSerializer,
-    MediaUploadSerializer, MediaUpdateSerializer,
+from apps.cms.api.serializers import (  # Input serializers; Output serializers
+    ApiKeyCreatedOutputSerializer,
     ApiKeyCreateSerializer,
-    PageImportSerializer,
-    # Output serializers
-    SiteOutputSerializer, PageOutputSerializer, PageDetailOutputSerializer,
-    SectionTemplateOutputSerializer, BlockTemplateOutputSerializer,
+    ApiKeyOutputSerializer,
     BlockPlacementOutputSerializer,
+    BlockTemplateCreateSerializer,
+    BlockTemplateOutputSerializer,
     ContentVersionOutputSerializer,
+    DraftContentUpdateSerializer,
     MediaFileOutputSerializer,
-    ApiKeyOutputSerializer, ApiKeyCreatedOutputSerializer,
+    MediaUpdateSerializer,
+    MediaUploadSerializer,
+    PageCreateSerializer,
+    PageDetailOutputSerializer,
+    PageImportSerializer,
+    PageOutputSerializer,
+    SectionTemplateCreateSerializer,
+    SectionTemplateOutputSerializer,
+    SiteCreateSerializer,
+    SiteOutputSerializer,
+    SiteUpdateSerializer,
 )
-
+from apps.cms.constants import PageStatus
+from apps.cms.models import Page
+from apps.cms.selectors import (
+    CMSApiKeySelector,
+    CMSBlockPlacementSelector,
+    CMSContentVersionSelector,
+    CMSMediaSelector,
+    CMSPageSelector,
+    CMSSiteSelector,
+    CMSTemplateSelector,
+)
+from apps.cms.services import (
+    CMSApiKeyService,
+    CMSContentService,
+    CMSMediaService,
+    CMSPageService,
+    CMSSiteService,
+    CMSTemplateService,
+)
+from apps.core.pagination import StandardPagination
+from apps.core.permissions import IsAuthenticated
+from apps.rbac.views import PlatformContextMixin
 
 # ---------------------------------------------------------------------------
 # Admin — Sites
 # ---------------------------------------------------------------------------
+
 
 class AdminSiteListCreateView(PlatformContextMixin, APIView):
     """
     GET  /api/v1/cms/admin/sites/  -> List sites (platform-scoped)
     POST /api/v1/cms/admin/sites/  -> Create site (superuser)
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(responses=SiteOutputSerializer(many=True))
@@ -81,7 +96,9 @@ class AdminSiteListCreateView(PlatformContextMixin, APIView):
             request=request,
             **serializer.validated_data,
         )
-        return Response(SiteOutputSerializer(site).data, status=http_status.HTTP_201_CREATED)
+        return Response(
+            SiteOutputSerializer(site).data, status=http_status.HTTP_201_CREATED
+        )
 
 
 class AdminSiteDetailView(PlatformContextMixin, APIView):
@@ -90,6 +107,7 @@ class AdminSiteDetailView(PlatformContextMixin, APIView):
     PATCH  /api/v1/cms/admin/sites/{slug}/  -> Update site
     DELETE /api/v1/cms/admin/sites/{slug}/  -> Delete site (superuser)
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(responses=SiteOutputSerializer)
@@ -123,7 +141,9 @@ class AdminSiteDetailView(PlatformContextMixin, APIView):
     def delete(self, request, slug):
         actor_context = self.get_actor_context()
         CMSSiteService.delete_site(
-            actor_context=actor_context, slug=slug, request=request,
+            actor_context=actor_context,
+            slug=slug,
+            request=request,
         )
         return Response(status=http_status.HTTP_204_NO_CONTENT)
 
@@ -132,11 +152,13 @@ class AdminSiteDetailView(PlatformContextMixin, APIView):
 # Admin — Pages
 # ---------------------------------------------------------------------------
 
+
 class AdminPageListCreateView(PlatformContextMixin, APIView):
     """
     GET  /api/v1/cms/admin/pages/  -> List pages (filterable by site, status)
     POST /api/v1/cms/admin/pages/  -> Create page (superuser)
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(responses=PageOutputSerializer(many=True))
@@ -152,7 +174,8 @@ class AdminPageListCreateView(PlatformContextMixin, APIView):
                 slug=site_slug,
             )
             pages = CMSPageSelector.list_by_site(
-                site_id=site.id, status=status_filter,
+                site_id=site.id,
+                status=status_filter,
             )
         else:
             pages = Page.objects.filter(
@@ -177,13 +200,16 @@ class AdminPageListCreateView(PlatformContextMixin, APIView):
             request=request,
             **serializer.validated_data,
         )
-        return Response(PageOutputSerializer(page).data, status=http_status.HTTP_201_CREATED)
+        return Response(
+            PageOutputSerializer(page).data, status=http_status.HTTP_201_CREATED
+        )
 
 
 class AdminPageDetailView(PlatformContextMixin, APIView):
     """
     GET    /api/v1/cms/admin/pages/{slug}/  -> Get page (with optional depth)
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(responses=PageDetailOutputSerializer)
@@ -192,11 +218,15 @@ class AdminPageDetailView(PlatformContextMixin, APIView):
         depth = request.query_params.get("depth", None)
         site_slug = request.query_params.get("site")
 
-        site = CMSSiteSelector.get_by_slug(
-            owner_type=actor_context.account_type,
-            owner_id=actor_context.account_id,
-            slug=site_slug,
-        ) if site_slug else None
+        site = (
+            CMSSiteSelector.get_by_slug(
+                owner_type=actor_context.account_type,
+                owner_id=actor_context.account_id,
+                slug=site_slug,
+            )
+            if site_slug
+            else None
+        )
 
         if depth == "full" and site:
             page = CMSPageSelector.get_by_slug(site_id=site.id, slug=slug)
@@ -209,6 +239,7 @@ class AdminPageDetailView(PlatformContextMixin, APIView):
             page = Page.objects.filter(slug=slug).first()
             if not page:
                 from apps.core.exceptions import NotFound
+
                 raise NotFound(resource="Page", resource_id=slug)
 
         return Response(PageOutputSerializer(page).data)
@@ -216,6 +247,7 @@ class AdminPageDetailView(PlatformContextMixin, APIView):
 
 class AdminPagePublishView(PlatformContextMixin, APIView):
     """POST /api/v1/cms/admin/pages/{slug}/publish/ -> Validate & publish page."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -234,13 +266,16 @@ class AdminPagePublishView(PlatformContextMixin, APIView):
         )
         page = CMSPageSelector.get_by_slug(site_id=site.id, slug=slug)
         page = CMSPageService.publish_page(
-            actor_context=actor_context, page_id=page.id, request=request,
+            actor_context=actor_context,
+            page_id=page.id,
+            request=request,
         )
         return Response(PageOutputSerializer(page).data)
 
 
 class AdminPageUnpublishView(PlatformContextMixin, APIView):
     """POST /api/v1/cms/admin/pages/{slug}/unpublish/ -> Revert to draft."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -259,13 +294,16 @@ class AdminPageUnpublishView(PlatformContextMixin, APIView):
         )
         page = CMSPageSelector.get_by_slug(site_id=site.id, slug=slug)
         page = CMSPageService.unpublish_page(
-            actor_context=actor_context, page_id=page.id, request=request,
+            actor_context=actor_context,
+            page_id=page.id,
+            request=request,
         )
         return Response(PageOutputSerializer(page).data)
 
 
 class AdminPageExportView(PlatformContextMixin, APIView):
     """POST /api/v1/cms/admin/pages/{slug}/export/ -> Export page tree as JSON."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -283,13 +321,16 @@ class AdminPageExportView(PlatformContextMixin, APIView):
         )
         page = CMSPageSelector.get_by_slug(site_id=site.id, slug=slug)
         export_data = CMSPageService.export_page(
-            actor_context=actor_context, page_id=page.id, request=request,
+            actor_context=actor_context,
+            page_id=page.id,
+            request=request,
         )
         return Response(export_data)
 
 
 class AdminPageImportView(PlatformContextMixin, APIView):
     """POST /api/v1/cms/admin/pages/{slug}/import/ -> Import page content."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -322,11 +363,13 @@ class AdminPageImportView(PlatformContextMixin, APIView):
 # Admin — Templates
 # ---------------------------------------------------------------------------
 
+
 class AdminSectionTemplateListCreateView(PlatformContextMixin, APIView):
     """
     GET  /api/v1/cms/admin/templates/sections/  -> List section templates
     POST /api/v1/cms/admin/templates/sections/  -> Create section template
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -336,7 +379,9 @@ class AdminSectionTemplateListCreateView(PlatformContextMixin, APIView):
     )
     def get(self, request):
         section_type = request.query_params.get("section_type")
-        templates = CMSTemplateSelector.list_section_templates(section_type=section_type)
+        templates = CMSTemplateSelector.list_section_templates(
+            section_type=section_type
+        )
         paginator = StandardPagination()
         page = paginator.paginate_queryset(templates, request)
         serializer = SectionTemplateOutputSerializer(page, many=True)
@@ -353,7 +398,8 @@ class AdminSectionTemplateListCreateView(PlatformContextMixin, APIView):
         serializer.is_valid(raise_exception=True)
         actor_context = self.get_actor_context()
         template = CMSTemplateService.create_section_template(
-            actor_context=actor_context, request=request,
+            actor_context=actor_context,
+            request=request,
             **serializer.validated_data,
         )
         return Response(
@@ -367,6 +413,7 @@ class AdminBlockTemplateListCreateView(PlatformContextMixin, APIView):
     GET  /api/v1/cms/admin/templates/blocks/  -> List block templates
     POST /api/v1/cms/admin/templates/blocks/  -> Create block template
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -393,7 +440,8 @@ class AdminBlockTemplateListCreateView(PlatformContextMixin, APIView):
         serializer.is_valid(raise_exception=True)
         actor_context = self.get_actor_context()
         template = CMSTemplateService.create_block_template(
-            actor_context=actor_context, request=request,
+            actor_context=actor_context,
+            request=request,
             **serializer.validated_data,
         )
         return Response(
@@ -406,11 +454,13 @@ class AdminBlockTemplateListCreateView(PlatformContextMixin, APIView):
 # Admin — Block Placements (content interaction)
 # ---------------------------------------------------------------------------
 
+
 class AdminBlockPlacementDetailView(PlatformContextMixin, APIView):
     """
     GET   /api/v1/cms/admin/block-placements/{uuid}/ -> Get block placement
     PATCH /api/v1/cms/admin/block-placements/{uuid}/ -> Update draft_content
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -443,6 +493,7 @@ class AdminBlockPlacementDetailView(PlatformContextMixin, APIView):
 
 class AdminBlockPlacementHistoryView(PlatformContextMixin, APIView):
     """GET /api/v1/cms/admin/block-placements/{uuid}/history/ -> List versions."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -462,6 +513,7 @@ class AdminBlockPlacementHistoryView(PlatformContextMixin, APIView):
 
 class AdminBlockPlacementRollbackView(PlatformContextMixin, APIView):
     """POST /api/v1/cms/admin/block-placements/{uuid}/rollback/{version}/ -> Rollback."""
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -485,12 +537,15 @@ class AdminBlockPlacementRollbackView(PlatformContextMixin, APIView):
 # Admin — Media
 # ---------------------------------------------------------------------------
 
+
 class AdminMediaFileListCreateView(PlatformContextMixin, APIView):
     """
     GET  /api/v1/cms/admin/media/files/  -> List files
     POST /api/v1/cms/admin/media/files/  -> Upload file
     """
+
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @extend_schema(
         summary="List media files",
@@ -498,6 +553,8 @@ class AdminMediaFileListCreateView(PlatformContextMixin, APIView):
         responses={200: MediaFileOutputSerializer(many=True)},
     )
     def get(self, request):
+        from django.db.models import Count
+
         actor_context = self.get_actor_context()
         folder_id = request.query_params.get("folder")
         mime_type = request.query_params.get("type")
@@ -506,7 +563,7 @@ class AdminMediaFileListCreateView(PlatformContextMixin, APIView):
             owner_id=actor_context.account_id,
             folder_id=folder_id,
             mime_type=mime_type,
-        )
+        ).annotate(_usage_count=Count("usages"))
         paginator = StandardPagination()
         page = paginator.paginate_queryset(files, request)
         serializer = MediaFileOutputSerializer(page, many=True)
@@ -529,7 +586,9 @@ class AdminMediaFileListCreateView(PlatformContextMixin, APIView):
             request=request,
             **serializer.validated_data,
         )
-        return Response(MediaFileOutputSerializer(media).data, status=http_status.HTTP_201_CREATED)
+        return Response(
+            MediaFileOutputSerializer(media).data, status=http_status.HTTP_201_CREATED
+        )
 
 
 class AdminMediaFileDetailView(PlatformContextMixin, APIView):
@@ -538,6 +597,7 @@ class AdminMediaFileDetailView(PlatformContextMixin, APIView):
     PATCH  /api/v1/cms/admin/media/files/{uuid}/ -> Update file metadata
     DELETE /api/v1/cms/admin/media/files/{uuid}/ -> Delete file
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -575,7 +635,9 @@ class AdminMediaFileDetailView(PlatformContextMixin, APIView):
     def delete(self, request, uuid):
         actor_context = self.get_actor_context()
         CMSMediaService.delete_file(
-            actor_context=actor_context, file_id=uuid, request=request,
+            actor_context=actor_context,
+            file_id=uuid,
+            request=request,
         )
         return Response(status=http_status.HTTP_204_NO_CONTENT)
 
@@ -584,11 +646,13 @@ class AdminMediaFileDetailView(PlatformContextMixin, APIView):
 # Admin — API Keys
 # ---------------------------------------------------------------------------
 
+
 class AdminApiKeyListCreateView(PlatformContextMixin, APIView):
     """
     GET  /api/v1/cms/admin/api-keys/ -> List API keys for a site
     POST /api/v1/cms/admin/api-keys/ -> Create API key (returns full key ONCE)
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -613,7 +677,8 @@ class AdminApiKeyListCreateView(PlatformContextMixin, APIView):
         serializer.is_valid(raise_exception=True)
         actor_context = self.get_actor_context()
         api_key, plaintext = CMSApiKeyService.create_api_key(
-            actor_context=actor_context, request=request,
+            actor_context=actor_context,
+            request=request,
             **serializer.validated_data,
         )
         output = ApiKeyCreatedOutputSerializer(api_key).data
@@ -625,6 +690,7 @@ class AdminApiKeyDetailView(PlatformContextMixin, APIView):
     """
     DELETE /api/v1/cms/admin/api-keys/{uuid}/ -> Revoke key
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -635,7 +701,9 @@ class AdminApiKeyDetailView(PlatformContextMixin, APIView):
     def delete(self, request, uuid):
         actor_context = self.get_actor_context()
         CMSApiKeyService.revoke_api_key(
-            actor_context=actor_context, api_key_id=uuid, request=request,
+            actor_context=actor_context,
+            api_key_id=uuid,
+            request=request,
         )
         return Response(status=http_status.HTTP_204_NO_CONTENT)
 
@@ -644,8 +712,10 @@ class AdminApiKeyDetailView(PlatformContextMixin, APIView):
 # Public API
 # ---------------------------------------------------------------------------
 
+
 class PublicSiteView(APIView):
     """GET /api/v1/cms/public/sites/{slug}/ -> Get published site info."""
+
     permission_classes = []  # API key checked in middleware
 
     @extend_schema(
@@ -657,6 +727,7 @@ class PublicSiteView(APIView):
         site = getattr(request, "cms_site", None)
         if not site or site.slug != slug:
             from apps.core.exceptions import NotFound
+
             raise NotFound(resource="Site", resource_id=slug)
         return Response(SiteOutputSerializer(site).data)
 
@@ -666,6 +737,7 @@ class PublicPageView(APIView):
     GET /api/v1/cms/public/pages/{slug}/ -> Get published page.
     Supports ?depth=full for full tree with published_content.
     """
+
     permission_classes = []
 
     @extend_schema(
@@ -677,6 +749,7 @@ class PublicPageView(APIView):
         site = getattr(request, "cms_site", None)
         if not site:
             from apps.core.exceptions import PermissionDenied
+
             raise PermissionDenied(message="Valid API key required")
 
         depth = request.query_params.get("depth")
@@ -684,10 +757,13 @@ class PublicPageView(APIView):
 
         if page.status != PageStatus.PUBLISHED or not page.is_visible:
             from apps.core.exceptions import NotFound
+
             raise NotFound(resource="Page", resource_id=slug)
 
         if depth == "full":
             page = CMSPageSelector.get_with_full_tree(page_id=page.id)
-            return Response(PageDetailOutputSerializer(page, context={"public": True}).data)
+            return Response(
+                PageDetailOutputSerializer(page, context={"public": True}).data
+            )
 
         return Response(PageOutputSerializer(page).data)

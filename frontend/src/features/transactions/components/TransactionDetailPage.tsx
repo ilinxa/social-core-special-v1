@@ -36,6 +36,7 @@ import {
 import {
   fetchRequiredFormApi,
 } from "@/features/transactions/api/transactions-api";
+import { queryKeys } from "@/lib/query-keys";
 import type { FormField } from "@/types/forms";
 
 interface TransactionDetailPageProps {
@@ -62,7 +63,7 @@ export function TransactionDetailPage({
 
   // Fetch form template fields for the RequestChangesDialog
   const { data: formTemplateData } = useQuery({
-    queryKey: ["transactions", "required-form", transactionId],
+    queryKey: queryKeys.transactions.requiredForm(transactionId),
     queryFn: () => fetchRequiredFormApi(transactionId),
     enabled: !!txn?.form_response,
   });
@@ -129,6 +130,7 @@ export function TransactionDetailPage({
   const hasFormResponse = !!txn.form_response;
 
   function handleAccept() {
+    if (!txn) return;
     if (needsFormBeforeAccept) {
       setFormDialogOpen(true);
     } else {
@@ -143,6 +145,7 @@ export function TransactionDetailPage({
   }
 
   function handleAcceptWithForm(formResponseId: string) {
+    if (!txn) return;
     setFormDialogOpen(false);
     accept.mutate(
       {
@@ -157,6 +160,7 @@ export function TransactionDetailPage({
   }
 
   function handleRequestChanges(message: string, requestedFields: string[]) {
+    if (!txn) return;
     setRequestChangesOpen(false);
     requestInfo.mutate(
       {
@@ -174,6 +178,7 @@ export function TransactionDetailPage({
   }
 
   function handleApprove() {
+    if (!txn) return;
     approve.mutate(
       { transactionId: txn.id },
       {
@@ -184,6 +189,7 @@ export function TransactionDetailPage({
   }
 
   function handleResubmit() {
+    if (!txn) return;
     resubmit.mutate(
       { transactionId: txn.id },
       {

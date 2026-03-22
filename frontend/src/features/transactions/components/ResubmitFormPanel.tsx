@@ -16,6 +16,7 @@ import {
   fetchRequiredFormApi,
   type FormTemplateForTransaction,
 } from "@/features/transactions/api/transactions-api";
+import { queryKeys } from "@/lib/query-keys";
 import { useUpdateTransactionFormResponse } from "@/features/transactions/hooks/use-transaction-mutations";
 import type { TransactionFormResponse } from "@/types/transactions";
 
@@ -37,7 +38,7 @@ export function ResubmitFormPanel({
   isResubmitting = false,
 }: ResubmitFormPanelProps) {
   const { data: formData, isLoading: templateLoading } = useQuery({
-    queryKey: ["transactions", "required-form", transactionId],
+    queryKey: queryKeys.transactions.requiredForm(transactionId),
     queryFn: () => fetchRequiredFormApi(transactionId),
     enabled: !!transactionId,
   });

@@ -213,13 +213,19 @@ class BusinessPolicy:
         perms = {
             "can_view": BusinessPolicy.can_view(user=user, business=business),
             "can_edit": BusinessPolicy.can_update(user=user, business=business),
-            "can_edit_profile": BusinessPolicy.can_update_profile(user=user, business=business),
+            "can_edit_profile": BusinessPolicy.can_update_profile(
+                user=user, business=business
+            ),
             "can_delete": BusinessPolicy.can_delete(user=user, business=business),
-            "can_change_slug": BusinessPolicy.can_update_slug(user=user, business=business),
+            "can_change_slug": BusinessPolicy.can_update_slug(
+                user=user, business=business
+            ),
             "can_archive": BusinessPolicy.can_archive(user=user, business=business),
         }
         perms.update(
-            NetworkPolicy.get_business_network_permissions(viewer=user, business=business)
+            NetworkPolicy.get_business_network_permissions(
+                viewer=user, business=business
+            )
         )
         return perms
 
@@ -249,6 +255,7 @@ class BusinessPolicy:
 
         # Followers can view private profiles
         from apps.network.selectors import FollowSelector
+
         return FollowSelector.is_following(
             follower_id=user.id,
             followee_type="business",

@@ -6,15 +6,14 @@ Pytest configuration and fixtures for Notifications app tests.
 import pytest
 from rest_framework.test import APIClient
 
-from apps.users.tests.factories import UserFactory, VerifiedUserFactory
 from apps.notifications.tests.factories import (
-    NotificationPreferenceFactory,
-    NotificationLogFactory,
-    SentNotificationLogFactory,
     FailedNotificationLogFactory,
+    NotificationLogFactory,
+    NotificationPreferenceFactory,
     PartialNotificationLogFactory,
+    SentNotificationLogFactory,
 )
-
+from apps.users.tests.factories import UserFactory, VerifiedUserFactory
 
 # =============================================================================
 # API CLIENT FIXTURES
@@ -88,8 +87,10 @@ def preferences_url():
 @pytest.fixture
 def preference_detail_url():
     """Return a function that generates preference detail URL."""
+
     def _url(notification_type):
         return f"/api/v1/notifications/preferences/{notification_type}/"
+
     return _url
 
 

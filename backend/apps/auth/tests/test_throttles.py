@@ -1,9 +1,10 @@
 from rest_framework.throttling import AnonRateThrottle
+
 from apps.auth.throttles import (
     LoginRateThrottle,
+    OAuthRateThrottle,
     PasswordResetRateThrottle,
     VerificationRateThrottle,
-    OAuthRateThrottle,
 )
 
 
@@ -12,7 +13,7 @@ class TestLoginRateThrottle:
         assert issubclass(LoginRateThrottle, AnonRateThrottle)
 
     def test_scope_is_login(self):
-        assert LoginRateThrottle.scope == 'login'
+        assert LoginRateThrottle.scope == "login"
 
 
 class TestPasswordResetRateThrottle:
@@ -20,7 +21,7 @@ class TestPasswordResetRateThrottle:
         assert issubclass(PasswordResetRateThrottle, AnonRateThrottle)
 
     def test_scope_is_password_reset(self):
-        assert PasswordResetRateThrottle.scope == 'password_reset'
+        assert PasswordResetRateThrottle.scope == "password_reset"
 
 
 class TestVerificationRateThrottle:
@@ -28,7 +29,7 @@ class TestVerificationRateThrottle:
         assert issubclass(VerificationRateThrottle, AnonRateThrottle)
 
     def test_scope_is_verification(self):
-        assert VerificationRateThrottle.scope == 'verification'
+        assert VerificationRateThrottle.scope == "verification"
 
 
 class TestOAuthRateThrottle:
@@ -36,4 +37,4 @@ class TestOAuthRateThrottle:
         assert issubclass(OAuthRateThrottle, AnonRateThrottle)
 
     def test_scope_is_oauth(self):
-        assert OAuthRateThrottle.scope == 'oauth'
+        assert OAuthRateThrottle.scope == "oauth"

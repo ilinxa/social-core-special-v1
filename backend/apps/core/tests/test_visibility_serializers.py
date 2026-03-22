@@ -11,13 +11,14 @@ from apps.core.visibility.serializers import (
     VisibilityOverrideInput,
 )
 
-
 # =============================================================================
 # Test serializer using the mixin
 # =============================================================================
 
 
-class _FakeProfileSerializer(VisibilityAwareSerializerMixin, drf_serializers.Serializer):
+class _FakeProfileSerializer(
+    VisibilityAwareSerializerMixin, drf_serializers.Serializer
+):
     """Fake serializer for testing the mixin."""
 
     visibility_registry = "business_profile"
@@ -28,7 +29,9 @@ class _FakeProfileSerializer(VisibilityAwareSerializerMixin, drf_serializers.Ser
     contact_phone = drf_serializers.CharField()
 
 
-class _FakeAccountSerializer(VisibilityAwareSerializerMixin, drf_serializers.Serializer):
+class _FakeAccountSerializer(
+    VisibilityAwareSerializerMixin, drf_serializers.Serializer
+):
     """Fake account serializer for testing T3."""
 
     visibility_registry = "business_account"

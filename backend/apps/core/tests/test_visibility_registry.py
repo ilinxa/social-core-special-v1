@@ -56,9 +56,19 @@ class TestFieldVisibilityConfig:
 class TestUserProfileRegistry:
     def test_t1_fields_present(self):
         t1_fields = [
-            "first_name", "last_name", "full_name", "display_name",
-            "avatar_url", "has_avatar", "cover_image_url", "has_cover_image",
-            "bio", "country", "city", "tags", "is_public",
+            "first_name",
+            "last_name",
+            "full_name",
+            "display_name",
+            "avatar_url",
+            "has_avatar",
+            "cover_image_url",
+            "has_cover_image",
+            "bio",
+            "country",
+            "city",
+            "tags",
+            "is_public",
         ]
         for field in t1_fields:
             assert field in USER_PROFILE_FIELDS
@@ -126,9 +136,18 @@ class TestBusinessProfileRegistry:
 
     def test_t1_display_fields(self):
         t1_fields = [
-            "display_name", "tagline", "description", "logo",
-            "cover_image", "website", "industry", "company_size",
-            "founded_year", "social_links", "tags", "is_public",
+            "display_name",
+            "tagline",
+            "description",
+            "logo",
+            "cover_image",
+            "website",
+            "industry",
+            "company_size",
+            "founded_year",
+            "social_links",
+            "tags",
+            "is_public",
         ]
         for field in t1_fields:
             assert field in BUSINESS_PROFILE_FIELDS

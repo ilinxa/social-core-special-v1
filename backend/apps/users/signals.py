@@ -16,13 +16,13 @@ from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from apps.users.models import User, UserProfile
 from apps.core.observability import get_logger
+from apps.users.models import User, UserProfile
 
 logger = get_logger(__name__)
 
 
-@receiver(post_save, sender=User)
+@receiver(post_save, sender=User, dispatch_uid="create_user_profile")
 def create_user_profile(sender, instance, created, **kwargs):
     """
     Create UserProfile when User is created.
@@ -44,6 +44,7 @@ def create_user_profile(sender, instance, created, **kwargs):
         is only created after the transaction successfully commits.
     """
     if created:
+
         def _create_profile():
             # Guard against duplicate profile creation
             # This can happen if signal fires multiple times or profile created manually
@@ -56,8 +57,6 @@ def create_user_profile(sender, instance, created, **kwargs):
                 logger.debug(f"Created profile for user {instance.id}")
             except Exception as e:
                 # Could be race condition or database error
-                logger.error(
-                    f"Failed to create profile for user {instance.id}: {e}"
-                )
+                logger.error(f"Failed to create profile for user {instance.id}: {e}")
 
         transaction.on_commit(_create_profile)

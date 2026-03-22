@@ -12,12 +12,12 @@ these records.
 from django.conf import settings
 from django.db import models
 
-from apps.core.models import UUIDModel, TimeStampedModel
-
+from apps.core.models import TimeStampedModel, UUIDModel
 
 # =============================================================================
 # ENUMS
 # =============================================================================
+
 
 class FolloweeType(models.TextChoices):
     BUSINESS = "business", "Business"
@@ -42,6 +42,7 @@ class ConnectionStatus(models.TextChoices):
 # =============================================================================
 # FOLLOW MODEL
 # =============================================================================
+
 
 class Follow(UUIDModel, TimeStampedModel):
     """
@@ -80,6 +81,8 @@ class Follow(UUIDModel, TimeStampedModel):
 
     class Meta:
         db_table = "network_follow"
+        verbose_name = "follow"
+        verbose_name_plural = "follows"
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
@@ -107,6 +110,7 @@ class Follow(UUIDModel, TimeStampedModel):
 # =============================================================================
 # CONNECTION MODEL
 # =============================================================================
+
 
 class Connection(UUIDModel, TimeStampedModel):
     """
@@ -177,6 +181,8 @@ class Connection(UUIDModel, TimeStampedModel):
 
     class Meta:
         db_table = "network_connection"
+        verbose_name = "connection"
+        verbose_name_plural = "connections"
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
@@ -189,8 +195,10 @@ class Connection(UUIDModel, TimeStampedModel):
             ),
             models.UniqueConstraint(
                 fields=[
-                    "account_a_type", "account_a_id",
-                    "account_b_type", "account_b_id",
+                    "account_a_type",
+                    "account_a_id",
+                    "account_b_type",
+                    "account_b_id",
                 ],
                 condition=models.Q(
                     status="active",
@@ -201,10 +209,7 @@ class Connection(UUIDModel, TimeStampedModel):
             models.CheckConstraint(
                 check=(
                     ~models.Q(connection_type="user_user")
-                    | (
-                        models.Q(user_a__isnull=False)
-                        & models.Q(user_b__isnull=False)
-                    )
+                    | (models.Q(user_a__isnull=False) & models.Q(user_b__isnull=False))
                 ),
                 name="user_connection_requires_users",
             ),

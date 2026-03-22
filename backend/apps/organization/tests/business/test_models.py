@@ -120,7 +120,9 @@ class TestBusinessAccountModel:
 class TestBusinessProfileModel:
     """Tests for BusinessProfile model."""
 
-    def test_business_profile_creation(self, business_profile_factory, business_account):
+    def test_business_profile_creation(
+        self, business_profile_factory, business_account
+    ):
         """Test business profile can be created."""
         profile = business_profile_factory(business=business_account)
         assert profile.business == business_account
@@ -135,7 +137,9 @@ class TestBusinessProfileModel:
         profile = business_with_profile.profile
         assert profile.display_name in str(profile)
 
-    def test_business_profile_default_public(self, business_profile_factory, business_account):
+    def test_business_profile_default_public(
+        self, business_profile_factory, business_account
+    ):
         """Test default is_public value."""
         profile = business_profile_factory(business=business_account)
         assert profile.is_public is True
@@ -155,7 +159,9 @@ class TestBusinessProfileModel:
 class TestBusinessSlugHistoryModel:
     """Tests for BusinessSlugHistory model."""
 
-    def test_slug_history_creation(self, business_slug_history_factory, business_account):
+    def test_slug_history_creation(
+        self, business_slug_history_factory, business_account
+    ):
         """Test slug history can be created."""
         history = business_slug_history_factory(
             business=business_account,
@@ -165,12 +171,16 @@ class TestBusinessSlugHistoryModel:
         assert history.old_slug == "old-slug-test"
         assert history.business == business_account
 
-    def test_slug_history_unique_old_slug(self, business_slug_history_factory, business_account):
+    def test_slug_history_unique_old_slug(
+        self, business_slug_history_factory, business_account
+    ):
         """Test that old_slug must be globally unique."""
         business_slug_history_factory(business=business_account, old_slug="used-slug")
 
         with pytest.raises(IntegrityError):
-            business_slug_history_factory(business=business_account, old_slug="used-slug")
+            business_slug_history_factory(
+                business=business_account, old_slug="used-slug"
+            )
 
     def test_slug_history_str(self, business_slug_history_factory, business_account):
         """Test string representation."""

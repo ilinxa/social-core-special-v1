@@ -1,7 +1,6 @@
 from .base import *
 
-
-DEBUG=True
+DEBUG = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 # Additional directories to search for static files
@@ -61,7 +60,7 @@ if "debug_toolbar" in INSTALLED_APPS:
         0,  # Add at the beginning
         "debug_toolbar.middleware.DebugToolbarMiddleware",
     )
-    
+
     # Internal IPs that can see debug toolbar
     INTERNAL_IPS = [
         "127.0.0.1",
@@ -134,7 +133,7 @@ CELERY_TASK_EAGER_PROPAGATES = True
 # EMAIL CONFIGURATION (LOCAL)
 # ============================================
 # Use console backend for local development
-EMAIL_BACKEND_TYPE = 'console'
+EMAIL_BACKEND_TYPE = "console"
 
 # ============================================
 # OBSERVABILITY CONFIGURATION (LOCAL)
@@ -142,4 +141,3 @@ EMAIL_BACKEND_TYPE = 'console'
 # Use console format (colored, human-readable) in development
 LOGGING_FORMAT = "console"
 LOGGING_LEVEL = "DEBUG"
-

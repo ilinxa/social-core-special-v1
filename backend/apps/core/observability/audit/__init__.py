@@ -17,10 +17,10 @@ Components:
     - constants: Action type definitions
 """
 
-from apps.core.observability.audit.models import AuditLog
-from apps.core.observability.audit.service import AuditService
-from apps.core.observability.audit.selectors import AuditSelector
 from apps.core.observability.audit.decorators import audited
+from apps.core.observability.audit.models import AuditLog
+from apps.core.observability.audit.selectors import AuditSelector
+from apps.core.observability.audit.service import AuditService
 
 __all__ = [
     "AuditLog",

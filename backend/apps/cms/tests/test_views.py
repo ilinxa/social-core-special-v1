@@ -7,15 +7,20 @@ Tests cover admin endpoints (authenticated + RBAC) and public endpoints (API key
 
 import pytest
 from rest_framework.test import APIClient
-from apps.core.constants import OwnerType
-from apps.cms.constants import PageStatus, BlockPlacementStatus
-from apps.cms.tests.factories import (
-    SiteFactory, PageFactory, SectionTemplateFactory, BlockTemplateFactory,
-    PageSectionPlacementFactory, SectionBlockPlacementFactory,
-    ContentVersionFactory, CMSApiKeyFactory,
-)
-from apps.cms.models import CMSApiKey
 
+from apps.cms.constants import BlockPlacementStatus, PageStatus
+from apps.cms.models import CMSApiKey
+from apps.cms.tests.factories import (
+    BlockTemplateFactory,
+    CMSApiKeyFactory,
+    ContentVersionFactory,
+    PageFactory,
+    PageSectionPlacementFactory,
+    SectionBlockPlacementFactory,
+    SectionTemplateFactory,
+    SiteFactory,
+)
+from apps.core.constants import OwnerType
 
 # =========================================================================
 # URL helpers
@@ -112,6 +117,7 @@ def authenticated_client(api_client, user):
 def api_key_and_plaintext(actor_context, site):
     """Create an API key and return (api_key, plaintext)."""
     from apps.cms.services import CMSApiKeyService
+
     return CMSApiKeyService.create_api_key(
         actor_context=actor_context,
         site_id=site.id,
@@ -184,9 +190,7 @@ class TestAdminSiteDetailView:
 @pytest.mark.django_db
 class TestAdminPageListCreateView:
     def test_list_pages(self, authenticated_client, page):
-        response = authenticated_client.get(
-            admin_pages_url(), {"site": page.site.slug}
-        )
+        response = authenticated_client.get(admin_pages_url(), {"site": page.site.slug})
         assert response.status_code == 200
 
     def test_create_page(self, authenticated_client, site):
@@ -222,7 +226,8 @@ class TestAdminPagePublishView:
         block_placement.save()
 
         response = authenticated_client.post(
-            admin_page_publish_url(page.slug), {"site": page.site.slug},
+            admin_page_publish_url(page.slug),
+            {"site": page.site.slug},
             format="json",
         )
         # The publish URL requires site as query param
@@ -403,17 +408,13 @@ class TestAdminApiKeyListCreateView:
             "site_id": str(site.id),
             "name": "Test Key",
         }
-        response = authenticated_client.post(
-            admin_api_keys_url(), data, format="json"
-        )
+        response = authenticated_client.post(admin_api_keys_url(), data, format="json")
         assert response.status_code == 201
         assert "key" in response.data
         assert response.data["key"].startswith("cmsk_")
 
     def test_list_api_keys(self, authenticated_client, api_key_and_plaintext, site):
-        response = authenticated_client.get(
-            admin_api_keys_url() + f"?site={site.id}"
-        )
+        response = authenticated_client.get(admin_api_keys_url() + f"?site={site.id}")
         assert response.status_code == 200
 
 
@@ -421,9 +422,7 @@ class TestAdminApiKeyListCreateView:
 class TestAdminApiKeyDetailView:
     def test_revoke_api_key(self, authenticated_client, api_key_and_plaintext):
         api_key, _ = api_key_and_plaintext
-        response = authenticated_client.delete(
-            admin_api_key_detail_url(api_key.id)
-        )
+        response = authenticated_client.delete(admin_api_key_detail_url(api_key.id))
         assert response.status_code == 204
 
 

@@ -19,7 +19,7 @@ URL patterns:
     /api/v1/platform/members/{id}/ban/      POST
 """
 
-from django.urls import path, include
+from django.urls import path
 
 from apps.organization.platform.views import (
     PlatformAccountView,
@@ -27,6 +27,7 @@ from apps.organization.platform.views import (
     PlatformSettingsView,
 )
 from apps.rbac.urls import platform_urlpatterns
+from apps.users.views import ApprovedBusinessCreatorsListView
 
 app_name = "platform"
 
@@ -34,4 +35,5 @@ urlpatterns = [
     path("account/", PlatformAccountView.as_view(), name="account"),
     path("profile/", PlatformProfileView.as_view(), name="profile"),
     path("settings/", PlatformSettingsView.as_view(), name="settings"),
+    path("approved-creators/", ApprovedBusinessCreatorsListView.as_view(), name="approved-creators"),
 ] + platform_urlpatterns

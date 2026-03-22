@@ -7,15 +7,14 @@ Uses mock where needed to isolate from transaction system complexity.
 """
 
 import uuid
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from rest_framework import status as http_status
 
-from apps.network.models import Follow, FollowStatus, Connection, ConnectionStatus
+from apps.network.models import Connection, ConnectionStatus, Follow, FollowStatus
 from apps.network.tests.factories import FollowFactory, UserConnectionFactory
 from apps.users.tests.factories import UserFactory
-
 
 # URL constants
 FOLLOW_URL = "/api/v1/network/follow/"
@@ -54,30 +53,40 @@ def _biz_stats_url(slug):
 class TestFollowCreate:
 
     @patch("apps.transaction.services.TransactionService")
-    def test_follow_public_business(self, mock_txn_service, authenticated_client, business):
+    def test_follow_public_business(
+        self, mock_txn_service, authenticated_client, business
+    ):
         mock_txn = MagicMock()
         mock_txn.id = uuid.uuid4()
         mock_txn.status = "accepted"
         mock_txn_service.create_request.return_value = mock_txn
 
-        response = authenticated_client.post(FOLLOW_URL, {
-            "followee_type": "business",
-            "followee_id": str(business.id),
-        })
+        response = authenticated_client.post(
+            FOLLOW_URL,
+            {
+                "followee_type": "business",
+                "followee_id": str(business.id),
+            },
+        )
         assert response.status_code == http_status.HTTP_201_CREATED
         assert "transaction_id" in response.data
 
     @patch("apps.transaction.services.TransactionService")
-    def test_follow_private_business(self, mock_txn_service, authenticated_client, private_business):
+    def test_follow_private_business(
+        self, mock_txn_service, authenticated_client, private_business
+    ):
         mock_txn = MagicMock()
         mock_txn.id = uuid.uuid4()
         mock_txn.status = "pending"
         mock_txn_service.create_request.return_value = mock_txn
 
-        response = authenticated_client.post(FOLLOW_URL, {
-            "followee_type": "business",
-            "followee_id": str(private_business.id),
-        })
+        response = authenticated_client.post(
+            FOLLOW_URL,
+            {
+                "followee_type": "business",
+                "followee_id": str(private_business.id),
+            },
+        )
         assert response.status_code == http_status.HTTP_201_CREATED
 
     @patch("apps.transaction.services.TransactionService")
@@ -87,24 +96,33 @@ class TestFollowCreate:
         mock_txn.status = "accepted"
         mock_txn_service.create_request.return_value = mock_txn
 
-        response = authenticated_client.post(FOLLOW_URL, {
-            "followee_type": "platform",
-            "followee_id": str(platform.id),
-        })
+        response = authenticated_client.post(
+            FOLLOW_URL,
+            {
+                "followee_type": "platform",
+                "followee_id": str(platform.id),
+            },
+        )
         assert response.status_code == http_status.HTTP_201_CREATED
 
     def test_follow_unauthenticated(self, api_client):
-        response = api_client.post(FOLLOW_URL, {
-            "followee_type": "business",
-            "followee_id": str(uuid.uuid4()),
-        })
+        response = api_client.post(
+            FOLLOW_URL,
+            {
+                "followee_type": "business",
+                "followee_id": str(uuid.uuid4()),
+            },
+        )
         assert response.status_code == http_status.HTTP_401_UNAUTHORIZED
 
     def test_follow_invalid_type(self, authenticated_client):
-        response = authenticated_client.post(FOLLOW_URL, {
-            "followee_type": "invalid",
-            "followee_id": str(uuid.uuid4()),
-        })
+        response = authenticated_client.post(
+            FOLLOW_URL,
+            {
+                "followee_type": "invalid",
+                "followee_id": str(uuid.uuid4()),
+            },
+        )
         assert response.status_code == http_status.HTTP_400_BAD_REQUEST
 
 
@@ -160,17 +178,23 @@ class TestUserConnectionRequest:
         mock_txn.status = "pending"
         mock_txn_service.create_request.return_value = mock_txn
 
-        response = authenticated_client.post(CONNECTIONS_REQUEST_URL, {
-            "target_user_id": str(user_b.id),
-            "note": "Let's connect!",
-        })
+        response = authenticated_client.post(
+            CONNECTIONS_REQUEST_URL,
+            {
+                "target_user_id": str(user_b.id),
+                "note": "Let's connect!",
+            },
+        )
         assert response.status_code == http_status.HTTP_201_CREATED
         assert "transaction_id" in response.data
 
     def test_request_connection_unauthenticated(self, api_client):
-        response = api_client.post(CONNECTIONS_REQUEST_URL, {
-            "target_user_id": str(uuid.uuid4()),
-        })
+        response = api_client.post(
+            CONNECTIONS_REQUEST_URL,
+            {
+                "target_user_id": str(uuid.uuid4()),
+            },
+        )
         assert response.status_code == http_status.HTTP_401_UNAUTHORIZED
 
 

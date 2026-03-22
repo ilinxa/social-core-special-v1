@@ -13,6 +13,7 @@ The queryset provides chainable filters for common queries.
 
 import secrets
 import string
+
 from django.contrib.auth.models import BaseUserManager
 from django.db import models
 
@@ -40,6 +41,7 @@ class UserQuerySet(models.QuerySet):
     def verified(self):
         """Return only verified and active users."""
         return self.filter(is_verified=True, is_active=True)
+
     # def verified(self):
     #     """Return only verified and active users."""
     #     return self.filter(is_verified=True)
@@ -54,11 +56,11 @@ class UserQuerySet(models.QuerySet):
 
     def with_profile(self):
         """Include profile in query (reduces N+1 queries)."""
-        return self.select_related('profile')
+        return self.select_related("profile")
 
     def with_referrer(self):
         """Include referrer user in query."""
-        return self.select_related('referred_by')
+        return self.select_related("referred_by")
 
     def staff(self):
         """Return staff users only."""
@@ -132,14 +134,14 @@ class CustomUserManager(BaseUserManager):
         max_attempts = 100  # Prevent infinite loop in edge cases
 
         for _ in range(max_attempts):
-            random_part = ''.join(secrets.choice(chars) for _ in range(8))
+            random_part = "".join(secrets.choice(chars) for _ in range(8))
             username = f"user_{random_part}"
 
             if not User.objects.filter(username=username).exists():
                 return username
 
         # Fallback: use longer random string if somehow all short ones taken
-        random_part = ''.join(secrets.choice(chars) for _ in range(16))
+        random_part = "".join(secrets.choice(chars) for _ in range(16))
         return f"user_{random_part}"
 
     def create_user(self, email, password=None, **extra_fields):
@@ -158,14 +160,14 @@ class CustomUserManager(BaseUserManager):
             ValueError: If email is not provided
         """
         if not email:
-            raise ValueError('Email is required')
+            raise ValueError("Email is required")
 
         # Normalize and lowercase email
         email = self.normalize_email(email).lower()
 
         # Auto-generate username if not provided
-        if 'username' not in extra_fields or not extra_fields.get('username'):
-            extra_fields['username'] = self.generate_unique_username()
+        if "username" not in extra_fields or not extra_fields.get("username"):
+            extra_fields["username"] = self.generate_unique_username()
 
         # Create user instance
         user = self.model(email=email, **extra_fields)
@@ -195,14 +197,14 @@ class CustomUserManager(BaseUserManager):
         Raises:
             ValueError: If is_staff or is_superuser is explicitly False
         """
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('is_verified', True)
-        extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_verified", True)
+        extra_fields.setdefault("is_active", True)
 
-        if extra_fields.get('is_staff') is not True:
-            raise ValueError('Superuser must have is_staff=True.')
-        if extra_fields.get('is_superuser') is not True:
-            raise ValueError('Superuser must have is_superuser=True.')
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
 
         return self.create_user(email, password, **extra_fields)

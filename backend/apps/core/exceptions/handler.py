@@ -25,6 +25,9 @@ Configuration:
 """
 
 import logging
+import math
+
+from django.conf import settings as django_settings
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
@@ -32,6 +35,30 @@ from rest_framework.views import exception_handler as drf_exception_handler
 from apps.core.exceptions.domain import DomainException
 
 logger = logging.getLogger(__name__)
+
+
+def _audit_log_authorization_denied(exc, context):
+    """Log 403 responses to the audit trail. Fails silently."""
+    try:
+        from apps.core.observability.audit import AuditLog, AuditService
+
+        request = context.get("request")
+        user = getattr(request, "user", None) if request else None
+        if user and not user.is_authenticated:
+            user = None
+        AuditService.log(
+            action=AuditLog.Action.AUTHORIZATION_DENIED,
+            actor=user,
+            request=request,
+            outcome=AuditLog.Outcome.DENIED,
+            details={
+                "view": _get_view_name(context),
+                "method": request.method if request else "unknown",
+                "path": request.path if request else "unknown",
+            },
+        )
+    except Exception:
+        logger.debug("Failed to audit-log authorization denial", exc_info=True)
 
 
 # =============================================================================
@@ -46,7 +73,6 @@ STATUS_CODE_MAP = {
     "validation_error": status.HTTP_400_BAD_REQUEST,
     "business_rule_violation": status.HTTP_400_BAD_REQUEST,
     "oauth_error": status.HTTP_400_BAD_REQUEST,
-
     # 401 Unauthorized - Authentication failures
     "authentication_error": status.HTTP_401_UNAUTHORIZED,
     "invalid_credentials": status.HTTP_401_UNAUTHORIZED,
@@ -55,19 +81,15 @@ STATUS_CODE_MAP = {
     "token_already_used": status.HTTP_401_UNAUTHORIZED,
     "account_not_verified": status.HTTP_401_UNAUTHORIZED,
     "account_inactive": status.HTTP_401_UNAUTHORIZED,
-
+    "account_locked": status.HTTP_401_UNAUTHORIZED,
     # 403 Forbidden - Authorization failures
     "permission_denied": status.HTTP_403_FORBIDDEN,
-
     # 404 Not Found - Resource not found
     "not_found": status.HTTP_404_NOT_FOUND,
-
     # 409 Conflict - Resource conflicts
     "conflict": status.HTTP_409_CONFLICT,
-
     # 429 Too Many Requests - Rate limiting
     "rate_limit_exceeded": status.HTTP_429_TOO_MANY_REQUESTS,
-
     # 503 Service Unavailable - External service issues
     "service_unavailable": status.HTTP_503_SERVICE_UNAVAILABLE,
 }
@@ -90,6 +112,7 @@ def get_status_code(exception_code: str) -> int:
 # EXCEPTION HANDLER
 # =============================================================================
 
+
 def exception_handler(exc, context):
     """
     Custom exception handler for DRF views.
@@ -110,13 +133,23 @@ def exception_handler(exc, context):
     response = drf_exception_handler(exc, context)
 
     if response is not None:
+        # Add Retry-After header on 429 Too Many Requests
+        if response.status_code == 429:
+            wait = getattr(exc, "wait", None)
+            if wait is not None:
+                response["Retry-After"] = int(math.ceil(wait))
+
         # DRF handled it - wrap in our consistent format if not already
         if not isinstance(response.data, dict) or "error" not in response.data:
             # Preserve specific error code from the exception if available.
             # DRF exceptions created with code= (e.g., AuthenticationFailed(code='token_expired'))
             # expose the code via get_codes(). Use it instead of the generic status-based code.
-            exc_code = getattr(exc, 'get_codes', lambda: None)()
-            code = exc_code if isinstance(exc_code, str) else _status_to_code(response.status_code)
+            exc_code = getattr(exc, "get_codes", lambda: None)()
+            code = (
+                exc_code
+                if isinstance(exc_code, str)
+                else _status_to_code(response.status_code)
+            )
             response.data = {
                 "error": {
                     "message": _extract_message(response.data),
@@ -124,6 +157,8 @@ def exception_handler(exc, context):
                     "details": _extract_details(response.data),
                 }
             }
+        if response.status_code == 403:
+            _audit_log_authorization_denied(exc, context)
         return response
 
     # Handle our domain exceptions
@@ -144,10 +179,10 @@ def exception_handler(exc, context):
             exc_info=status_code >= 500,
         )
 
-        return Response(
-            {"error": exc.to_dict()},
-            status=status_code
-        )
+        if status_code == 403:
+            _audit_log_authorization_denied(exc, context)
+
+        return Response({"error": exc.to_dict()}, status=status_code)
 
     # Unhandled exception - log and return generic error
     # In DEBUG mode, Django will show the full traceback
@@ -157,14 +192,27 @@ def exception_handler(exc, context):
         str(exc),
     )
 
-    # Return None to let Django's default error handling take over
-    # This will show DEBUG traceback in development
-    return None
+    # In development: return None → Django debug traceback page
+    # In production: return JSON error → consistent API contract
+    if django_settings.DEBUG:
+        return None
+
+    return Response(
+        {
+            "error": {
+                "message": "An unexpected error occurred",
+                "code": "internal_error",
+                "details": {},
+            }
+        },
+        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    )
 
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
 
 def _extract_message(data) -> str:
     """

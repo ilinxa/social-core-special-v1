@@ -4,7 +4,7 @@ Template Renderer
 Renders email templates with context variables.
 """
 
-from django.template import Template, Context, TemplateSyntaxError
+from django.template import Context, Template, TemplateSyntaxError
 
 # Observability
 from apps.core.observability import get_logger
@@ -59,9 +59,9 @@ class TemplateRenderer:
                 text_body = TemplateRenderer._html_to_text(html_body)
 
             return {
-                'subject': subject.strip(),
-                'html_body': html_body,
-                'text_body': text_body.strip()
+                "subject": subject.strip(),
+                "html_body": html_body,
+                "text_body": text_body.strip(),
             }
 
         except TemplateSyntaxError as e:
@@ -82,12 +82,14 @@ class TemplateRenderer:
         """
         try:
             from html2text import html2text
+
             return html2text(html)
         except ImportError:
             # Fallback: basic HTML stripping
             import re
+
             # Remove HTML tags
-            text = re.sub(r'<[^>]+>', '', html)
+            text = re.sub(r"<[^>]+>", "", html)
             # Normalize whitespace
-            text = re.sub(r'\s+', ' ', text)
+            text = re.sub(r"\s+", " ", text)
             return text.strip()

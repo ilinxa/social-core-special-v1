@@ -1,19 +1,21 @@
 from celery import shared_task
 from django.utils import timezone
-from apps.core.observability.logging.celery import LoggedTask
+
 from apps.core.observability import get_logger
+from apps.core.observability.logging.celery import LoggedTask
 from apps.transaction.selectors import TransactionSelector
 
 logger = get_logger(__name__)
 
 
-@shared_task(base=LoggedTask)
+@shared_task(base=LoggedTask, soft_time_limit=240, time_limit=300)
 def expire_transactions_task():
     """Hourly: expire transactions past their expiration date."""
     expired = TransactionSelector.list_expired_needing_update()
     count = 0
     for txn in expired:
         from apps.transaction.services import TransactionService
+
         try:
             TransactionService.expire(transaction_id=txn.id)
             count += 1
@@ -26,19 +28,23 @@ def expire_transactions_task():
     logger.info("task.expire.complete", count=count)
 
 
-@shared_task(bind=True, base=LoggedTask, max_retries=3)
+@shared_task(
+    bind=True, base=LoggedTask, max_retries=3, soft_time_limit=120, time_limit=180
+)
 def retry_outcome_execution_task(self, transaction_id: str):
     """Retry failed outcome execution with exponential backoff."""
     from uuid import UUID
-    from apps.transaction.services import TransactionService
+
     from apps.core.types import ActorContext
+    from apps.transaction.services import TransactionService
 
     try:
         txn = TransactionSelector.get_by_id(transaction_id=UUID(transaction_id))
         if txn.outcome_executed:
             return
         TransactionService._execute_outcome(
-            transaction=txn, actor_context=ActorContext.for_system(),
+            transaction=txn,
+            actor_context=ActorContext.for_system(),
         )
     except Exception as exc:
         logger.error(
@@ -49,12 +55,13 @@ def retry_outcome_execution_task(self, transaction_id: str):
         raise self.retry(exc=exc, countdown=300)
 
 
-@shared_task(base=LoggedTask)
+@shared_task(base=LoggedTask, soft_time_limit=240, time_limit=300)
 def cleanup_old_transaction_logs_task(retention_days: int = 90):
     """Daily: delete logs for terminal transactions older than retention."""
-    from apps.transaction.models import TransactionLog
-    from apps.transaction.constants import TERMINAL_STATES
     from datetime import timedelta
+
+    from apps.transaction.constants import TERMINAL_STATES
+    from apps.transaction.models import TransactionLog
 
     cutoff = timezone.now() - timedelta(days=retention_days)
     deleted, _ = TransactionLog.objects.filter(
@@ -64,12 +71,15 @@ def cleanup_old_transaction_logs_task(retention_days: int = 90):
     logger.info("task.cleanup.complete", deleted=deleted)
 
 
-@shared_task(base=LoggedTask)
+@shared_task(base=LoggedTask, soft_time_limit=240, time_limit=300)
 def send_expiration_reminder_task():
     """Daily: remind targets about transactions expiring in 24-48 hours."""
-    from apps.transaction.models import Transaction
-    from django.contrib.auth import get_user_model
     from datetime import timedelta
+
+    from django.contrib.auth import get_user_model
+
+    from apps.transaction.models import Transaction
+
     User = get_user_model()
 
     now = timezone.now()

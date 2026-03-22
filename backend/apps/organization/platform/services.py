@@ -7,10 +7,11 @@ for clarity and to prevent positional argument errors.
 """
 
 from typing import Any
+
 from django.db import transaction
 
-from apps.core.observability import get_logger, AuditService, AuditLog
 from apps.core.exceptions import ConflictError
+from apps.core.observability import AuditLog, AuditService, get_logger
 from apps.organization.platform.models import PlatformAccount, PlatformProfile
 from apps.organization.platform.selectors import PlatformAccountSelector
 
@@ -97,14 +98,13 @@ class PlatformAccountService:
         # NOTE: This creates the role structure, but does NOT create memberships.
         # Platform memberships should be created separately via a management command
         # or through the Transaction system when inviting users to the platform.
-        from apps.rbac.services import RBACService
-        from apps.rbac.models import Role
         from apps.core.constants import AccountType
+        from apps.rbac.models import Role
+        from apps.rbac.services import RBACService
 
         # Only initialize if roles don't exist yet
         if not Role.objects.filter(
-            account_type=AccountType.PLATFORM,
-            account_id=platform.id
+            account_type=AccountType.PLATFORM, account_id=platform.id
         ).exists():
             RBACService.initialize_platform_account(platform_id=platform.id)
 
@@ -139,7 +139,10 @@ class PlatformAccountService:
             platform.settings.update(settings)
             update_fields.append("settings")
 
-        if open_member_request is not None and open_member_request != platform.open_member_request:
+        if (
+            open_member_request is not None
+            and open_member_request != platform.open_member_request
+        ):
             platform.open_member_request = open_member_request
             update_fields.append("open_member_request")
 
@@ -239,22 +242,34 @@ class PlatformProfileService:
             update_fields.append("favicon")
 
         if primary_color is not None:
-            changes["primary_color"] = {"old": profile.primary_color, "new": primary_color}
+            changes["primary_color"] = {
+                "old": profile.primary_color,
+                "new": primary_color,
+            }
             profile.primary_color = primary_color
             update_fields.append("primary_color")
 
         if secondary_color is not None:
-            changes["secondary_color"] = {"old": profile.secondary_color, "new": secondary_color}
+            changes["secondary_color"] = {
+                "old": profile.secondary_color,
+                "new": secondary_color,
+            }
             profile.secondary_color = secondary_color
             update_fields.append("secondary_color")
 
         if contact_email is not None:
-            changes["contact_email"] = {"old": profile.contact_email, "new": contact_email}
+            changes["contact_email"] = {
+                "old": profile.contact_email,
+                "new": contact_email,
+            }
             profile.contact_email = contact_email
             update_fields.append("contact_email")
 
         if contact_phone is not None:
-            changes["contact_phone"] = {"old": profile.contact_phone, "new": contact_phone}
+            changes["contact_phone"] = {
+                "old": profile.contact_phone,
+                "new": contact_phone,
+            }
             profile.contact_phone = contact_phone
             update_fields.append("contact_phone")
 

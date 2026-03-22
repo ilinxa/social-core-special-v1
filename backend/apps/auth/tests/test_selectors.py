@@ -11,22 +11,21 @@ import pytest
 from apps.auth.models import OAuthConnection
 from apps.auth.selectors import AuthSelector
 from apps.auth.tests.factories import (
-    RefreshTokenFactory,
-    ExpiredRefreshTokenFactory,
-    RevokedRefreshTokenFactory,
+    AppleOAuthConnectionFactory,
     DeviceSessionFactory,
     EmailVerificationTokenFactory,
-    ExpiredVerificationTokenFactory,
-    UsedVerificationTokenFactory,
-    PasswordResetTokenFactory,
     ExpiredPasswordResetTokenFactory,
-    UsedPasswordResetTokenFactory,
-    OAuthConnectionFactory,
+    ExpiredRefreshTokenFactory,
+    ExpiredVerificationTokenFactory,
     GoogleOAuthConnectionFactory,
-    AppleOAuthConnectionFactory,
+    OAuthConnectionFactory,
+    PasswordResetTokenFactory,
+    RefreshTokenFactory,
+    RevokedRefreshTokenFactory,
+    UsedPasswordResetTokenFactory,
+    UsedVerificationTokenFactory,
 )
 from apps.users.tests.factories import UserFactory
-
 
 # =============================================================================
 # REFRESH TOKEN SELECTORS
@@ -323,9 +322,7 @@ class TestOAuthSelectors:
         user = UserFactory()
         GoogleOAuthConnectionFactory(user=user)
 
-        result = AuthSelector.get_oauth_connection(
-            user, OAuthConnection.Provider.APPLE
-        )
+        result = AuthSelector.get_oauth_connection(user, OAuthConnection.Provider.APPLE)
 
         assert result is None
 

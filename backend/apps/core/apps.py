@@ -43,6 +43,7 @@ class CoreConfig(AppConfig):
         """
         # Configure structured logging on startup
         from apps.core.observability.logging.config import configure_logging
+
         configure_logging()
 
         # Import signals here when they're added

@@ -20,6 +20,8 @@ channels-redis==4.2.1
 # DATABASE DRIVERS
 # ============================================
 # PostgreSQL adapter for Python
+# Using psycopg2-binary (pre-compiled) instead of psycopg2 (requires libpq-dev).
+# Acceptable for containerized deployments; for bare-metal, consider psycopg2.
 psycopg2-binary==2.9.11
 
 # ============================================
@@ -64,6 +66,9 @@ Pillow==12.1.0
 # JSON Web Token implementation for Python
 PyJWT==2.10.1
 
+# Argon2 password hashing (recommended by OWASP)
+argon2-cffi==25.1.0
+
 # ============================================
 # TASK QUEUE
 # ============================================
@@ -84,6 +89,12 @@ cryptography==46.0.3
 
 # HTTP requests library (for SNS webhook verification)
 requests==2.32.5
+
+# ============================================
+# HTML SANITIZATION
+# ============================================
+# Rust-based HTML sanitizer (CMS rich text validation)
+nh3==0.3.3
 
 # ============================================
 # OBSERVABILITY

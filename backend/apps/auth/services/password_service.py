@@ -19,27 +19,24 @@ Security:
 """
 
 import uuid
-from typing import Optional
 
 from django.conf import settings
 from django.db import transaction
 from django.http import HttpRequest
-from django.utils import timezone
 
+from apps.auth.models import PasswordResetToken
 from apps.core.exceptions import (
     InvalidCredentials,
     TokenExpired,
     TokenInvalid,
     ValidationError,
 )
-from apps.core.utils.password import validate_password_strength, verify_password
-from apps.users.selectors import UserSelector
-
-from apps.auth.models import PasswordResetToken
 
 # Observability
 from apps.core.observability import get_logger
-from apps.core.observability.audit import AuditService, AuditLog
+from apps.core.observability.audit import AuditLog, AuditService
+from apps.core.utils.password import validate_password_strength, verify_password
+from apps.users.selectors import UserSelector
 
 logger = get_logger(__name__)
 
@@ -54,10 +51,7 @@ class PasswordService:
     @staticmethod
     @transaction.atomic
     def request_reset(
-        *,
-        email: str,
-        ip_address: str = None,
-        request: Optional[HttpRequest] = None
+        *, email: str, ip_address: str = None, request: HttpRequest | None = None
     ) -> bool:
         """
         Request password reset.
@@ -95,17 +89,12 @@ class PasswordService:
         token = PasswordResetToken.create_for_user(user, ip_address=ip_address)
 
         # Build reset URL
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
         reset_link = f"{frontend_url}/reset-password?token={token.token}"
 
-        # Log reset link to console in DEBUG mode
-        if getattr(settings, 'DEBUG', False):
-            print(f"\n{'=' * 60}")
-            print("PASSWORD RESET LINK (Dev Console)")
-            print(f"{'=' * 60}")
-            print(f"User: {user.email}")
-            print(f"Link: {reset_link}")
-            print(f"{'=' * 60}\n")
+        # Log reset link in DEBUG mode (structured output via structlog)
+        if getattr(settings, "DEBUG", False):
+            logger.info("dev.password_reset_link", user=user.email, link=reset_link)
 
         # Send notification via Notifications system
         try:
@@ -113,11 +102,9 @@ class PasswordService:
 
             NotificationService.send(
                 user=user,
-                notification_type='password_reset',
-                context={
-                    'reset_link': reset_link
-                },
-                force_channels=['email']  # Always send via email
+                notification_type="password_reset",
+                context={"reset_link": reset_link},
+                force_channels=["email"],  # Always send via email
             )
 
             logger.info(
@@ -150,8 +137,8 @@ class PasswordService:
         token_uuid: uuid.UUID,
         new_password: str,
         logout_all_sessions: bool = True,
-        request: Optional[HttpRequest] = None
-    ) -> 'User':
+        request: HttpRequest | None = None,
+    ) -> "User":
         """
         Confirm password reset with new password.
 
@@ -170,10 +157,11 @@ class PasswordService:
             ValidationError: New password doesn't meet requirements
         """
         # Find token
-        token = PasswordResetToken.objects.filter(
-            token=token_uuid,
-            is_used=False
-        ).select_related('user').first()
+        token = (
+            PasswordResetToken.objects.filter(token=token_uuid, is_used=False)
+            .select_related("user")
+            .first()
+        )
 
         if not token:
             logger.warning(
@@ -193,10 +181,7 @@ class PasswordService:
         # Validate new password
         password_errors = validate_password_strength(new_password, user=token.user)
         if password_errors:
-            raise ValidationError(
-                message=password_errors[0],
-                field='new_password'
-            )
+            raise ValidationError(message=password_errors[0], field="new_password")
 
         # Mark token as used
         token.mark_used()
@@ -204,7 +189,7 @@ class PasswordService:
         # Update password
         user = token.user
         user.set_password(new_password)
-        user.save(update_fields=['password'])
+        user.save(update_fields=["password"])
 
         logger.info(
             "auth.password_reset.success",
@@ -222,7 +207,8 @@ class PasswordService:
         # Logout all sessions for security
         if logout_all_sessions:
             from apps.auth.services import AuthService
-            AuthService.logout_all(user=user, reason='password_change', request=request)
+
+            AuthService.logout_all(user=user, reason="password_change", request=request)
 
         # Send confirmation notification
         PasswordService._send_password_changed_notification(user)
@@ -237,8 +223,8 @@ class PasswordService:
         current_password: str,
         new_password: str,
         logout_other_sessions: bool = True,
-        request: Optional[HttpRequest] = None
-    ) -> 'User':
+        request: HttpRequest | None = None,
+    ) -> "User":
         """
         Change password for authenticated user.
 
@@ -274,21 +260,18 @@ class PasswordService:
         # Validate new password
         password_errors = validate_password_strength(new_password, user=user)
         if password_errors:
-            raise ValidationError(
-                message=password_errors[0],
-                field='new_password'
-            )
+            raise ValidationError(message=password_errors[0], field="new_password")
 
         # Check new password is different
         if verify_password(new_password, user.password):
             raise ValidationError(
                 message="New password must be different from current password",
-                field='new_password'
+                field="new_password",
             )
 
         # Update password
         user.set_password(new_password)
-        user.save(update_fields=['password'])
+        user.save(update_fields=["password"])
 
         logger.info(
             "auth.password_change.success",
@@ -306,11 +289,8 @@ class PasswordService:
         # Logout other sessions for security
         if logout_other_sessions:
             from apps.auth.services import AuthService
-            from apps.auth.blacklist import JTIBlacklist
 
-            # Blacklist all JTIs except current (if we knew it)
-            # For simplicity, blacklist all and client will re-authenticate
-            JTIBlacklist.blacklist_user_tokens(user.id)
+            AuthService.logout_all(user=user, reason="password_change", request=request)
 
         # Send confirmation notification
         PasswordService._send_password_changed_notification(user)
@@ -325,8 +305,8 @@ class PasswordService:
 
             NotificationService.send(
                 user=user,
-                notification_type='password_changed',
-                context={}  # user_name auto-added by channel
+                notification_type="password_changed",
+                context={},  # user_name auto-added by channel
             )
 
         except Exception as e:

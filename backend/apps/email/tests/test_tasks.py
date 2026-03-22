@@ -13,25 +13,24 @@ execute synchronously. Tasks are called directly rather than via .delay().
 
 import uuid
 from datetime import timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.utils import timezone
 
 from apps.email.models import EmailLog
 from apps.email.tasks import (
-    send_email_task,
-    retry_failed_emails_task,
     cleanup_old_email_logs,
+    retry_failed_emails_task,
+    send_email_task,
 )
 from apps.email.tests.factories import (
+    DeliveredEmailLogFactory,
     EmailLogFactory,
     FailedEmailLogFactory,
     QueuedEmailLogFactory,
     SentEmailLogFactory,
-    DeliveredEmailLogFactory,
 )
-
 
 # =============================================================================
 # TestSendEmailTask
@@ -106,7 +105,9 @@ class TestSendEmailTask:
     @patch("apps.email.services.email_service.EmailService._send_now")
     def test_send_email_task_failure_increments_retry_count(self, mock_send_now):
         """On failure, the task should increment retry_count on the EmailLog."""
-        log = EmailLogFactory(status=EmailLog.Status.PENDING, retry_count=0, max_retries=3)
+        log = EmailLogFactory(
+            status=EmailLog.Status.PENDING, retry_count=0, max_retries=3
+        )
         mock_send_now.side_effect = ConnectionError("SMTP connection failed")
 
         with pytest.raises(ConnectionError):
@@ -123,7 +124,9 @@ class TestSendEmailTask:
         For retry_count=1 (after first failure): delay = 5 * 2^0 = 5 minutes.
         For retry_count=2 (after second failure): delay = 5 * 2^1 = 10 minutes.
         """
-        log = EmailLogFactory(status=EmailLog.Status.PENDING, retry_count=0, max_retries=3)
+        log = EmailLogFactory(
+            status=EmailLog.Status.PENDING, retry_count=0, max_retries=3
+        )
         mock_send_now.side_effect = ConnectionError("SMTP connection failed")
 
         before = timezone.now()
@@ -143,7 +146,9 @@ class TestSendEmailTask:
     @patch("apps.email.services.email_service.EmailService._send_now")
     def test_send_email_task_failure_second_retry_backoff(self, mock_send_now):
         """Second failure should use a longer backoff: 5 * 2^(2-1) = 10 minutes."""
-        log = EmailLogFactory(status=EmailLog.Status.PENDING, retry_count=1, max_retries=3)
+        log = EmailLogFactory(
+            status=EmailLog.Status.PENDING, retry_count=1, max_retries=3
+        )
         mock_send_now.side_effect = ConnectionError("SMTP connection failed")
 
         before = timezone.now()

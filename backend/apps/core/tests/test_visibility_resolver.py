@@ -345,11 +345,13 @@ class TestFilterFieldsT3:
             is_authenticated=True,
             is_member=True,
             is_owner_or_self=False,
-            permissions=frozenset([
-                "can_view_legal_info",
-                "can_edit_business",
-                "can_view_members",
-            ]),
+            permissions=frozenset(
+                [
+                    "can_view_legal_info",
+                    "can_edit_business",
+                    "can_view_members",
+                ]
+            ),
         )
         result = VisibilityResolver.filter_fields(
             data=self._make_data(),
@@ -609,12 +611,15 @@ class TestComputeViewerAccessBusiness:
         mock_membership.id = uuid4()
         mock_membership.role = MagicMock(level=5)  # Not owner
 
-        with patch(
-            "apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account",
-            return_value=mock_membership,
-        ), patch(
-            "apps.rbac.selectors.PermissionSelector.get_permissions_for_membership",
-            return_value=[("can_view_legal_info", "business")],
+        with (
+            patch(
+                "apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account",
+                return_value=mock_membership,
+            ),
+            patch(
+                "apps.rbac.selectors.PermissionSelector.get_permissions_for_membership",
+                return_value=[("can_view_legal_info", "business")],
+            ),
         ):
             va = VisibilityResolver.compute_viewer_access(
                 viewer=user, account_type="business", account_id=biz_id
@@ -632,12 +637,15 @@ class TestComputeViewerAccessBusiness:
         mock_membership.id = uuid4()
         mock_membership.role = MagicMock(level=0)  # Owner
 
-        with patch(
-            "apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account",
-            return_value=mock_membership,
-        ), patch(
-            "apps.rbac.selectors.PermissionSelector.get_permissions_for_membership",
-            return_value=[],
+        with (
+            patch(
+                "apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account",
+                return_value=mock_membership,
+            ),
+            patch(
+                "apps.rbac.selectors.PermissionSelector.get_permissions_for_membership",
+                return_value=[],
+            ),
         ):
             va = VisibilityResolver.compute_viewer_access(
                 viewer=user, account_type="business", account_id=biz_id
@@ -651,12 +659,15 @@ class TestComputeViewerAccessBusiness:
         user = UserFactory()
         biz_id = uuid4()
 
-        with patch(
-            "apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account",
-            return_value=None,
-        ), patch(
-            "apps.network.selectors.FollowSelector.is_following",
-            return_value=True,
+        with (
+            patch(
+                "apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account",
+                return_value=None,
+            ),
+            patch(
+                "apps.network.selectors.FollowSelector.is_following",
+                return_value=True,
+            ),
         ):
             va = VisibilityResolver.compute_viewer_access(
                 viewer=user, account_type="business", account_id=biz_id
@@ -670,15 +681,19 @@ class TestComputeViewerAccessBusiness:
         user = UserFactory()
         biz_id = uuid4()
 
-        with patch(
-            "apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account",
-            return_value=None,
-        ), patch(
-            "apps.network.selectors.FollowSelector.is_following",
-            return_value=False,
-        ), patch(
-            "apps.network.selectors.ConnectionSelector.is_connected_account",
-            return_value=False,
+        with (
+            patch(
+                "apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account",
+                return_value=None,
+            ),
+            patch(
+                "apps.network.selectors.FollowSelector.is_following",
+                return_value=False,
+            ),
+            patch(
+                "apps.network.selectors.ConnectionSelector.is_connected_account",
+                return_value=False,
+            ),
         ):
             va = VisibilityResolver.compute_viewer_access(
                 viewer=user, account_type="business", account_id=biz_id

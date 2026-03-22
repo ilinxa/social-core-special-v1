@@ -8,18 +8,17 @@ including system-form guard clauses and owner-based access control.
 
 import pytest
 
-from apps.core.constants import OwnerType, ResponseStatus, FormStatus
+from apps.core.constants import FormStatus, OwnerType, ResponseStatus
 from apps.core.exceptions import PermissionDenied
-from apps.forms.policies import FormTemplatePolicy, FormResponsePolicy
+from apps.forms.policies import FormResponsePolicy, FormTemplatePolicy
 from apps.forms.tests.factories import (
-    FormTemplateFactory,
-    SystemFormTemplateFactory,
     ActiveFormTemplateFactory,
     FormResponseFactory,
+    FormTemplateFactory,
     SubmittedFormResponseFactory,
+    SystemFormTemplateFactory,
 )
 from apps.users.tests.factories import UserFactory
-
 
 # =============================================================================
 # FormTemplatePolicy
@@ -222,7 +221,9 @@ class TestFormResponsePolicy:
     def test_can_view_own_response_denied(self, user, another_user):
         """User cannot view a response submitted by another user."""
         response = FormResponseFactory(submitted_by=another_user)
-        with pytest.raises(PermissionDenied, match="You can only view your own responses"):
+        with pytest.raises(
+            PermissionDenied, match="You can only view your own responses"
+        ):
             FormResponsePolicy.can_view_own_response(
                 user=user,
                 response=response,
@@ -249,7 +250,9 @@ class TestFormResponsePolicy:
             submitted_by=another_user,
             status=ResponseStatus.DRAFT,
         )
-        with pytest.raises(PermissionDenied, match="You can only edit your own responses"):
+        with pytest.raises(
+            PermissionDenied, match="You can only edit your own responses"
+        ):
             FormResponsePolicy.can_edit_response(
                 user=user,
                 response=response,

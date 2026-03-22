@@ -13,11 +13,10 @@ import uuid
 from datetime import timedelta
 
 import factory
-from factory.django import DjangoModelFactory
 from django.utils import timezone
+from factory.django import DjangoModelFactory
 
-from apps.email.models import EmailTemplate, EmailLog
-
+from apps.email.models import EmailLog, EmailTemplate
 
 # =============================================================================
 # EMAIL TEMPLATE FACTORY
@@ -37,9 +36,7 @@ class EmailTemplateFactory(DjangoModelFactory):
     html_body = factory.LazyAttribute(
         lambda obj: f"<h1>Hello</h1><p>Template: {obj.name}</p>"
     )
-    text_body = factory.LazyAttribute(
-        lambda obj: f"Hello. Template: {obj.name}"
-    )
+    text_body = factory.LazyAttribute(lambda obj: f"Hello. Template: {obj.name}")
     variables = factory.LazyFunction(dict)
     description = ""
     category = "transactional"

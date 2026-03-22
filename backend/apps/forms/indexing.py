@@ -8,18 +8,18 @@ in typed index tables for efficient querying.
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
-from apps.core.observability import get_logger
 from apps.core.constants import StorageType
+from apps.core.observability import get_logger
 from apps.forms.constants import FIELD_STORAGE_MAP
 from apps.forms.models import (
-    FormField,
-    FormResponse,
-    TextFieldIndex,
-    IntegerFieldIndex,
-    DecimalFieldIndex,
     BooleanFieldIndex,
     DateFieldIndex,
     DateTimeFieldIndex,
+    DecimalFieldIndex,
+    FormField,
+    FormResponse,
+    IntegerFieldIndex,
+    TextFieldIndex,
 )
 
 logger = get_logger(__name__)

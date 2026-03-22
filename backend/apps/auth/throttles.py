@@ -13,7 +13,7 @@ Usage:
         throttle_classes = [LoginRateThrottle]
 """
 
-from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from rest_framework.throttling import AnonRateThrottle
 
 
 class LoginRateThrottle(AnonRateThrottle):
@@ -22,7 +22,8 @@ class LoginRateThrottle(AnonRateThrottle):
 
     Default: 5 attempts per minute per IP.
     """
-    scope = 'login'
+
+    scope = "login"
 
 
 class PasswordResetRateThrottle(AnonRateThrottle):
@@ -31,7 +32,8 @@ class PasswordResetRateThrottle(AnonRateThrottle):
 
     Default: 3 requests per hour per IP.
     """
-    scope = 'password_reset'
+
+    scope = "password_reset"
 
 
 class VerificationRateThrottle(AnonRateThrottle):
@@ -40,7 +42,8 @@ class VerificationRateThrottle(AnonRateThrottle):
 
     Default: 5 requests per hour per IP.
     """
-    scope = 'verification'
+
+    scope = "verification"
 
 
 class OAuthRateThrottle(AnonRateThrottle):
@@ -49,7 +52,8 @@ class OAuthRateThrottle(AnonRateThrottle):
 
     Default: 10 requests per minute per IP.
     """
-    scope = 'oauth'
+
+    scope = "oauth"
 
 
 class RefreshRateThrottle(AnonRateThrottle):
@@ -61,4 +65,5 @@ class RefreshRateThrottle(AnonRateThrottle):
 
     Default: 30 requests per minute per IP.
     """
-    scope = 'refresh'
+
+    scope = "refresh"

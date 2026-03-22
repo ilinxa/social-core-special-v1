@@ -10,14 +10,14 @@ Tests cover:
 - Authentication and authorization
 """
 
-import pytest
 from uuid import uuid4
 
+import pytest
 from django.urls import reverse
 from rest_framework import status
 
-from apps.core.constants import AccountType, PermissionScope, MembershipStatus
-from apps.rbac.models import Permission, Role, RolePermission, Membership
+from apps.core.constants import AccountType, MembershipStatus, PermissionScope
+from apps.rbac.models import Membership, Permission, Role, RolePermission
 from apps.users.tests.factories import UserFactory
 
 
@@ -45,9 +45,7 @@ class TestPermissionListView:
 class TestBusinessRoleListView:
     """Tests for business role list endpoint."""
 
-    def test_list_roles_as_member(
-        self, api_client, business_with_members
-    ):
+    def test_list_roles_as_member(self, api_client, business_with_members):
         """Test listing roles as a business member."""
         owner = business_with_members["owner_membership"]
         api_client.force_authenticate(user=owner.user)
@@ -59,9 +57,7 @@ class TestBusinessRoleListView:
         # Should have Owner and Base Member roles
         assert len(response.data) >= 2
 
-    def test_list_roles_non_member_denied(
-        self, api_client, business, another_user
-    ):
+    def test_list_roles_non_member_denied(self, api_client, business, another_user):
         """Test that non-members cannot list roles."""
         api_client.force_authenticate(user=another_user)
 
@@ -114,7 +110,9 @@ class TestBusinessRoleDetailView:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["name"] == "Owner"
 
-    def test_update_custom_role(self, api_client, business_with_members, can_edit_role_permission):
+    def test_update_custom_role(
+        self, api_client, business_with_members, can_edit_role_permission
+    ):
         """Test updating a custom role."""
         owner = business_with_members["owner_membership"]
         business = business_with_members["business"]
@@ -144,7 +142,9 @@ class TestBusinessRoleDetailView:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["name"] == "Senior Manager"
 
-    def test_cannot_update_system_role(self, api_client, business_with_members, can_edit_role_permission):
+    def test_cannot_update_system_role(
+        self, api_client, business_with_members, can_edit_role_permission
+    ):
         """Test that system roles cannot be updated."""
         owner = business_with_members["owner_membership"]
         owner_role = business_with_members["owner_role"]
@@ -193,9 +193,7 @@ class TestBusinessMemberListView:
         assert response.data["count"] == 3
         assert len(response.data["results"]) == 3
 
-    def test_list_members_as_member(
-        self, api_client, business_with_members
-    ):
+    def test_list_members_as_member(self, api_client, business_with_members):
         """Test that any member can list members."""
         member = business_with_members["member1_membership"]
         business = business_with_members["business"]
@@ -209,9 +207,7 @@ class TestBusinessMemberListView:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["count"] == 3  # Owner + 2 members
 
-    def test_search_members_by_email(
-        self, api_client, business_with_members
-    ):
+    def test_search_members_by_email(self, api_client, business_with_members):
         """Test searching members by email."""
         owner = business_with_members["owner_membership"]
         member1 = business_with_members["member1_membership"]
@@ -226,9 +222,7 @@ class TestBusinessMemberListView:
         assert response.data["count"] == 1
         assert response.data["results"][0]["user"]["email"] == member1.user.email
 
-    def test_filter_members_by_role(
-        self, api_client, business_with_members
-    ):
+    def test_filter_members_by_role(self, api_client, business_with_members):
         """Test filtering members by role_id."""
         owner = business_with_members["owner_membership"]
         base_role = business_with_members["base_member_role"]
@@ -546,8 +540,7 @@ class TestMyMembershipsListView:
         assert response.status_code == status.HTTP_200_OK
         # Find the business membership
         biz_membership = next(
-            m for m in response.data
-            if m["account_type"] == AccountType.BUSINESS
+            m for m in response.data if m["account_type"] == AccountType.BUSINESS
         )
         assert biz_membership["account_name"] == business.legal_name
         assert biz_membership["account_slug"] == business.slug
@@ -576,9 +569,7 @@ class TestMyMembershipDetailView:
         assert response.status_code == status.HTTP_200_OK
         assert str(response.data["id"]) == str(member1.id)
 
-    def test_cannot_view_other_membership(
-        self, api_client, business_with_members
-    ):
+    def test_cannot_view_other_membership(self, api_client, business_with_members):
         """Test that user cannot view another user's membership."""
         member1 = business_with_members["member1_membership"]
         member2 = business_with_members["member2_membership"]
@@ -664,9 +655,7 @@ class TestRolePermissionView:
 class TestPlatformRoleViews:
     """Tests for platform role endpoints."""
 
-    def test_list_platform_roles(
-        self, api_client, platform_owner_membership
-    ):
+    def test_list_platform_roles(self, api_client, platform_owner_membership):
         """Test listing platform roles as platform owner."""
         api_client.force_authenticate(user=platform_owner_membership.user)
 
@@ -805,9 +794,13 @@ class TestBusinessMemberDetailPermissions:
     """Tests for _permissions injection on business member detail."""
 
     def test_permissions_injected_in_get(
-        self, api_client, business_with_members,
-        can_change_member_role_permission, can_suspend_member_permission,
-        can_remove_member_permission, can_ban_member_permission,
+        self,
+        api_client,
+        business_with_members,
+        can_change_member_role_permission,
+        can_suspend_member_permission,
+        can_remove_member_permission,
+        can_ban_member_permission,
     ):
         """Test that _permissions dict is injected in GET response."""
         owner = business_with_members["owner_membership"]
@@ -816,11 +809,14 @@ class TestBusinessMemberDetailPermissions:
 
         # Give owner management permissions
         for perm in [
-            can_change_member_role_permission, can_suspend_member_permission,
-            can_remove_member_permission, can_ban_member_permission,
+            can_change_member_role_permission,
+            can_suspend_member_permission,
+            can_remove_member_permission,
+            can_ban_member_permission,
         ]:
             RolePermission.objects.get_or_create(
-                role=owner.role, permission=perm,
+                role=owner.role,
+                permission=perm,
                 defaults={"scope": PermissionScope.BUSINESS},
             )
 
@@ -838,7 +834,9 @@ class TestBusinessMemberDetailPermissions:
         assert perms["can_reactivate"] is False  # member is active
 
     def test_base_member_sees_no_permissions(
-        self, api_client, business_with_members,
+        self,
+        api_client,
+        business_with_members,
     ):
         """Test that base member sees all permissions as False."""
         member1 = business_with_members["member1_membership"]
@@ -863,14 +861,18 @@ class TestBusinessRoleDetailPermissions:
     """Tests for _permissions injection on business role detail."""
 
     def test_permissions_injected_for_custom_role(
-        self, api_client, business_with_members, can_create_role_permission,
+        self,
+        api_client,
+        business_with_members,
+        can_create_role_permission,
     ):
         """Test that _permissions shows can_edit/can_delete=True for custom role."""
         owner = business_with_members["owner_membership"]
         business = business_with_members["business"]
 
         RolePermission.objects.get_or_create(
-            role=owner.role, permission=can_create_role_permission,
+            role=owner.role,
+            permission=can_create_role_permission,
             defaults={"scope": PermissionScope.BUSINESS},
         )
 
@@ -894,7 +896,10 @@ class TestBusinessRoleDetailPermissions:
         assert perms["can_modify_permissions"] is True
 
     def test_permissions_false_for_system_role(
-        self, api_client, business_with_members, can_create_role_permission,
+        self,
+        api_client,
+        business_with_members,
+        can_create_role_permission,
     ):
         """Test that system roles have can_edit=False."""
         owner = business_with_members["owner_membership"]
@@ -902,7 +907,8 @@ class TestBusinessRoleDetailPermissions:
         business = business_with_members["business"]
 
         RolePermission.objects.get_or_create(
-            role=owner_role, permission=can_create_role_permission,
+            role=owner_role,
+            permission=can_create_role_permission,
             defaults={"scope": PermissionScope.BUSINESS},
         )
 
@@ -916,14 +922,18 @@ class TestBusinessRoleDetailPermissions:
         assert perms["can_delete"] is False
 
     def test_no_permissions_on_patch(
-        self, api_client, business_with_members, can_edit_role_permission,
+        self,
+        api_client,
+        business_with_members,
+        can_edit_role_permission,
     ):
         """Test that _permissions is NOT injected in PATCH response."""
         owner = business_with_members["owner_membership"]
         business = business_with_members["business"]
 
         RolePermission.objects.get_or_create(
-            role=owner.role, permission=can_edit_role_permission,
+            role=owner.role,
+            permission=can_edit_role_permission,
             defaults={"scope": PermissionScope.BUSINESS},
         )
 
@@ -948,15 +958,20 @@ class TestPlatformMemberDetailPermissions:
     """Tests for _permissions injection on platform member detail."""
 
     def test_permissions_injected_in_get(
-        self, api_client, platform, platform_owner_membership,
+        self,
+        api_client,
+        platform,
+        platform_owner_membership,
         platform_admin_membership,
-        can_change_member_role_permission, can_suspend_member_permission,
+        can_change_member_role_permission,
+        can_suspend_member_permission,
     ):
         """Test _permissions on platform member detail."""
         # Give owner permissions
         for perm in [can_change_member_role_permission, can_suspend_member_permission]:
             RolePermission.objects.get_or_create(
-                role=platform_owner_membership.role, permission=perm,
+                role=platform_owner_membership.role,
+                permission=perm,
                 defaults={"scope": PermissionScope.PLATFORM_ONLY},
             )
 
@@ -976,12 +991,16 @@ class TestPlatformRoleDetailPermissions:
     """Tests for _permissions injection on platform role detail."""
 
     def test_permissions_injected_for_custom_role(
-        self, api_client, platform, platform_owner_membership,
+        self,
+        api_client,
+        platform,
+        platform_owner_membership,
         can_create_role_permission,
     ):
         """Test _permissions on platform role detail."""
         RolePermission.objects.get_or_create(
-            role=platform_owner_membership.role, permission=can_create_role_permission,
+            role=platform_owner_membership.role,
+            permission=can_create_role_permission,
             defaults={"scope": PermissionScope.PLATFORM_ONLY},
         )
 
@@ -1046,7 +1065,9 @@ class TestRoleListMemberCount:
     """Tests for member_count annotation on role list responses."""
 
     def test_role_list_includes_member_count(
-        self, api_client, business_with_members,
+        self,
+        api_client,
+        business_with_members,
     ):
         """Role list includes member_count for each role."""
         owner = business_with_members["owner_membership"]
@@ -1060,7 +1081,9 @@ class TestRoleListMemberCount:
             assert isinstance(role_data["member_count"], int)
 
     def test_member_count_reflects_active_members(
-        self, api_client, business_with_members,
+        self,
+        api_client,
+        business_with_members,
     ):
         """member_count counts only active, non-deleted members."""
         owner = business_with_members["owner_membership"]
@@ -1088,7 +1111,10 @@ class TestPlatformMemberActions:
     """Tests for platform member action endpoints (suspend/ban/remove/reactivate/leave)."""
 
     def test_change_platform_member_role(
-        self, api_client, platform_with_members, can_change_member_role_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_change_member_role_permission,
     ):
         """Test changing a platform member's role."""
         owner = platform_with_members["owner_membership"]
@@ -1117,7 +1143,10 @@ class TestPlatformMemberActions:
         assert member.role == new_role
 
     def test_suspend_platform_member(
-        self, api_client, platform_with_members, can_suspend_member_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_suspend_member_permission,
     ):
         """Test suspending a platform member."""
         owner = platform_with_members["owner_membership"]
@@ -1138,7 +1167,10 @@ class TestPlatformMemberActions:
         assert member.status == MembershipStatus.SUSPENDED
 
     def test_ban_platform_member(
-        self, api_client, platform_with_members, can_ban_member_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_ban_member_permission,
     ):
         """Test banning a platform member."""
         owner = platform_with_members["owner_membership"]
@@ -1159,7 +1191,10 @@ class TestPlatformMemberActions:
         assert member.status == MembershipStatus.BANNED
 
     def test_remove_platform_member(
-        self, api_client, platform_with_members, can_remove_member_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_remove_member_permission,
     ):
         """Test removing a platform member."""
         owner = platform_with_members["owner_membership"]
@@ -1180,7 +1215,10 @@ class TestPlatformMemberActions:
         assert member.status == MembershipStatus.REMOVED
 
     def test_reactivate_suspended_platform_member(
-        self, api_client, platform_with_members, can_suspend_member_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_suspend_member_permission,
     ):
         """Test reactivating a suspended platform member."""
         owner = platform_with_members["owner_membership"]
@@ -1204,7 +1242,10 @@ class TestPlatformMemberActions:
         assert member.status == MembershipStatus.ACTIVE
 
     def test_reactivate_removed_platform_member(
-        self, api_client, platform_with_members, can_suspend_member_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_suspend_member_permission,
     ):
         """Test reactivating a removed platform member."""
         owner = platform_with_members["owner_membership"]
@@ -1250,7 +1291,9 @@ class TestPlatformMemberActions:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_non_member_cannot_suspend(
-        self, api_client, platform_with_members,
+        self,
+        api_client,
+        platform_with_members,
     ):
         """Test that non-platform-member cannot suspend."""
         member = platform_with_members["member_membership"]
@@ -1263,7 +1306,9 @@ class TestPlatformMemberActions:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_member_without_permission_cannot_suspend(
-        self, api_client, platform_with_members,
+        self,
+        api_client,
+        platform_with_members,
     ):
         """Test that base member without permission cannot suspend."""
         member = platform_with_members["member_membership"]
@@ -1287,7 +1332,10 @@ class TestPlatformRoleCRUD:
     """Tests for platform role CRUD endpoints."""
 
     def test_create_platform_role(
-        self, api_client, platform_with_members, can_create_role_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_create_role_permission,
     ):
         """Test creating a custom platform role."""
         owner = platform_with_members["owner_membership"]
@@ -1302,7 +1350,11 @@ class TestPlatformRoleCRUD:
         url = "/api/v1/platform/roles/"
         response = api_client.post(
             url,
-            {"name": "Content Moderator", "description": "Moderates content", "level": 7},
+            {
+                "name": "Content Moderator",
+                "description": "Moderates content",
+                "level": 7,
+            },
             format="json",
         )
 
@@ -1329,7 +1381,10 @@ class TestPlatformRoleCRUD:
         assert response.data["name"] == "Custom"
 
     def test_update_platform_role(
-        self, api_client, platform_with_members, can_edit_role_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_edit_role_permission,
     ):
         """Test updating a custom platform role."""
         owner = platform_with_members["owner_membership"]
@@ -1358,7 +1413,10 @@ class TestPlatformRoleCRUD:
         assert custom_role.name == "New Name"
 
     def test_delete_platform_role(
-        self, api_client, platform_with_members, can_delete_role_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_delete_role_permission,
     ):
         """Test deleting a custom platform role."""
         owner = platform_with_members["owner_membership"]
@@ -1386,7 +1444,10 @@ class TestPlatformRoleCRUD:
         assert not Role.objects.filter(id=custom_role.id).exists()
 
     def test_cannot_delete_system_platform_role(
-        self, api_client, platform_with_members, can_delete_role_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_delete_role_permission,
     ):
         """Test that system platform roles cannot be deleted."""
         owner = platform_with_members["owner_membership"]
@@ -1405,7 +1466,10 @@ class TestPlatformRoleCRUD:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_cannot_delete_role_with_members(
-        self, api_client, platform_with_members, can_delete_role_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_delete_role_permission,
     ):
         """Test that roles with active members cannot be deleted."""
         owner = platform_with_members["owner_membership"]
@@ -1425,7 +1489,9 @@ class TestPlatformRoleCRUD:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_create_role_without_permission_denied(
-        self, api_client, platform_with_members,
+        self,
+        api_client,
+        platform_with_members,
     ):
         """Test that base member cannot create roles."""
         member = platform_with_members["member_membership"]
@@ -1451,7 +1517,10 @@ class TestPlatformMemberList:
     """Tests for platform member list endpoints."""
 
     def test_list_platform_members_paginated(
-        self, api_client, platform_with_members, can_view_members_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_view_members_permission,
     ):
         """Test listing platform members returns paginated response."""
         owner = platform_with_members["owner_membership"]
@@ -1471,7 +1540,10 @@ class TestPlatformMemberList:
         assert len(response.data["results"]) == 3  # owner + admin + member
 
     def test_search_platform_members_by_email(
-        self, api_client, platform_with_members, can_view_members_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_view_members_permission,
     ):
         """Test searching platform members by email."""
         owner = platform_with_members["owner_membership"]
@@ -1491,7 +1563,10 @@ class TestPlatformMemberList:
         assert len(response.data["results"]) >= 1
 
     def test_filter_platform_members_by_role(
-        self, api_client, platform_with_members, can_view_members_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_view_members_permission,
     ):
         """Test filtering platform members by role."""
         owner = platform_with_members["owner_membership"]
@@ -1511,7 +1586,10 @@ class TestPlatformMemberList:
         assert len(response.data["results"]) == 1
 
     def test_filter_platform_members_by_status(
-        self, api_client, platform_with_members, can_view_members_permission,
+        self,
+        api_client,
+        platform_with_members,
+        can_view_members_permission,
     ):
         """Test filtering platform members by status."""
         owner = platform_with_members["owner_membership"]
@@ -1556,7 +1634,9 @@ class TestPlatformRoleListMemberCount:
     """Tests for member_count annotation on platform role list."""
 
     def test_platform_role_list_includes_member_count(
-        self, api_client, platform_with_members,
+        self,
+        api_client,
+        platform_with_members,
     ):
         """Platform role list includes member_count for each role."""
         owner = platform_with_members["owner_membership"]
@@ -1581,9 +1661,13 @@ class TestPlatformMemberDetailPermissionsExtended:
     """Test _permissions on platform member detail endpoint."""
 
     def test_platform_owner_sees_action_permissions_on_member(
-        self, authenticated_client, platform_with_members,
-        can_change_member_role_permission, can_suspend_member_permission,
-        can_remove_member_permission, can_ban_member_permission,
+        self,
+        authenticated_client,
+        platform_with_members,
+        can_change_member_role_permission,
+        can_suspend_member_permission,
+        can_remove_member_permission,
+        can_ban_member_permission,
         platform_members_url,
     ):
         """Platform owner sees all action permissions on active member."""
@@ -1614,7 +1698,10 @@ class TestPlatformMemberDetailPermissionsExtended:
         assert perms["can_reactivate"] is False  # Already active
 
     def test_platform_base_member_sees_no_permissions_on_peer(
-        self, api_client, platform_with_members, platform_members_url,
+        self,
+        api_client,
+        platform_with_members,
+        platform_members_url,
     ):
         """Platform base member without permissions sees all False."""
         member = platform_with_members["member_membership"]
@@ -1631,8 +1718,11 @@ class TestPlatformMemberDetailPermissionsExtended:
         assert perms["can_suspend"] is False
 
     def test_platform_owner_sees_reactivate_for_suspended(
-        self, authenticated_client, platform_with_members,
-        can_suspend_member_permission, platform_members_url,
+        self,
+        authenticated_client,
+        platform_with_members,
+        can_suspend_member_permission,
+        platform_members_url,
     ):
         """Platform owner sees can_reactivate=True for suspended member."""
         owner = platform_with_members["owner_membership"]
@@ -1659,8 +1749,12 @@ class TestPlatformRoleDetailPermissionsExtended:
     """Test _permissions on platform role detail endpoint."""
 
     def test_platform_owner_sees_role_permissions_on_custom(
-        self, authenticated_client, platform, platform_owner_membership,
-        can_create_role_permission, platform_roles_url,
+        self,
+        authenticated_client,
+        platform,
+        platform_owner_membership,
+        can_create_role_permission,
+        platform_roles_url,
     ):
         """Platform owner sees all permissions on custom role."""
         RolePermission.objects.get_or_create(
@@ -1686,8 +1780,12 @@ class TestPlatformRoleDetailPermissionsExtended:
         assert perms["can_modify_permissions"] is True
 
     def test_platform_system_role_no_edit_delete(
-        self, authenticated_client, platform_owner_membership,
-        platform_owner_role, can_create_role_permission, platform_roles_url,
+        self,
+        authenticated_client,
+        platform_owner_membership,
+        platform_owner_role,
+        can_create_role_permission,
+        platform_roles_url,
     ):
         """System platform roles have can_edit=False, can_delete=False."""
         RolePermission.objects.get_or_create(
@@ -1696,7 +1794,9 @@ class TestPlatformRoleDetailPermissionsExtended:
             defaults={"scope": PermissionScope.PLATFORM_ONLY},
         )
 
-        response = authenticated_client.get(f"{platform_roles_url}{platform_owner_role.id}/")
+        response = authenticated_client.get(
+            f"{platform_roles_url}{platform_owner_role.id}/"
+        )
         assert response.status_code == 200
         assert "_permissions" in response.data
         perms = response.data["_permissions"]
@@ -1704,7 +1804,10 @@ class TestPlatformRoleDetailPermissionsExtended:
         assert perms["can_delete"] is False
 
     def test_platform_member_without_role_permission(
-        self, api_client, platform_with_members, platform_roles_url,
+        self,
+        api_client,
+        platform_with_members,
+        platform_roles_url,
     ):
         """Platform member without can_create_role sees no permissions."""
         member = platform_with_members["member_membership"]

@@ -9,9 +9,9 @@ except UserPublicDetailView which lets authenticated users view other profiles.
 
 import re
 
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -26,10 +26,10 @@ from apps.users.serializers import (
     AvatarUploadInputSerializer,
     CoverImageUploadInputSerializer,
     ProfileUpdateInputSerializer,
+    UserLimitedOutput,
     UserOutputSerializer,
     UserProfileOutputSerializer,
     UserPublicOutput,
-    UserLimitedOutput,
     UserUpdateInputSerializer,
 )
 from apps.users.services import UserService
@@ -48,6 +48,7 @@ class CurrentUserView(APIView):
     DELETE /api/v1/users/me/
         Deactivate current user's account
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -64,18 +65,15 @@ class CurrentUserView(APIView):
         responses={
             200: OpenApiResponse(
                 response=UserOutputSerializer,
-                description="Current user data with profile"
+                description="Current user data with profile",
             ),
             401: OpenApiResponse(description="Not authenticated"),
         },
     )
     def get(self, request):
         """Get current user data."""
-        user = UserSelector.get_by_id(
-            user_id=request.user.id,
-            with_profile=True
-        )
-        serializer = UserOutputSerializer(user, context={'request': request})
+        user = UserSelector.get_by_id(user_id=request.user.id, with_profile=True)
+        serializer = UserOutputSerializer(user, context={"request": request})
         return Response(serializer.data)
 
     @extend_schema(
@@ -92,10 +90,11 @@ class CurrentUserView(APIView):
         request=UserUpdateInputSerializer,
         responses={
             200: OpenApiResponse(
-                response=UserOutputSerializer,
-                description="Updated user data"
+                response=UserOutputSerializer, description="Updated user data"
             ),
-            400: OpenApiResponse(description="Validation error (invalid username format)"),
+            400: OpenApiResponse(
+                description="Validation error (invalid username format)"
+            ),
             401: OpenApiResponse(description="Not authenticated"),
             409: OpenApiResponse(description="Username already taken"),
         },
@@ -108,16 +107,16 @@ class CurrentUserView(APIView):
         user = request.user
 
         # Update username if provided
-        if 'username' in serializer.validated_data:
+        if "username" in serializer.validated_data:
             user = UserService.change_username(
                 user=user,
-                new_username=serializer.validated_data['username'],
+                new_username=serializer.validated_data["username"],
                 request=request,
             )
 
         # Re-fetch with profile for response
         user = UserSelector.get_by_id(user_id=user.id, with_profile=True)
-        output = UserOutputSerializer(user, context={'request': request})
+        output = UserOutputSerializer(user, context={"request": request})
         return Response(output.data)
 
     @extend_schema(
@@ -154,6 +153,7 @@ class ProfileView(APIView):
     PATCH /api/v1/users/me/profile/
         Update current user's profile
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -170,8 +170,7 @@ class ProfileView(APIView):
         tags=["User Profile"],
         responses={
             200: OpenApiResponse(
-                response=UserProfileOutputSerializer,
-                description="User profile data"
+                response=UserProfileOutputSerializer, description="User profile data"
             ),
             401: OpenApiResponse(description="Not authenticated"),
         },
@@ -179,10 +178,7 @@ class ProfileView(APIView):
     def get(self, request):
         """Get current user's profile."""
         profile = UserSelector.get_profile(user=request.user)
-        serializer = UserProfileOutputSerializer(
-            profile,
-            context={'request': request}
-        )
+        serializer = UserProfileOutputSerializer(profile, context={"request": request})
         return Response(serializer.data)
 
     @extend_schema(
@@ -203,10 +199,11 @@ class ProfileView(APIView):
         request=ProfileUpdateInputSerializer,
         responses={
             200: OpenApiResponse(
-                response=UserProfileOutputSerializer,
-                description="Updated profile data"
+                response=UserProfileOutputSerializer, description="Updated profile data"
             ),
-            400: OpenApiResponse(description="Validation error (invalid timezone, etc.)"),
+            400: OpenApiResponse(
+                description="Validation error (invalid timezone, etc.)"
+            ),
             401: OpenApiResponse(description="Not authenticated"),
         },
     )
@@ -216,15 +213,10 @@ class ProfileView(APIView):
         serializer.is_valid(raise_exception=True)
 
         profile = UserService.update_profile(
-            user=request.user,
-            request=request,
-            **serializer.validated_data
+            user=request.user, request=request, **serializer.validated_data
         )
 
-        output = UserProfileOutputSerializer(
-            profile,
-            context={'request': request}
-        )
+        output = UserProfileOutputSerializer(profile, context={"request": request})
         return Response(output.data)
 
 
@@ -238,6 +230,7 @@ class AvatarView(APIView):
     DELETE /api/v1/users/me/avatar/
         Remove avatar
     """
+
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
@@ -259,9 +252,11 @@ class AvatarView(APIView):
         responses={
             201: OpenApiResponse(
                 response=UserProfileOutputSerializer,
-                description="Avatar uploaded successfully"
+                description="Avatar uploaded successfully",
             ),
-            400: OpenApiResponse(description="Invalid file (wrong type, too large, etc.)"),
+            400: OpenApiResponse(
+                description="Invalid file (wrong type, too large, etc.)"
+            ),
             401: OpenApiResponse(description="Not authenticated"),
         },
     )
@@ -272,14 +267,11 @@ class AvatarView(APIView):
 
         profile = UserService.update_avatar(
             user=request.user,
-            avatar=serializer.validated_data['avatar'],
+            avatar=serializer.validated_data["avatar"],
             request=request,
         )
 
-        output = UserProfileOutputSerializer(
-            profile,
-            context={'request': request}
-        )
+        output = UserProfileOutputSerializer(profile, context={"request": request})
         return Response(output.data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
@@ -309,6 +301,7 @@ class CoverImageView(APIView):
     POST /api/v1/users/me/cover-image/   Upload new cover image
     DELETE /api/v1/users/me/cover-image/  Remove cover image
     """
+
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
@@ -320,7 +313,7 @@ class CoverImageView(APIView):
         responses={
             201: OpenApiResponse(
                 response=UserProfileOutputSerializer,
-                description="Cover image uploaded successfully"
+                description="Cover image uploaded successfully",
             ),
             400: OpenApiResponse(description="Invalid file"),
             401: OpenApiResponse(description="Not authenticated"),
@@ -333,11 +326,11 @@ class CoverImageView(APIView):
 
         profile = UserService.update_cover_image(
             user=request.user,
-            cover_image=serializer.validated_data['cover_image'],
+            cover_image=serializer.validated_data["cover_image"],
             request=request,
         )
 
-        output = UserProfileOutputSerializer(profile, context={'request': request})
+        output = UserProfileOutputSerializer(profile, context={"request": request})
         return Response(output.data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
@@ -362,6 +355,7 @@ class CheckUsernameView(APIView):
     GET /api/v1/users/check-username/?username=xxx
         Check if a username is available
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -398,7 +392,7 @@ class CheckUsernameView(APIView):
                 field="username",
             )
 
-        if not re.match(r'^[a-zA-Z0-9_]{5,30}$', username):
+        if not re.match(r"^[a-zA-Z0-9_]{5,30}$", username):
             raise ValidationError(
                 message="Username must be 5-30 alphanumeric characters or underscores",
                 field="username",
@@ -425,6 +419,7 @@ class UserPublicDetailView(RelationshipInjectMixin, PermissionInjectMixin, APIVi
         - Private profiles (is_public=False): limited response (username, avatar, display_name)
         - Inactive users or non-existent: 404
     """
+
     permission_classes = [IsAuthenticated]
     policy_class = UserPolicy
 
@@ -461,13 +456,21 @@ class UserPublicDetailView(RelationshipInjectMixin, PermissionInjectMixin, APIVi
         return {
             "connection_status": connection.status if connection else None,
             "connection_id": str(connection.id) if connection else None,
-            "active_connection_transaction": {
-                "id": str(active_conn_txn.id),
-                "type": active_conn_txn.transaction_type,
-                "status": active_conn_txn.status,
-                "mode": active_conn_txn.mode,
-                "viewer_role": "initiator" if active_conn_txn.initiator_id == viewer.id else "target",
-            } if active_conn_txn else None,
+            "active_connection_transaction": (
+                {
+                    "id": str(active_conn_txn.id),
+                    "type": active_conn_txn.transaction_type,
+                    "status": active_conn_txn.status,
+                    "mode": active_conn_txn.mode,
+                    "viewer_role": (
+                        "initiator"
+                        if active_conn_txn.initiator_id == viewer.id
+                        else "target"
+                    ),
+                }
+                if active_conn_txn
+                else None
+            ),
         }
 
     @extend_schema(
@@ -490,7 +493,7 @@ class UserPublicDetailView(RelationshipInjectMixin, PermissionInjectMixin, APIVi
         responses={
             200: OpenApiResponse(
                 response=UserPublicOutput,
-                description="User public profile with permissions"
+                description="User public profile with permissions",
             ),
             401: OpenApiResponse(description="Not authenticated"),
             404: OpenApiResponse(description="User not found or inactive"),
@@ -591,3 +594,89 @@ class UserProfileVisibilityView(APIView):
             visibility_overrides=profile.visibility_overrides,
         )
         return Response(settings)
+
+
+# =============================================================================
+# APPROVED BUSINESS CREATORS
+# =============================================================================
+
+
+class ApprovedBusinessCreatorsListView(APIView):
+    """List users who have been granted permission to create businesses.
+
+    GET /api/v1/platform/approved-creators/
+
+    Requires platform membership with can_approve_business_creation permission.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="List approved business creators",
+        parameters=[
+            OpenApiParameter("search", str, description="Search by name/email/username"),
+            OpenApiParameter("ordering", str, description="Sort: newest, name, email"),
+            OpenApiParameter("page", int),
+            OpenApiParameter("page_size", int),
+        ],
+    )
+    def get(self, request):
+        from apps.core.pagination import StandardPagination
+        from apps.organization.platform.selectors import PlatformAccountSelector
+        from apps.rbac.selectors import MembershipSelector
+        from apps.rbac.services import RBACService
+        from apps.users.serializers import ApprovedCreatorSerializer
+
+        # Get platform account (singleton)
+        try:
+            platform = PlatformAccountSelector.get()
+        except Exception:
+            from apps.core.exceptions import PermissionDenied
+
+            raise PermissionDenied(
+                message="Platform not configured",
+                action="list_approved_creators",
+                resource="User",
+            )
+
+        # Verify platform membership
+        membership = MembershipSelector.get_active_membership_for_user_account(
+            user=request.user,
+            account_type="platform",
+            account_id=platform.id,
+        )
+        if not membership:
+            from apps.core.exceptions import PermissionDenied
+
+            raise PermissionDenied(
+                message="Platform membership required",
+                action="list_approved_creators",
+                resource="User",
+            )
+
+        # Verify permission
+        actor_context = RBACService.build_actor_context(
+            membership=membership,
+            request=request,
+        )
+        if not actor_context.has_permission("can_approve_business_creation"):
+            from apps.core.exceptions import PermissionDenied
+
+            raise PermissionDenied(
+                message="Permission denied: can_approve_business_creation required",
+                action="list_approved_creators",
+                resource="User",
+            )
+
+        search = request.query_params.get("search")
+        ordering = request.query_params.get("ordering")
+
+        qs = UserSelector.list_approved_business_creators(
+            search=search,
+            ordering=ordering,
+        )
+
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = ApprovedCreatorSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)

@@ -11,21 +11,22 @@ Covers:
 - Hidden field skipping, empty value skipping, label prefixing
 """
 
-import pytest
 from types import SimpleNamespace
+
+import pytest
 
 from apps.core.constants import FieldType
 from apps.forms.validators import (
-    validate_field_values,
-    _validate_single_field,
     _check_numeric_bounds,
     _get_option_values,
+    _validate_single_field,
+    validate_field_values,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper: mock field object
 # ---------------------------------------------------------------------------
+
 
 def make_field(
     field_type,
@@ -81,9 +82,7 @@ class TestValidateFieldValues:
 
     def test_skips_hidden_fields(self):
         """Hidden fields should be completely ignored, even if value is invalid."""
-        field = make_field(
-            FieldType.EMAIL, field_key="hidden_email", is_hidden=True
-        )
+        field = make_field(FieldType.EMAIL, field_key="hidden_email", is_hidden=True)
         data = {"hidden_email": "not-valid"}
 
         errors = validate_field_values([field], data)
@@ -149,9 +148,7 @@ class TestValidateFieldValues:
 
     def test_hidden_field_with_valid_value_still_skipped(self):
         """Even a valid value on a hidden field should not be validated."""
-        field = make_field(
-            FieldType.TEXT, field_key="secret", is_hidden=True
-        )
+        field = make_field(FieldType.TEXT, field_key="secret", is_hidden=True)
         data = {"secret": "valid text"}
 
         errors = validate_field_values([field], data)
@@ -167,22 +164,30 @@ class TestValidateFieldValues:
 class TestTextFields:
     """Tests for TEXT, TEXTAREA, and LOCATION field types."""
 
-    @pytest.mark.parametrize("field_type", [FieldType.TEXT, FieldType.TEXTAREA, FieldType.LOCATION])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.TEXT, FieldType.TEXTAREA, FieldType.LOCATION]
+    )
     def test_valid_string(self, field_type):
         field = make_field(field_type)
         assert _validate_single_field(field, "hello world") is None
 
-    @pytest.mark.parametrize("field_type", [FieldType.TEXT, FieldType.TEXTAREA, FieldType.LOCATION])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.TEXT, FieldType.TEXTAREA, FieldType.LOCATION]
+    )
     def test_non_string_value(self, field_type):
         field = make_field(field_type)
         assert _validate_single_field(field, 123) == "Must be text"
 
-    @pytest.mark.parametrize("field_type", [FieldType.TEXT, FieldType.TEXTAREA, FieldType.LOCATION])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.TEXT, FieldType.TEXTAREA, FieldType.LOCATION]
+    )
     def test_list_value_rejected(self, field_type):
         field = make_field(field_type)
         assert _validate_single_field(field, ["a", "b"]) == "Must be text"
 
-    @pytest.mark.parametrize("field_type", [FieldType.TEXT, FieldType.TEXTAREA, FieldType.LOCATION])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.TEXT, FieldType.TEXTAREA, FieldType.LOCATION]
+    )
     def test_bool_value_rejected(self, field_type):
         field = make_field(field_type)
         assert _validate_single_field(field, True) == "Must be text"
@@ -197,23 +202,35 @@ class TestTextFields:
 
     def test_max_length_violation(self):
         field = make_field(FieldType.TEXT, validation_rules={"max_length": 5})
-        assert _validate_single_field(field, "too long text") == "Must be at most 5 characters"
+        assert (
+            _validate_single_field(field, "too long text")
+            == "Must be at most 5 characters"
+        )
 
     def test_max_length_exact_boundary(self):
         field = make_field(FieldType.TEXT, validation_rules={"max_length": 5})
         assert _validate_single_field(field, "12345") is None
 
     def test_min_and_max_length_valid(self):
-        field = make_field(FieldType.TEXT, validation_rules={"min_length": 2, "max_length": 10})
+        field = make_field(
+            FieldType.TEXT, validation_rules={"min_length": 2, "max_length": 10}
+        )
         assert _validate_single_field(field, "hello") is None
 
     def test_min_and_max_length_too_short(self):
-        field = make_field(FieldType.TEXT, validation_rules={"min_length": 5, "max_length": 10})
+        field = make_field(
+            FieldType.TEXT, validation_rules={"min_length": 5, "max_length": 10}
+        )
         assert _validate_single_field(field, "hi") == "Must be at least 5 characters"
 
     def test_min_and_max_length_too_long(self):
-        field = make_field(FieldType.TEXT, validation_rules={"min_length": 2, "max_length": 5})
-        assert _validate_single_field(field, "way too long") == "Must be at most 5 characters"
+        field = make_field(
+            FieldType.TEXT, validation_rules={"min_length": 2, "max_length": 5}
+        )
+        assert (
+            _validate_single_field(field, "way too long")
+            == "Must be at most 5 characters"
+        )
 
     def test_textarea_with_multiline_string(self):
         field = make_field(FieldType.TEXTAREA)
@@ -237,24 +254,30 @@ class TestTextFields:
 class TestEmailField:
     """Tests for EMAIL field type."""
 
-    @pytest.mark.parametrize("email", [
-        "user@example.com",
-        "user.name+tag@domain.co",
-        "a@b.c",
-        "test@sub.domain.example.org",
-    ])
+    @pytest.mark.parametrize(
+        "email",
+        [
+            "user@example.com",
+            "user.name+tag@domain.co",
+            "a@b.c",
+            "test@sub.domain.example.org",
+        ],
+    )
     def test_valid_emails(self, email):
         field = make_field(FieldType.EMAIL)
         assert _validate_single_field(field, email) is None
 
-    @pytest.mark.parametrize("email", [
-        "not-an-email",
-        "@example.com",
-        "user@",
-        "user @example.com",
-        "",
-        "user@.com",
-    ])
+    @pytest.mark.parametrize(
+        "email",
+        [
+            "not-an-email",
+            "@example.com",
+            "user@",
+            "user @example.com",
+            "",
+            "user@.com",
+        ],
+    )
     def test_invalid_emails(self, email):
         field = make_field(FieldType.EMAIL)
         assert _validate_single_field(field, email) == "Invalid email address"
@@ -269,7 +292,10 @@ class TestEmailField:
 
     def test_list_rejected(self):
         field = make_field(FieldType.EMAIL)
-        assert _validate_single_field(field, ["user@example.com"]) == "Invalid email address"
+        assert (
+            _validate_single_field(field, ["user@example.com"])
+            == "Invalid email address"
+        )
 
 
 # =============================================================================
@@ -280,24 +306,30 @@ class TestEmailField:
 class TestUrlField:
     """Tests for URL field type."""
 
-    @pytest.mark.parametrize("url", [
-        "http://example.com",
-        "https://example.com",
-        "https://www.example.com/path",
-        "http://sub.domain.co/page?q=1",
-        "https://a.b",
-    ])
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://example.com",
+            "https://example.com",
+            "https://www.example.com/path",
+            "http://sub.domain.co/page?q=1",
+            "https://a.b",
+        ],
+    )
     def test_valid_urls(self, url):
         field = make_field(FieldType.URL)
         assert _validate_single_field(field, url) is None
 
-    @pytest.mark.parametrize("url", [
-        "example.com",
-        "ftp://example.com",
-        "not a url",
-        "//example.com",
-        "http:/example.com",
-    ])
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "example.com",
+            "ftp://example.com",
+            "not a url",
+            "//example.com",
+            "http:/example.com",
+        ],
+    )
     def test_invalid_urls(self, url):
         field = make_field(FieldType.URL)
         result = _validate_single_field(field, url)
@@ -305,11 +337,17 @@ class TestUrlField:
 
     def test_non_string_type(self):
         field = make_field(FieldType.URL)
-        assert _validate_single_field(field, 123) == "Invalid URL (must start with http:// or https://)"
+        assert (
+            _validate_single_field(field, 123)
+            == "Invalid URL (must start with http:// or https://)"
+        )
 
     def test_bool_rejected(self):
         field = make_field(FieldType.URL)
-        assert _validate_single_field(field, True) == "Invalid URL (must start with http:// or https://)"
+        assert (
+            _validate_single_field(field, True)
+            == "Invalid URL (must start with http:// or https://)"
+        )
 
 
 # =============================================================================
@@ -320,24 +358,30 @@ class TestUrlField:
 class TestPhoneField:
     """Tests for PHONE field type."""
 
-    @pytest.mark.parametrize("phone", [
-        "+1234567890",
-        "1234567890",
-        "+1 (234) 567-8901",
-        "123.456.7890",
-        "(123) 456 7890",
-        "+44 20 7946 0958",
-    ])
+    @pytest.mark.parametrize(
+        "phone",
+        [
+            "+1234567890",
+            "1234567890",
+            "+1 (234) 567-8901",
+            "123.456.7890",
+            "(123) 456 7890",
+            "+44 20 7946 0958",
+        ],
+    )
     def test_valid_phones(self, phone):
         field = make_field(FieldType.PHONE)
         assert _validate_single_field(field, phone) is None
 
-    @pytest.mark.parametrize("phone", [
-        "123",
-        "abc",
-        "+1-abc-def-ghij",
-        "123456789012345678901",  # 21 chars, exceeds 20
-    ])
+    @pytest.mark.parametrize(
+        "phone",
+        [
+            "123",
+            "abc",
+            "+1-abc-def-ghij",
+            "123456789012345678901",  # 21 chars, exceeds 20
+        ],
+    )
     def test_invalid_phones(self, phone):
         field = make_field(FieldType.PHONE)
         assert _validate_single_field(field, phone) == "Invalid phone number"
@@ -583,22 +627,28 @@ class TestBooleanCheckboxFields:
 class TestDateField:
     """Tests for DATE field type."""
 
-    @pytest.mark.parametrize("date_str", [
-        "2024-01-01",
-        "2000-12-31",
-        "1999-06-15",
-    ])
+    @pytest.mark.parametrize(
+        "date_str",
+        [
+            "2024-01-01",
+            "2000-12-31",
+            "1999-06-15",
+        ],
+    )
     def test_valid_date(self, date_str):
         field = make_field(FieldType.DATE)
         assert _validate_single_field(field, date_str) is None
 
-    @pytest.mark.parametrize("date_str", [
-        "01-01-2024",
-        "2024/01/01",
-        "Jan 1, 2024",
-        "2024-1-1",
-        "2024-01-01T00:00:00",
-    ])
+    @pytest.mark.parametrize(
+        "date_str",
+        [
+            "01-01-2024",
+            "2024/01/01",
+            "Jan 1, 2024",
+            "2024-1-1",
+            "2024-01-01T00:00:00",
+        ],
+    )
     def test_invalid_date_format(self, date_str):
         field = make_field(FieldType.DATE)
         result = _validate_single_field(field, date_str)
@@ -623,7 +673,10 @@ class TestDateField:
 
     def test_correct_format_message(self):
         field = make_field(FieldType.DATE)
-        assert _validate_single_field(field, "not-a-date") == "Must be in YYYY-MM-DD format"
+        assert (
+            _validate_single_field(field, "not-a-date")
+            == "Must be in YYYY-MM-DD format"
+        )
 
 
 # =============================================================================
@@ -634,13 +687,16 @@ class TestDateField:
 class TestDatetimeField:
     """Tests for DATETIME field type."""
 
-    @pytest.mark.parametrize("dt_str", [
-        "2024-01-01T00:00:00",
-        "2024-01-01T12:30:45Z",
-        "2024-01-01T12:30:45+05:00",
-        "2024-01-01 12:30:45",
-        "any-string-at-all",  # Datetime only checks isinstance(str) currently
-    ])
+    @pytest.mark.parametrize(
+        "dt_str",
+        [
+            "2024-01-01T00:00:00",
+            "2024-01-01T12:30:45Z",
+            "2024-01-01T12:30:45+05:00",
+            "2024-01-01 12:30:45",
+            "any-string-at-all",  # Datetime only checks isinstance(str) currently
+        ],
+    )
     def test_valid_datetime_strings(self, dt_str):
         """Datetime validator only checks that value is a string."""
         field = make_field(FieldType.DATETIME)
@@ -671,22 +727,28 @@ class TestDatetimeField:
 class TestTimeField:
     """Tests for TIME field type."""
 
-    @pytest.mark.parametrize("time_str", [
-        "09:00",
-        "23:59",
-        "00:00",
-        "12:30:45",  # With seconds
-    ])
+    @pytest.mark.parametrize(
+        "time_str",
+        [
+            "09:00",
+            "23:59",
+            "00:00",
+            "12:30:45",  # With seconds
+        ],
+    )
     def test_valid_time(self, time_str):
         field = make_field(FieldType.TIME)
         assert _validate_single_field(field, time_str) is None
 
-    @pytest.mark.parametrize("time_str", [
-        "9:00",       # Single digit hour
-        "12:30:45.123",
-        "noon",
-        "12:30 PM",
-    ])
+    @pytest.mark.parametrize(
+        "time_str",
+        [
+            "9:00",  # Single digit hour
+            "12:30:45.123",
+            "noon",
+            "12:30 PM",
+        ],
+    )
     def test_invalid_time_format(self, time_str):
         field = make_field(FieldType.TIME)
         result = _validate_single_field(field, time_str)
@@ -736,17 +798,23 @@ class TestSelectRadioFields:
 
     @pytest.mark.parametrize("field_type", [FieldType.SELECT, FieldType.RADIO])
     def test_dict_options_with_value_key(self, field_type):
-        field = make_field(field_type, options=[
-            {"label": "Red", "value": "red"},
-            {"label": "Green", "value": "green"},
-        ])
+        field = make_field(
+            field_type,
+            options=[
+                {"label": "Red", "value": "red"},
+                {"label": "Green", "value": "green"},
+            ],
+        )
         assert _validate_single_field(field, "red") is None
 
     @pytest.mark.parametrize("field_type", [FieldType.SELECT, FieldType.RADIO])
     def test_dict_options_invalid(self, field_type):
-        field = make_field(field_type, options=[
-            {"label": "Red", "value": "red"},
-        ])
+        field = make_field(
+            field_type,
+            options=[
+                {"label": "Red", "value": "red"},
+            ],
+        )
         assert _validate_single_field(field, "blue") == "Invalid option selected"
 
     @pytest.mark.parametrize("field_type", [FieldType.SELECT, FieldType.RADIO])
@@ -770,62 +838,88 @@ class TestSelectRadioFields:
 class TestMultiselectCheckboxGroupFields:
     """Tests for MULTISELECT and CHECKBOX_GROUP field types."""
 
-    @pytest.mark.parametrize("field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP]
+    )
     def test_valid_list_of_options(self, field_type):
         field = make_field(field_type, options=["a", "b", "c"])
         assert _validate_single_field(field, ["a", "c"]) is None
 
-    @pytest.mark.parametrize("field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP]
+    )
     def test_empty_list_valid(self, field_type):
         """An empty list is valid — it means nothing selected."""
         field = make_field(field_type, options=["a", "b"])
         assert _validate_single_field(field, []) is None
 
-    @pytest.mark.parametrize("field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP]
+    )
     def test_non_list_rejected(self, field_type):
         field = make_field(field_type, options=["a", "b"])
         assert _validate_single_field(field, "a") == "Must be a list of selected values"
 
-    @pytest.mark.parametrize("field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP]
+    )
     def test_integer_rejected(self, field_type):
         field = make_field(field_type, options=["a"])
         assert _validate_single_field(field, 1) == "Must be a list of selected values"
 
-    @pytest.mark.parametrize("field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP]
+    )
     def test_invalid_option_in_list(self, field_type):
         field = make_field(field_type, options=["a", "b", "c"])
         result = _validate_single_field(field, ["a", "z"])
         assert result == "Invalid options: z"
 
-    @pytest.mark.parametrize("field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP]
+    )
     def test_multiple_invalid_options(self, field_type):
         field = make_field(field_type, options=["a", "b"])
         result = _validate_single_field(field, ["x", "y", "z"])
         assert result == "Invalid options: x, y, z"
 
-    @pytest.mark.parametrize("field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP]
+    )
     def test_dict_options_with_value_key(self, field_type):
-        field = make_field(field_type, options=[
-            {"label": "Opt A", "value": "a"},
-            {"label": "Opt B", "value": "b"},
-        ])
+        field = make_field(
+            field_type,
+            options=[
+                {"label": "Opt A", "value": "a"},
+                {"label": "Opt B", "value": "b"},
+            ],
+        )
         assert _validate_single_field(field, ["a", "b"]) is None
 
-    @pytest.mark.parametrize("field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP]
+    )
     def test_dict_options_invalid(self, field_type):
-        field = make_field(field_type, options=[
-            {"label": "Opt A", "value": "a"},
-        ])
+        field = make_field(
+            field_type,
+            options=[
+                {"label": "Opt A", "value": "a"},
+            ],
+        )
         result = _validate_single_field(field, ["a", "bad"])
         assert result == "Invalid options: bad"
 
-    @pytest.mark.parametrize("field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP]
+    )
     def test_no_options_skips_option_check(self, field_type):
         """When options is None, only the list type check is enforced."""
         field = make_field(field_type, options=None)
         assert _validate_single_field(field, ["anything"]) is None
 
-    @pytest.mark.parametrize("field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP])
+    @pytest.mark.parametrize(
+        "field_type", [FieldType.MULTISELECT, FieldType.CHECKBOX_GROUP]
+    )
     def test_empty_options_list_skips_check(self, field_type):
         field = make_field(field_type, options=[])
         assert _validate_single_field(field, ["anything"]) is None
@@ -858,7 +952,9 @@ class TestFileImageFields:
     @pytest.mark.parametrize("field_type", [FieldType.FILE, FieldType.IMAGE])
     def test_list_rejected(self, field_type):
         field = make_field(field_type)
-        assert _validate_single_field(field, ["file.pdf"]) == "Must be a file URL string"
+        assert (
+            _validate_single_field(field, ["file.pdf"]) == "Must be a file URL string"
+        )
 
     @pytest.mark.parametrize("field_type", [FieldType.FILE, FieldType.IMAGE])
     def test_none_rejected(self, field_type):
@@ -907,7 +1003,9 @@ class TestCheckNumericBounds:
         assert _check_numeric_bounds(0, {"min": 1, "max": 100}) == "Must be at least 1"
 
     def test_both_bounds_above(self):
-        assert _check_numeric_bounds(101, {"min": 1, "max": 100}) == "Must be at most 100"
+        assert (
+            _check_numeric_bounds(101, {"min": 1, "max": 100}) == "Must be at most 100"
+        )
 
     def test_float_bounds(self):
         assert _check_numeric_bounds(0.5, {"min": 0.0, "max": 1.0}) is None
@@ -951,17 +1049,23 @@ class TestGetOptionValues:
         assert _get_option_values(field) == ["a", "b", "c"]
 
     def test_dict_options_with_value(self):
-        field = make_field(FieldType.SELECT, options=[
-            {"label": "Alpha", "value": "a"},
-            {"label": "Beta", "value": "b"},
-        ])
+        field = make_field(
+            FieldType.SELECT,
+            options=[
+                {"label": "Alpha", "value": "a"},
+                {"label": "Beta", "value": "b"},
+            ],
+        )
         assert _get_option_values(field) == ["a", "b"]
 
     def test_dict_options_with_label_only(self):
         """If dict has 'label' but no 'value', fallback to label."""
-        field = make_field(FieldType.SELECT, options=[
-            {"label": "Alpha"},
-        ])
+        field = make_field(
+            FieldType.SELECT,
+            options=[
+                {"label": "Alpha"},
+            ],
+        )
         assert _get_option_values(field) == ["Alpha"]
 
     def test_dict_options_empty_dict(self):
@@ -970,10 +1074,13 @@ class TestGetOptionValues:
         assert _get_option_values(field) == [""]
 
     def test_mixed_string_and_dict(self):
-        field = make_field(FieldType.SELECT, options=[
-            "simple",
-            {"label": "Complex", "value": "complex"},
-        ])
+        field = make_field(
+            FieldType.SELECT,
+            options=[
+                "simple",
+                {"label": "Complex", "value": "complex"},
+            ],
+        )
         assert _get_option_values(field) == ["simple", "complex"]
 
     def test_none_options(self):
@@ -997,9 +1104,12 @@ class TestGetOptionValues:
 
     def test_dict_value_is_integer_cast_to_string(self):
         """Dict value that is an integer should be cast to string via str()."""
-        field = make_field(FieldType.SELECT, options=[
-            {"label": "One", "value": 1},
-        ])
+        field = make_field(
+            FieldType.SELECT,
+            options=[
+                {"label": "One", "value": 1},
+            ],
+        )
         assert _get_option_values(field) == ["1"]
 
 
@@ -1046,7 +1156,9 @@ class TestEdgeCases:
         """Mixed scenario: hidden, missing, valid, and invalid fields."""
         fields = [
             make_field(FieldType.TEXT, field_key="visible", label="Visible"),
-            make_field(FieldType.TEXT, field_key="hidden", label="Hidden", is_hidden=True),
+            make_field(
+                FieldType.TEXT, field_key="hidden", label="Hidden", is_hidden=True
+            ),
             make_field(FieldType.EMAIL, field_key="missing", label="Missing"),
             make_field(FieldType.INTEGER, field_key="bad", label="Bad Number"),
         ]
@@ -1064,9 +1176,7 @@ class TestEdgeCases:
 
     def test_error_message_format(self):
         """Verify the exact format: 'Label: error message'."""
-        field = make_field(
-            FieldType.EMAIL, field_key="e", label="Contact Email"
-        )
+        field = make_field(FieldType.EMAIL, field_key="e", label="Contact Email")
         data = {"e": "bad"}
 
         errors = validate_field_values([field], data)

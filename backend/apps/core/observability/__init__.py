@@ -55,6 +55,7 @@ def get_logger(name: str):
         >>> logger.info("user.login", user_id=123)
     """
     from apps.core.observability.logging.config import get_logger as _get_logger
+
     return _get_logger(name)
 
 
@@ -65,38 +66,45 @@ def configure_logging():
     Should be called once during Django startup, typically in CoreConfig.ready().
     """
     from apps.core.observability.logging.config import configure_logging as _configure
+
     _configure()
 
 
 # Audit - lazy imports to avoid circular dependencies
 def _get_audit_log():
     from apps.core.observability.audit.models import AuditLog
+
     return AuditLog
 
 
 def _get_audit_service():
     from apps.core.observability.audit.service import AuditService
+
     return AuditService
 
 
 def _get_audit_selector():
     from apps.core.observability.audit.selectors import AuditSelector
+
     return AuditSelector
 
 
 def _get_audited():
     from apps.core.observability.audit.decorators import audited
+
     return audited
 
 
 # Metrics
 def _get_metrics():
     from apps.core.observability.metrics import metrics
+
     return metrics
 
 
 # Module-level lazy access (for backwards compatibility with direct imports)
 # The actual imports happen in __getattr__ to avoid import-time issues
+
 
 def __getattr__(name: str):
     """Lazy attribute access for observability components."""

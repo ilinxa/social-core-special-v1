@@ -8,20 +8,19 @@ These fixtures are available to all tests in the email app.
 import pytest
 from rest_framework.test import APIClient
 
-from apps.users.tests.factories import UserFactory, VerifiedUserFactory
 from apps.email.tests.factories import (
-    EmailTemplateFactory,
-    InactiveEmailTemplateFactory,
     ArchivedEmailTemplateFactory,
-    EmailLogFactory,
-    SentEmailLogFactory,
-    DeliveredEmailLogFactory,
-    FailedEmailLogFactory,
     BouncedEmailLogFactory,
     ComplainedEmailLogFactory,
+    DeliveredEmailLogFactory,
+    EmailLogFactory,
+    EmailTemplateFactory,
+    FailedEmailLogFactory,
+    InactiveEmailTemplateFactory,
     QueuedEmailLogFactory,
+    SentEmailLogFactory,
 )
-
+from apps.users.tests.factories import UserFactory, VerifiedUserFactory
 
 # =============================================================================
 # API CLIENT FIXTURES

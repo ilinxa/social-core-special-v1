@@ -9,26 +9,28 @@ MediaUsage, CMSApiKey.
 
 import hashlib
 import secrets
-from django.db import models
+
 from django.conf import settings
-from apps.core.models import UUIDModel, AuditModel, TimeStampedModel, UserStampedModel
-from apps.core.constants import OwnerType
+from django.db import models
+
 from apps.cms.constants import (
-    PageStatus,
-    BlockPlacementStatus,
-    ContentVersionAction,
-    ContentLayer,
     API_KEY_PREFIX,
+    BlockPlacementStatus,
+    ContentLayer,
+    ContentVersionAction,
+    PageStatus,
 )
 from apps.cms.managers import (
-    SiteManager,
+    BlockTemplateManager,
+    CMSApiKeyManager,
+    MediaFileManager,
+    MediaFolderManager,
     PageManager,
     SectionTemplateManager,
-    BlockTemplateManager,
-    MediaFolderManager,
-    MediaFileManager,
-    CMSApiKeyManager,
+    SiteManager,
 )
+from apps.core.constants import OwnerType
+from apps.core.models import AuditModel, TimeStampedModel, UserStampedModel, UUIDModel
 
 
 class Site(UUIDModel, AuditModel):
@@ -61,7 +63,9 @@ class Site(UUIDModel, AuditModel):
     domain = models.CharField(
         max_length=255, blank=True, default="", help_text="Associated domain"
     )
-    description = models.TextField(blank=True, default="", help_text="Internal description")
+    description = models.TextField(
+        blank=True, default="", help_text="Internal description"
+    )
 
     # Configuration
     default_locale = models.CharField(
@@ -126,8 +130,12 @@ class Page(UUIDModel, AuditModel):
     # Identity
     title = models.CharField(max_length=255, help_text="Page title")
     slug = models.SlugField(max_length=100, help_text="URL-safe identifier")
-    description = models.TextField(blank=True, default="", help_text="Internal description")
-    path = models.CharField(max_length=500, help_text="URL path relative to site (e.g., /about)")
+    description = models.TextField(
+        blank=True, default="", help_text="Internal description"
+    )
+    path = models.CharField(
+        max_length=500, help_text="URL path relative to site (e.g., /about)"
+    )
     page_type = models.CharField(
         max_length=50,
         help_text="Categorization (landing, content, legal, blog_post)",
@@ -152,7 +160,9 @@ class Page(UUIDModel, AuditModel):
     )
 
     # Ordering & visibility
-    order = models.PositiveIntegerField(help_text="Ordering within the site's page list")
+    order = models.PositiveIntegerField(
+        help_text="Ordering within the site's page list"
+    )
     is_required = models.BooleanField(
         default=False,
         help_text="If true, admins cannot delete or hide this page",
@@ -209,9 +219,15 @@ class SectionTemplate(UUIDModel, AuditModel):
     """
 
     # Identity
-    name = models.CharField(max_length=255, help_text="Internal name (e.g., hero_banner)")
-    display_name = models.CharField(max_length=255, help_text="Human-readable name for admin UI")
-    slug = models.SlugField(max_length=100, help_text="Globally unique identifier (among non-deleted)")
+    name = models.CharField(
+        max_length=255, help_text="Internal name (e.g., hero_banner)"
+    )
+    display_name = models.CharField(
+        max_length=255, help_text="Human-readable name for admin UI"
+    )
+    slug = models.SlugField(
+        max_length=100, help_text="Globally unique identifier (among non-deleted)"
+    )
     description = models.TextField(blank=True, default="", help_text="Section purpose")
 
     # Type & config
@@ -258,8 +274,12 @@ class BlockTemplate(UUIDModel, AuditModel):
 
     # Identity
     name = models.CharField(max_length=255, help_text="Internal name (e.g., hero_text)")
-    display_name = models.CharField(max_length=255, help_text="Human-readable name for admin UI")
-    slug = models.SlugField(max_length=100, help_text="Globally unique identifier (among non-deleted)")
+    display_name = models.CharField(
+        max_length=255, help_text="Human-readable name for admin UI"
+    )
+    slug = models.SlugField(
+        max_length=100, help_text="Globally unique identifier (among non-deleted)"
+    )
     description = models.TextField(blank=True, default="", help_text="Block purpose")
 
     # Type & schema
@@ -267,7 +287,9 @@ class BlockTemplate(UUIDModel, AuditModel):
         max_length=50,
         help_text="Categorization (text, media, composite, repeater)",
     )
-    schema = models.JSONField(help_text="Field definitions — types, validation, required flags")
+    schema = models.JSONField(
+        help_text="Field definitions — types, validation, required flags"
+    )
     schema_version = models.PositiveIntegerField(
         default=1,
         help_text="Auto-incremented on every schema change",
@@ -495,7 +517,9 @@ class ContentVersion(UUIDModel):
         help_text="Who made this change",
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    notes = models.TextField(blank=True, default="", help_text="Optional change description")
+    notes = models.TextField(
+        blank=True, default="", help_text="Optional change description"
+    )
 
     class Meta:
         db_table = "cms_content_version"
@@ -542,8 +566,8 @@ class MediaFolder(UUIDModel, AuditModel):
         on_delete=models.CASCADE,
         related_name="children",
         help_text="Parent folder for nesting. CASCADE applies to hard deletes. "
-                  "For soft deletes, CMSMediaService.delete_folder must recursively "
-                  "soft-delete children as defense-in-depth.",
+        "For soft deletes, CMSMediaService.delete_folder must recursively "
+        "soft-delete children as defense-in-depth.",
     )
     path = models.CharField(
         max_length=1000,
@@ -562,6 +586,7 @@ class MediaFolder(UUIDModel, AuditModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["owner_type", "owner_id", "parent", "slug"],
+                condition=models.Q(is_deleted=False),
                 name="unique_cms_folder_slug_per_parent",
             ),
         ]
@@ -603,7 +628,9 @@ class MediaFile(UUIDModel, AuditModel):
         max_length=500,
         help_text="Storage path/key (e.g., platform/images/hero-banner.png)",
     )
-    original_filename = models.CharField(max_length=255, help_text="Original upload filename")
+    original_filename = models.CharField(
+        max_length=255, help_text="Original upload filename"
+    )
     mime_type = models.CharField(max_length=100, help_text="MIME type")
     file_size = models.PositiveIntegerField(help_text="Size in bytes")
 
@@ -704,7 +731,9 @@ class CMSApiKey(UUIDModel, AuditModel):
     )
 
     # Key identity
-    name = models.CharField(max_length=255, help_text="Descriptive label (e.g., Production Website)")
+    name = models.CharField(
+        max_length=255, help_text="Descriptive label (e.g., Production Website)"
+    )
     key_prefix = models.CharField(
         max_length=16,
         help_text="First 8 chars of the key (for display/identification)",

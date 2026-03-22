@@ -15,4 +15,4 @@ Usage:
     from apps.users.selectors import UserSelector
 """
 
-default_app_config = 'apps.users.apps.UsersConfig'
+default_app_config = "apps.users.apps.UsersConfig"

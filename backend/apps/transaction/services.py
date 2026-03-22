@@ -1,26 +1,61 @@
-from typing import Optional, Dict, Any
-from uuid import UUID
-from datetime import timedelta
-from django.db import transaction as db_transaction
-from django.utils import timezone
-from django.http import HttpRequest
-from django.contrib.auth import get_user_model
+"""
+Transaction Service — state machine for membership and network transactions.
 
-from apps.core.observability import get_logger, AuditService
-from apps.core.observability.audit.models import AuditLog
-from apps.core.exceptions import (
-    NotFound, ConflictError, ValidationError, BusinessRuleViolation,
-)
+Manages the full lifecycle of transactions: creation (invitations, requests),
+state transitions (accept, deny, cancel, expire), form requirements
+(info-request/resubmit), and outcome execution via OutcomeHandlerRegistry.
+
+Key methods:
+    create_invitation — create an invitation transaction (initiator invites target)
+    create_request — create a request transaction (initiator requests to join)
+    accept — accept a pending transaction (may trigger PENDING_REVIEW if form-required)
+    approve_pending_review — approve a transaction in PENDING_REVIEW status
+    deny — deny a pending/pending_review transaction
+    cancel — cancel a transaction (by the initiator)
+    dismiss — dismiss a transaction (by the target)
+    expire — expire a transaction past its deadline
+    invalidate — force-invalidate a transaction with reason
+    request_info — move transaction to INFO_REQUESTED (form needed)
+    resubmit_after_info_request — resubmit with updated form response
+
+Guards:
+    _check_member_quota — enforce member limits before creating membership transactions
+    _check_open_member_request — prevent duplicate requests when requests are closed
+    _validate_role_level_for_membership — ensure role assignment is valid
+
+All public methods use @staticmethod + @transaction.atomic with keyword-only args.
+"""
+from datetime import timedelta
+from typing import Any, Dict
+from uuid import UUID
+
+from django.contrib.auth import get_user_model
+from django.db import transaction as db_transaction
+from django.http import HttpRequest
+from django.utils import timezone
+
 from apps.core.constants import AccountType, MembershipStatus
-from apps.core.types import ActorContext
-from apps.transaction.models import Transaction, TransactionLog
-from apps.transaction.selectors import TransactionSelector
-from apps.transaction.policies import TransactionPolicy
-from apps.transaction.types import get_transaction_type
-from apps.transaction.constants import (
-    TransactionMode, TransactionStatus, PartyType, ApproverPolicy, TERMINAL_STATES,
+from apps.core.exceptions import (
+    BusinessRuleViolation,
+    ConflictError,
+    NotFound,
+    ValidationError,
 )
+from apps.core.observability import AuditService, get_logger
+from apps.core.observability.audit.models import AuditLog
+from apps.core.types import ActorContext
+from apps.transaction.constants import (
+    TERMINAL_STATES,
+    ApproverPolicy,
+    PartyType,
+    TransactionMode,
+    TransactionStatus,
+)
+from apps.transaction.models import Transaction, TransactionLog
 from apps.transaction.outcome_handlers import OutcomeHandlerRegistry
+from apps.transaction.policies import TransactionPolicy
+from apps.transaction.selectors import TransactionSelector
+from apps.transaction.types import get_transaction_type
 
 User = get_user_model()
 logger = get_logger(__name__)
@@ -45,10 +80,13 @@ class TransactionService:
     @staticmethod
     @db_transaction.atomic
     def create_invitation(
-        *, transaction_type: str, initiator_context: ActorContext,
-        target_user_id: UUID, payload: Optional[Dict[str, Any]] = None,
-        form_response_id: Optional[UUID] = None,
-        request: Optional[HttpRequest] = None,
+        *,
+        transaction_type: str,
+        initiator_context: ActorContext,
+        target_user_id: UUID,
+        payload: Dict[str, Any] | None = None,
+        form_response_id: UUID | None = None,
+        request: HttpRequest | None = None,
     ) -> Transaction:
         """Create invitation. Transitions CREATED -> PENDING atomically."""
         config = get_transaction_type(transaction_type)
@@ -65,7 +103,8 @@ class TransactionService:
             )
 
         TransactionPolicy.can_create_invitation(
-            actor_context=initiator_context, config=config,
+            actor_context=initiator_context,
+            config=config,
         )
 
         if TransactionSelector.exists_active(
@@ -99,13 +138,19 @@ class TransactionService:
 
         # Check if target user is already an active member of the context account
         # Only applies to membership invitation types (not ownership transfers)
-        is_membership_invitation = "MembershipOutcomeHandler.handle_invitation_accepted" in (config.outcome_handler or "")
+        is_membership_invitation = (
+            "MembershipOutcomeHandler.handle_invitation_accepted"
+            in (config.outcome_handler or "")
+        )
         if is_membership_invitation and config.context_type not in ("user", None):
             from apps.rbac.selectors import MembershipSelector
-            existing_membership = MembershipSelector.get_active_membership_for_user_account(
-                user=User.objects.filter(id=target_user_id).first(),
-                account_type=config.context_type,
-                account_id=initiator_context.account_id,
+
+            existing_membership = (
+                MembershipSelector.get_active_membership_for_user_account(
+                    user=User.objects.filter(id=target_user_id).first(),
+                    account_type=config.context_type,
+                    account_id=initiator_context.account_id,
+                )
             )
             if existing_membership:
                 raise ConflictError(
@@ -123,7 +168,8 @@ class TransactionService:
 
         TransactionService._validate_payload(config, payload or {})
         TransactionService._validate_form_requirement(
-            config=config, form_response_id=form_response_id,
+            config=config,
+            form_response_id=form_response_id,
         )
 
         # Role level validation for membership invitations
@@ -137,9 +183,7 @@ class TransactionService:
             )
 
         context_id = (
-            initiator_context.account_id
-            if config.context_type != "user"
-            else None
+            initiator_context.account_id if config.context_type != "user" else None
         )
 
         txn = Transaction.objects.create_transaction(
@@ -161,16 +205,19 @@ class TransactionService:
         # Bidirectional form linking
         if form_response_id:
             TransactionService._link_form_response(
-                form_response_id=form_response_id, transaction_id=txn.id,
+                form_response_id=form_response_id,
+                transaction_id=txn.id,
             )
 
         TransactionService._log_event(
-            transaction=txn, event_type="created",
+            transaction=txn,
+            event_type="created",
             actor_context=initiator_context,
             new_status=TransactionStatus.CREATED,
         )
         txn = TransactionService._transition(
-            transaction=txn, new_status=TransactionStatus.PENDING,
+            transaction=txn,
+            new_status=TransactionStatus.PENDING,
             actor_context=initiator_context,
         )
 
@@ -194,12 +241,15 @@ class TransactionService:
     @staticmethod
     @db_transaction.atomic
     def create_request(
-        *, transaction_type: str, user_id: UUID,
-        target_account_type: str = None, target_account_id: UUID = None,
+        *,
+        transaction_type: str,
+        user_id: UUID,
+        target_account_type: str = None,
+        target_account_id: UUID = None,
         target_user_id: UUID = None,
-        payload: Optional[Dict[str, Any]] = None,
-        form_response_id: Optional[UUID] = None,
-        request: Optional[HttpRequest] = None,
+        payload: Dict[str, Any] | None = None,
+        form_response_id: UUID | None = None,
+        request: HttpRequest | None = None,
     ) -> Transaction:
         """Create request. Transitions CREATED -> PENDING atomically.
 
@@ -255,7 +305,11 @@ class TransactionService:
             )
 
         # Cross-type conflict check (e.g., pending invitation blocks request)
-        if config.conflict_group and target_type == PartyType.ACCOUNT and target_account_id:
+        if (
+            config.conflict_group
+            and target_type == PartyType.ACCOUNT
+            and target_account_id
+        ):
             conflicting = TransactionSelector.has_active_in_conflict_group(
                 conflict_group=config.conflict_group,
                 user_id=user_id,
@@ -301,7 +355,8 @@ class TransactionService:
 
         TransactionService._validate_payload(config, payload or {})
         TransactionService._validate_form_requirement(
-            config=config, form_response_id=form_response_id,
+            config=config,
+            form_response_id=form_response_id,
         )
 
         # Check dynamic form mapping (TransactionFormMapping per account)
@@ -334,22 +389,26 @@ class TransactionService:
         # Bidirectional form linking
         if form_response_id:
             TransactionService._link_form_response(
-                form_response_id=form_response_id, transaction_id=txn.id,
+                form_response_id=form_response_id,
+                transaction_id=txn.id,
             )
 
         TransactionService._log_event(
-            transaction=txn, event_type="created",
+            transaction=txn,
+            event_type="created",
             actor_context=actor_context,
             new_status=TransactionStatus.CREATED,
         )
         txn = TransactionService._transition(
-            transaction=txn, new_status=TransactionStatus.PENDING,
+            transaction=txn,
+            new_status=TransactionStatus.PENDING,
             actor_context=actor_context,
         )
 
         # Dispatch on_create_handler (e.g., set verification_status to PENDING)
         TransactionService._execute_on_create(
-            transaction=txn, actor_context=actor_context,
+            transaction=txn,
+            actor_context=actor_context,
         )
 
         # AUTO_APPROVAL: auto-accept immediately (e.g., business_follow_request)
@@ -361,7 +420,8 @@ class TransactionService:
                 actor_context=system_context,
             )
             TransactionService._execute_outcome(
-                transaction=txn, actor_context=system_context,
+                transaction=txn,
+                actor_context=system_context,
             )
 
         AuditService.log(
@@ -388,14 +448,21 @@ class TransactionService:
     @staticmethod
     @db_transaction.atomic
     def accept(
-        *, transaction_id: UUID, actor_context: ActorContext,
-        acceptance_payload: Optional[Dict[str, Any]] = None,
-        request: Optional[HttpRequest] = None,
+        *,
+        transaction_id: UUID,
+        actor_context: ActorContext,
+        acceptance_payload: Dict[str, Any] | None = None,
+        request: HttpRequest | None = None,
     ) -> Transaction:
-        txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
+        try:
+            txn = Transaction.objects.select_for_update().get(id=transaction_id)
+        except Transaction.DoesNotExist:
+            raise NotFound(resource="Transaction", resource_id=str(transaction_id))
         config = get_transaction_type(txn.transaction_type)
         TransactionPolicy.can_accept(
-            transaction=txn, actor_context=actor_context, config=config,
+            transaction=txn,
+            actor_context=actor_context,
+            config=config,
         )
 
         if txn.mode == TransactionMode.INVITATION:
@@ -446,7 +513,8 @@ class TransactionService:
 
             # Create provisional PENDING_APPROVAL membership
             TransactionService._create_pending_approval_membership(
-                transaction=txn, actor_context=actor_context,
+                transaction=txn,
+                actor_context=actor_context,
             )
 
             AuditService.log(
@@ -462,7 +530,8 @@ class TransactionService:
 
         # Standard flow: PENDING -> ACCEPTED
         txn = TransactionService._transition(
-            transaction=txn, new_status=TransactionStatus.ACCEPTED,
+            transaction=txn,
+            new_status=TransactionStatus.ACCEPTED,
             actor_context=actor_context,
             resolved_by_id=actor_context.user_id,
         )
@@ -473,7 +542,8 @@ class TransactionService:
             request=request,
         )
         TransactionService._execute_outcome(
-            transaction=txn, actor_context=actor_context,
+            transaction=txn,
+            actor_context=actor_context,
             acceptance_payload=acceptance_payload,
         )
         db_transaction.on_commit(
@@ -484,27 +554,36 @@ class TransactionService:
     @staticmethod
     @db_transaction.atomic
     def approve_pending_review(
-        *, transaction_id: UUID, actor_context: ActorContext,
-        request: Optional[HttpRequest] = None,
+        *,
+        transaction_id: UUID,
+        actor_context: ActorContext,
+        request: HttpRequest | None = None,
     ) -> Transaction:
         """Business approves form submission. PENDING_REVIEW -> ACCEPTED."""
-        txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
+        try:
+            txn = Transaction.objects.select_for_update().get(id=transaction_id)
+        except Transaction.DoesNotExist:
+            raise NotFound(resource="Transaction", resource_id=str(transaction_id))
         config = get_transaction_type(txn.transaction_type)
 
         TransactionPolicy.can_approve_pending_review(
-            transaction=txn, actor_context=actor_context, config=config,
+            transaction=txn,
+            actor_context=actor_context,
+            config=config,
         )
 
         # Transition to ACCEPTED
         txn = TransactionService._transition(
-            transaction=txn, new_status=TransactionStatus.ACCEPTED,
+            transaction=txn,
+            new_status=TransactionStatus.ACCEPTED,
             actor_context=actor_context,
             resolved_by_id=actor_context.user_id,
         )
 
         # Activate the PENDING_APPROVAL membership
         TransactionService._activate_pending_membership(
-            transaction=txn, actor_context=actor_context,
+            transaction=txn,
+            actor_context=actor_context,
         )
 
         # Mark outcome as executed
@@ -527,18 +606,27 @@ class TransactionService:
     @staticmethod
     @db_transaction.atomic
     def deny(
-        *, transaction_id: UUID, actor_context: ActorContext,
-        reason: str = "", request: Optional[HttpRequest] = None,
+        *,
+        transaction_id: UUID,
+        actor_context: ActorContext,
+        reason: str = "",
+        request: HttpRequest | None = None,
     ) -> Transaction:
-        txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
+        try:
+            txn = Transaction.objects.select_for_update().get(id=transaction_id)
+        except Transaction.DoesNotExist:
+            raise NotFound(resource="Transaction", resource_id=str(transaction_id))
         config = get_transaction_type(txn.transaction_type)
         was_pending_review = txn.status == TransactionStatus.PENDING_REVIEW
         TransactionPolicy.can_deny(
-            transaction=txn, actor_context=actor_context, config=config,
+            transaction=txn,
+            actor_context=actor_context,
+            config=config,
         )
 
         txn = TransactionService._transition(
-            transaction=txn, new_status=TransactionStatus.DENIED,
+            transaction=txn,
+            new_status=TransactionStatus.DENIED,
             actor_context=actor_context,
             resolved_by_id=actor_context.user_id,
             resolution_reason=reason,
@@ -550,7 +638,8 @@ class TransactionService:
 
         # Dispatch on_close_handler (e.g., revert verification_status)
         TransactionService._execute_on_close(
-            transaction=txn, actor_context=actor_context,
+            transaction=txn,
+            actor_context=actor_context,
             terminal_status=TransactionStatus.DENIED,
         )
 
@@ -569,17 +658,23 @@ class TransactionService:
     @staticmethod
     @db_transaction.atomic
     def dismiss(
-        *, transaction_id: UUID, actor_context: ActorContext,
-        request: Optional[HttpRequest] = None,
+        *,
+        transaction_id: UUID,
+        actor_context: ActorContext,
+        request: HttpRequest | None = None,
     ) -> Transaction:
-        txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
+        try:
+            txn = Transaction.objects.select_for_update().get(id=transaction_id)
+        except Transaction.DoesNotExist:
+            raise NotFound(resource="Transaction", resource_id=str(transaction_id))
         if txn.mode != TransactionMode.REQUEST:
             raise ValidationError(
                 message="Only requests can be dismissed",
                 field="transaction_id",
             )
         if txn.status not in (
-            TransactionStatus.ACCEPTED, TransactionStatus.DENIED,
+            TransactionStatus.ACCEPTED,
+            TransactionStatus.DENIED,
         ):
             raise ValidationError(
                 message=f"Cannot dismiss transaction in status: {txn.status}",
@@ -587,11 +682,14 @@ class TransactionService:
             )
         config = get_transaction_type(txn.transaction_type)
         TransactionPolicy.can_dismiss(
-            transaction=txn, actor_context=actor_context, config=config,
+            transaction=txn,
+            actor_context=actor_context,
+            config=config,
         )
 
         txn = TransactionService._transition(
-            transaction=txn, new_status=TransactionStatus.DISMISSED,
+            transaction=txn,
+            new_status=TransactionStatus.DISMISSED,
             actor_context=actor_context,
             resolved_by_id=actor_context.user_id,
         )
@@ -606,10 +704,15 @@ class TransactionService:
     @staticmethod
     @db_transaction.atomic
     def cancel(
-        *, transaction_id: UUID, actor_context: ActorContext,
-        request: Optional[HttpRequest] = None,
+        *,
+        transaction_id: UUID,
+        actor_context: ActorContext,
+        request: HttpRequest | None = None,
     ) -> Transaction:
-        txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
+        try:
+            txn = Transaction.objects.select_for_update().get(id=transaction_id)
+        except Transaction.DoesNotExist:
+            raise NotFound(resource="Transaction", resource_id=str(transaction_id))
         was_pending_review = txn.status == TransactionStatus.PENDING_REVIEW
 
         # For PENDING_REVIEW invitations, either initiator or target can cancel
@@ -619,6 +722,7 @@ class TransactionService:
             is_target = actor_context.user_id == txn.target_id
             if not is_initiator and not is_target:
                 from apps.core.exceptions import PermissionDenied
+
                 raise PermissionDenied(
                     message="Only the initiator or target can cancel this transaction",
                     action="cancel",
@@ -626,17 +730,22 @@ class TransactionService:
                 )
         else:
             TransactionPolicy.is_initiator(
-                transaction=txn, actor_context=actor_context,
+                transaction=txn,
+                actor_context=actor_context,
             )
 
-        if txn.status not in (TransactionStatus.PENDING, TransactionStatus.PENDING_REVIEW):
+        if txn.status not in (
+            TransactionStatus.PENDING,
+            TransactionStatus.PENDING_REVIEW,
+        ):
             raise ValidationError(
                 message="Can only cancel pending transactions",
                 field="status",
             )
 
         txn = TransactionService._transition(
-            transaction=txn, new_status=TransactionStatus.CANCELLED,
+            transaction=txn,
+            new_status=TransactionStatus.CANCELLED,
             actor_context=actor_context,
             resolved_by_id=actor_context.user_id,
         )
@@ -647,7 +756,8 @@ class TransactionService:
 
         # Dispatch on_close_handler (e.g., revert verification_status)
         TransactionService._execute_on_close(
-            transaction=txn, actor_context=actor_context,
+            transaction=txn,
+            actor_context=actor_context,
             terminal_status=TransactionStatus.CANCELLED,
         )
 
@@ -665,12 +775,16 @@ class TransactionService:
     @staticmethod
     @db_transaction.atomic
     def expire(*, transaction_id: UUID) -> Transaction:
-        txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
+        try:
+            txn = Transaction.objects.select_for_update().get(id=transaction_id)
+        except Transaction.DoesNotExist:
+            raise NotFound(resource="Transaction", resource_id=str(transaction_id))
         if txn.is_terminal:
             return txn
         system_context = ActorContext.for_system()
         txn = TransactionService._transition(
-            transaction=txn, new_status=TransactionStatus.EXPIRED,
+            transaction=txn,
+            new_status=TransactionStatus.EXPIRED,
             actor_context=system_context,
         )
         db_transaction.on_commit(
@@ -681,12 +795,16 @@ class TransactionService:
     @staticmethod
     @db_transaction.atomic
     def invalidate(*, transaction_id: UUID, reason: str) -> Transaction:
-        txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
+        try:
+            txn = Transaction.objects.select_for_update().get(id=transaction_id)
+        except Transaction.DoesNotExist:
+            raise NotFound(resource="Transaction", resource_id=str(transaction_id))
         if txn.is_terminal:
             return txn
         system_context = ActorContext.for_system()
         txn = TransactionService._transition(
-            transaction=txn, new_status=TransactionStatus.INVALIDATED,
+            transaction=txn,
+            new_status=TransactionStatus.INVALIDATED,
             actor_context=system_context,
             resolution_reason=reason,
         )
@@ -704,16 +822,24 @@ class TransactionService:
     @staticmethod
     @db_transaction.atomic
     def request_info(
-        *, transaction_id: UUID, message: str,
-        requested_fields: Optional[list] = None,
+        *,
+        transaction_id: UUID,
+        message: str,
+        requested_fields: list | None = None,
         actor_context: ActorContext,
-        request: Optional[HttpRequest] = None,
+        request: HttpRequest | None = None,
     ) -> Transaction:
         """Request additional info. PENDING/PENDING_REVIEW -> INFO_REQUESTED."""
-        txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
+        try:
+            txn = Transaction.objects.select_for_update().get(id=transaction_id)
+        except Transaction.DoesNotExist:
+            raise NotFound(resource="Transaction", resource_id=str(transaction_id))
         config = get_transaction_type(txn.transaction_type)
 
-        if txn.status not in (TransactionStatus.PENDING, TransactionStatus.PENDING_REVIEW):
+        if txn.status not in (
+            TransactionStatus.PENDING,
+            TransactionStatus.PENDING_REVIEW,
+        ):
             raise ValidationError(
                 message=f"Cannot request info on transaction in {txn.status} status",
                 field="status",
@@ -728,16 +854,21 @@ class TransactionService:
         # For PENDING_REVIEW, use approve policy (ACCOUNT_AUTHORITY)
         if txn.status == TransactionStatus.PENDING_REVIEW:
             TransactionPolicy.can_approve_pending_review(
-                transaction=txn, actor_context=actor_context, config=config,
+                transaction=txn,
+                actor_context=actor_context,
+                config=config,
             )
         else:
             TransactionPolicy.can_accept(
-                transaction=txn, actor_context=actor_context, config=config,
+                transaction=txn,
+                actor_context=actor_context,
+                config=config,
             )
 
         # Validate requested fields exist in form template
         if requested_fields:
             from apps.forms.selectors import FormResponseSelector
+
             form_response = FormResponseSelector.get_by_id(
                 response_id=txn.form_response_id,
             )
@@ -766,8 +897,10 @@ class TransactionService:
 
         # Update FormResponse
         from apps.forms.services import FormResponseService
+
         FormResponseService.mark_info_requested(
-            response_id=txn.form_response_id, actor=actor,
+            response_id=txn.form_response_id,
+            actor=actor,
         )
 
         AuditService.log(
@@ -794,14 +927,19 @@ class TransactionService:
     @staticmethod
     @db_transaction.atomic
     def resubmit_after_info_request(
-        *, transaction_id: UUID, actor_context: ActorContext,
-        request: Optional[HttpRequest] = None,
+        *,
+        transaction_id: UUID,
+        actor_context: ActorContext,
+        request: HttpRequest | None = None,
     ) -> Transaction:
         """Resubmit transaction after updating form response.
 
         INFO_REQUESTED -> PENDING (requests) or PENDING_REVIEW (invitations with form).
         """
-        txn = TransactionSelector.get_by_id(transaction_id=transaction_id)
+        try:
+            txn = Transaction.objects.select_for_update().get(id=transaction_id)
+        except Transaction.DoesNotExist:
+            raise NotFound(resource="Transaction", resource_id=str(transaction_id))
 
         if txn.status != TransactionStatus.INFO_REQUESTED:
             raise ValidationError(
@@ -813,6 +951,7 @@ class TransactionService:
         if txn.mode == TransactionMode.INVITATION:
             if actor_context.user_id != txn.target_id:
                 from apps.core.exceptions import PermissionDenied
+
                 raise PermissionDenied(
                     message="Only the target user can resubmit",
                     action="resubmit",
@@ -820,7 +959,8 @@ class TransactionService:
                 )
         else:
             TransactionPolicy.is_initiator(
-                transaction=txn, actor_context=actor_context,
+                transaction=txn,
+                actor_context=actor_context,
             )
 
         # Invitations with form go back to PENDING_REVIEW, requests go to PENDING
@@ -831,7 +971,8 @@ class TransactionService:
             new_status = TransactionStatus.PENDING
 
         txn = TransactionService._transition(
-            transaction=txn, new_status=new_status,
+            transaction=txn,
+            new_status=new_status,
             actor_context=actor_context,
         )
 
@@ -867,33 +1008,42 @@ class TransactionService:
         from apps.rbac.selectors import MembershipSelector
 
         active_count = MembershipSelector.count_active_members(
-            account_type=account_type, account_id=account_id,
+            account_type=account_type,
+            account_id=account_id,
         )
 
         # Count pending membership transactions (invitations + requests)
-        pending_count = Transaction.objects.filter(
-            context_type=account_type,
-            context_id=account_id,
-            transaction_type__contains="membership",
-        ).exclude(
-            status__in=TERMINAL_STATES,
-        ).count()
+        pending_count = (
+            Transaction.objects.filter(
+                context_type=account_type,
+                context_id=account_id,
+                transaction_type__contains="membership",
+            )
+            .exclude(
+                status__in=TERMINAL_STATES,
+            )
+            .count()
+        )
 
         total_committed = active_count + pending_count
 
         if account_type == "business":
             from apps.organization.business.models import BusinessAccount
+
             try:
                 max_members = BusinessAccount.objects.values_list(
-                    "max_members", flat=True,
+                    "max_members",
+                    flat=True,
                 ).get(id=account_id)
             except BusinessAccount.DoesNotExist:
                 return
         elif account_type == "platform":
             from apps.organization.platform.models import PlatformAccount
+
             try:
                 max_members = PlatformAccount.objects.values_list(
-                    "max_members", flat=True,
+                    "max_members",
+                    flat=True,
                 ).get(id=account_id)
             except PlatformAccount.DoesNotExist:
                 return
@@ -914,17 +1064,21 @@ class TransactionService:
         """Pre-check: raise if account does not accept membership requests."""
         if account_type == "business":
             from apps.organization.business.models import BusinessAccount
+
             try:
                 is_open = BusinessAccount.objects.values_list(
-                    "open_member_request", flat=True,
+                    "open_member_request",
+                    flat=True,
                 ).get(id=account_id)
             except BusinessAccount.DoesNotExist:
                 return
         elif account_type == "platform":
             from apps.organization.platform.models import PlatformAccount
+
             try:
                 is_open = PlatformAccount.objects.values_list(
-                    "open_member_request", flat=True,
+                    "open_member_request",
+                    flat=True,
                 ).get(id=account_id)
             except PlatformAccount.DoesNotExist:
                 return
@@ -939,8 +1093,11 @@ class TransactionService:
 
     @staticmethod
     def _validate_role_level_for_membership(
-        *, actor_context: ActorContext, role_id_str: str,
-        account_type: str, account_id: UUID,
+        *,
+        actor_context: ActorContext,
+        role_id_str: str,
+        account_type: str,
+        account_id: UUID,
     ):
         """Validate that actor outranks the role being assigned.
 
@@ -960,7 +1117,7 @@ class TransactionService:
         if role.level == 0:
             raise BusinessRuleViolation(
                 message="Owner role cannot be assigned via transactions. "
-                        "Use ownership transfer instead.",
+                "Use ownership transfer instead.",
                 rule="owner_role_not_assignable",
             )
 
@@ -970,7 +1127,10 @@ class TransactionService:
                 field="role_id",
             )
 
-        if actor_context.role_level is not None and actor_context.role_level >= role.level:
+        if (
+            actor_context.role_level is not None
+            and actor_context.role_level >= role.level
+        ):
             raise BusinessRuleViolation(
                 message="Cannot assign a role with equal or higher authority than your own",
                 rule="insufficient_role_level",
@@ -978,8 +1138,12 @@ class TransactionService:
 
     @staticmethod
     def _transition(
-        *, transaction, new_status, actor_context,
-        resolved_by_id=None, resolution_reason="",
+        *,
+        transaction,
+        new_status,
+        actor_context,
+        resolved_by_id=None,
+        resolution_reason="",
     ):
         if not transaction.can_transition_to(new_status):
             raise ValidationError(
@@ -996,7 +1160,8 @@ class TransactionService:
                 transaction.resolution_reason = resolution_reason
         transaction.save()
         TransactionService._log_event(
-            transaction=transaction, event_type="state_changed",
+            transaction=transaction,
+            event_type="state_changed",
             actor_context=actor_context,
             previous_status=previous_status,
             new_status=new_status,
@@ -1005,8 +1170,13 @@ class TransactionService:
 
     @staticmethod
     def _log_event(
-        *, transaction, event_type, actor_context,
-        previous_status="", new_status, metadata=None,
+        *,
+        transaction,
+        event_type,
+        actor_context,
+        previous_status="",
+        new_status,
+        metadata=None,
     ):
         return TransactionLog.objects.create(
             transaction=transaction,
@@ -1042,7 +1212,9 @@ class TransactionService:
     @staticmethod
     def _validate_form_requirement(*, config, form_response_id):
         """Validate form requirement for a transaction type."""
-        requires = config.required_form_template_slug or config.required_form_template_id
+        requires = (
+            config.required_form_template_slug or config.required_form_template_id
+        )
         if requires and not form_response_id:
             raise ValidationError(
                 message="This transaction type requires a form response",
@@ -1050,6 +1222,7 @@ class TransactionService:
             )
         if form_response_id and config.required_form_template_slug:
             from apps.forms.selectors import FormResponseSelector
+
             response = FormResponseSelector.get_by_id(response_id=form_response_id)
             if response.form_template.slug != config.required_form_template_slug:
                 raise ValidationError(
@@ -1059,7 +1232,11 @@ class TransactionService:
 
     @staticmethod
     def _validate_form_mapping_requirement(
-        *, transaction_type, account_type, account_id, form_response_id,
+        *,
+        transaction_type,
+        account_type,
+        account_id,
+        form_response_id,
     ):
         """Validate dynamic form mapping requirement (TransactionFormMapping per account).
 
@@ -1067,6 +1244,7 @@ class TransactionService:
         the form_response_id must be provided at request creation time.
         """
         from apps.transaction.models import TransactionFormMapping
+
         mapping = TransactionFormMapping.objects.filter(
             account_type=account_type,
             account_id=account_id,
@@ -1083,8 +1261,10 @@ class TransactionService:
     def _link_form_response(*, form_response_id, transaction_id):
         """Set bidirectional link from FormResponse to Transaction."""
         from apps.forms.services import FormResponseService
+
         FormResponseService.link_to_transaction(
-            response_id=form_response_id, transaction_id=transaction_id,
+            response_id=form_response_id,
+            transaction_id=transaction_id,
         )
 
     @staticmethod
@@ -1129,9 +1309,14 @@ class TransactionService:
             membership.status = MembershipStatus.ACTIVE
             membership.status_changed_at = timezone.now()
             membership.status_changed_by = _resolve_actor(actor_context)
-            membership.save(update_fields=[
-                "status", "status_changed_at", "status_changed_by", "updated_at",
-            ])
+            membership.save(
+                update_fields=[
+                    "status",
+                    "status_changed_at",
+                    "status_changed_by",
+                    "updated_at",
+                ]
+            )
             logger.info(
                 "transaction.pending_membership_activated",
                 transaction_id=str(transaction.id),
@@ -1165,6 +1350,7 @@ class TransactionService:
     def _validate_creator_authority(transaction):
         """Re-validate creator still has authority at acceptance time."""
         from apps.rbac.selectors import MembershipSelector, PermissionSelector
+
         initiator_context = ActorContext.from_dict(transaction.initiator_context)
         config = get_transaction_type(transaction.transaction_type)
 
@@ -1224,7 +1410,8 @@ class TransactionService:
             return
         try:
             OutcomeHandlerRegistry.execute(
-                transaction=transaction, actor_context=actor_context,
+                transaction=transaction,
+                actor_context=actor_context,
                 acceptance_payload=acceptance_payload,
             )
             transaction.outcome_executed = True
@@ -1252,6 +1439,7 @@ class TransactionService:
             module_path, method_name = config.on_create_handler.rsplit(".", 1)
             class_path, class_name = module_path.rsplit(".", 1)
             import importlib
+
             mod = importlib.import_module(class_path)
             cls = getattr(mod, class_name)
             handler = getattr(cls, method_name)
@@ -1274,6 +1462,7 @@ class TransactionService:
             module_path, method_name = config.on_close_handler.rsplit(".", 1)
             class_path, class_name = module_path.rsplit(".", 1)
             import importlib
+
             mod = importlib.import_module(class_path)
             cls = getattr(mod, class_name)
             handler = getattr(cls, method_name)
@@ -1302,7 +1491,9 @@ class TransactionService:
             return
         try:
             handler = getattr(
-                TransactionService, f"_notify_{event_type}", None,
+                TransactionService,
+                f"_notify_{event_type}",
+                None,
             )
             if handler:
                 handler(transaction, NotificationService)
@@ -1329,10 +1520,10 @@ class TransactionService:
     @staticmethod
     def _notify_request_created(txn, NS):
         """Notify approvers that a new request needs review."""
-        from apps.transaction.types import get_transaction_type
-        from apps.transaction.constants import ApproverPolicy
-        from apps.rbac.selectors import MembershipSelector
         from apps.organization.platform.models import PlatformAccount
+        from apps.rbac.selectors import MembershipSelector
+        from apps.transaction.constants import ApproverPolicy
+        from apps.transaction.types import get_transaction_type
 
         config = get_transaction_type(txn.transaction_type)
         if not config.approval_permission:

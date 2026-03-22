@@ -8,10 +8,10 @@ Covers:
 - TransactionLogSelector: list_for_transaction
 """
 
-import pytest
 from datetime import timedelta
 from uuid import uuid4
 
+import pytest
 from django.utils import timezone
 
 from apps.core.constants import ContextType
@@ -19,7 +19,6 @@ from apps.core.exceptions import NotFound
 from apps.transaction.constants import PartyType, TransactionStatus
 from apps.transaction.selectors import TransactionLogSelector, TransactionSelector
 from apps.transaction.tests.factories import TransactionFactory, TransactionLogFactory
-
 
 # ==========================================================================
 # TransactionSelector — get_by_id
@@ -277,16 +276,12 @@ class TestListForUserAsInitiator:
             status=TransactionStatus.PENDING,
         )
 
-        result = list(
-            TransactionSelector.list_for_user_as_initiator(user_id=user_id)
-        )
+        result = list(TransactionSelector.list_for_user_as_initiator(user_id=user_id))
         assert len(result) == 1
         assert result[0].id == txn.id
 
     def test_returns_empty_for_user_with_no_transactions(self):
-        result = list(
-            TransactionSelector.list_for_user_as_initiator(user_id=uuid4())
-        )
+        result = list(TransactionSelector.list_for_user_as_initiator(user_id=uuid4()))
         assert result == []
 
     def test_include_terminal_false_filters_terminal_states(self):
@@ -309,7 +304,8 @@ class TestListForUserAsInitiator:
 
         result = list(
             TransactionSelector.list_for_user_as_initiator(
-                user_id=user_id, include_terminal=False,
+                user_id=user_id,
+                include_terminal=False,
             )
         )
         assert len(result) == 1
@@ -335,7 +331,8 @@ class TestListForUserAsInitiator:
 
         result = list(
             TransactionSelector.list_for_user_as_initiator(
-                user_id=user_id, include_terminal=True,
+                user_id=user_id,
+                include_terminal=True,
             )
         )
         assert len(result) == 3
@@ -352,9 +349,7 @@ class TestListForUserAsInitiator:
             status=TransactionStatus.PENDING,
         )
 
-        result = list(
-            TransactionSelector.list_for_user_as_initiator(user_id=user_id)
-        )
+        result = list(TransactionSelector.list_for_user_as_initiator(user_id=user_id))
         assert len(result) == 1
         assert result[0].id == txn.id
 
@@ -369,9 +364,7 @@ class TestListForUserAsInitiator:
             status=TransactionStatus.PENDING,
         )
 
-        result = list(
-            TransactionSelector.list_for_user_as_initiator(user_id=user_id)
-        )
+        result = list(TransactionSelector.list_for_user_as_initiator(user_id=user_id))
         assert len(result) == 0
 
     def test_ordered_by_created_at_desc(self):
@@ -391,6 +384,7 @@ class TestListForUserAsInitiator:
 
         # Force ordering via created_at update
         from apps.transaction.models import Transaction
+
         Transaction.objects.filter(id=txn_old.id).update(
             created_at=now - timedelta(hours=2),
         )
@@ -398,9 +392,7 @@ class TestListForUserAsInitiator:
             created_at=now - timedelta(hours=1),
         )
 
-        result = list(
-            TransactionSelector.list_for_user_as_initiator(user_id=user_id)
-        )
+        result = list(TransactionSelector.list_for_user_as_initiator(user_id=user_id))
         assert result[0].id == txn_new.id
         assert result[1].id == txn_old.id
 
@@ -427,9 +419,7 @@ class TestListForUserAsTarget:
             status=TransactionStatus.PENDING,
         )
 
-        result = list(
-            TransactionSelector.list_for_user_as_target(user_id=target_id)
-        )
+        result = list(TransactionSelector.list_for_user_as_target(user_id=target_id))
         assert len(result) == 1
         assert result[0].id == txn.id
 
@@ -448,7 +438,8 @@ class TestListForUserAsTarget:
 
         result = list(
             TransactionSelector.list_for_user_as_target(
-                user_id=target_id, include_terminal=False,
+                user_id=target_id,
+                include_terminal=False,
             )
         )
         assert len(result) == 1
@@ -469,7 +460,8 @@ class TestListForUserAsTarget:
 
         result = list(
             TransactionSelector.list_for_user_as_target(
-                user_id=target_id, include_terminal=True,
+                user_id=target_id,
+                include_terminal=True,
             )
         )
         assert len(result) == 2
@@ -490,6 +482,7 @@ class TestListForUserAsTarget:
         )
 
         from apps.transaction.models import Transaction
+
         Transaction.objects.filter(id=txn_old.id).update(
             created_at=now - timedelta(hours=2),
         )
@@ -497,9 +490,7 @@ class TestListForUserAsTarget:
             created_at=now - timedelta(hours=1),
         )
 
-        result = list(
-            TransactionSelector.list_for_user_as_target(user_id=target_id)
-        )
+        result = list(TransactionSelector.list_for_user_as_target(user_id=target_id))
         assert result[0].id == txn_new.id
         assert result[1].id == txn_old.id
 
@@ -515,18 +506,23 @@ class TestListForUser:
     def test_returns_initiator_and_target_transactions(self):
         user_id = uuid4()
         as_initiator = TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user_id,
+            initiator_type=PartyType.USER,
+            initiator_id=user_id,
             status=TransactionStatus.PENDING,
         )
         as_target = TransactionFactory(
-            target_type=PartyType.USER, target_id=user_id,
+            target_type=PartyType.USER,
+            target_id=user_id,
             status=TransactionStatus.PENDING,
         )
         TransactionFactory(status=TransactionStatus.PENDING)  # unrelated
 
-        result = list(TransactionSelector.list_for_user(
-            user_id=user_id, include_terminal=True,
-        ))
+        result = list(
+            TransactionSelector.list_for_user(
+                user_id=user_id,
+                include_terminal=True,
+            )
+        )
         ids = {t.id for t in result}
         assert as_initiator.id in ids
         assert as_target.id in ids
@@ -535,11 +531,13 @@ class TestListForUser:
     def test_exclude_terminal_by_default(self):
         user_id = uuid4()
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user_id,
+            initiator_type=PartyType.USER,
+            initiator_id=user_id,
             status=TransactionStatus.PENDING,
         )
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user_id,
+            initiator_type=PartyType.USER,
+            initiator_id=user_id,
             status=TransactionStatus.ACCEPTED,
         )
         result = list(TransactionSelector.list_for_user(user_id=user_id))
@@ -556,14 +554,18 @@ class TestListForUser:
             status=TransactionStatus.PENDING,
         )
         target_txn = TransactionFactory(
-            target_type=PartyType.USER, target_id=user_id,
+            target_type=PartyType.USER,
+            target_id=user_id,
             status=TransactionStatus.PENDING,
         )
         TransactionFactory(status=TransactionStatus.PENDING)  # unrelated
 
-        result = list(TransactionSelector.list_for_user(
-            user_id=user_id, include_terminal=True,
-        ))
+        result = list(
+            TransactionSelector.list_for_user(
+                user_id=user_id,
+                include_terminal=True,
+            )
+        )
         ids = {t.id for t in result}
         assert membership_txn.id in ids
         assert target_txn.id in ids
@@ -573,17 +575,20 @@ class TestListForUser:
         """list_for_user uses Q objects (not UNION) so .filter() works."""
         user_id = uuid4()
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user_id,
+            initiator_type=PartyType.USER,
+            initiator_id=user_id,
             status=TransactionStatus.PENDING,
             transaction_type="business_membership_invitation",
         )
         TransactionFactory(
-            initiator_type=PartyType.USER, initiator_id=user_id,
+            initiator_type=PartyType.USER,
+            initiator_id=user_id,
             status=TransactionStatus.PENDING,
             transaction_type="user_connection_request",
         )
         qs = TransactionSelector.list_for_user(
-            user_id=user_id, include_terminal=True,
+            user_id=user_id,
+            include_terminal=True,
         )
         filtered = qs.filter(transaction_type="user_connection_request")
         assert filtered.count() == 1
@@ -942,3 +947,125 @@ class TestPlatformSelectors:
         )
         assert result is not None
         assert result.transaction_type == "platform_membership_invitation"
+
+
+# ==========================================================================
+# TransactionSelector — apply_permission_filters
+# ==========================================================================
+
+
+class _MockActorContext:
+    """Lightweight mock for ActorContext with permission checking."""
+
+    def __init__(self, permissions: set[str]):
+        self._permissions = permissions
+
+    def has_permission(self, code: str) -> bool:
+        return code in self._permissions
+
+
+@pytest.mark.django_db
+class TestApplyPermissionFilters:
+
+    def test_excludes_types_actor_cannot_approve(self):
+        """Member WITHOUT can_approve_business_creation should not see
+        business_creation_permission_request transactions."""
+        from apps.transaction.tests.factories import TransactionFactory
+
+        biz_id = uuid4()
+        # Permission-gated: needs can_approve_business_creation
+        biz_creation_txn = TransactionFactory(
+            transaction_type="business_creation_permission_request",
+            mode="request",
+            context_type=ContextType.PLATFORM,
+            context_id=biz_id,
+            status=TransactionStatus.PENDING,
+        )
+        # Non-permission-gated: visible to all
+        membership_txn = TransactionFactory(
+            transaction_type="business_membership_request",
+            mode="request",
+            context_type=ContextType.BUSINESS,
+            context_id=biz_id,
+            status=TransactionStatus.PENDING,
+        )
+
+        qs = TransactionSelector.list_for_context(
+            context_type=ContextType.PLATFORM,
+            context_id=biz_id,
+            include_terminal=True,
+        )
+        # Actor without the approval permission
+        actor = _MockActorContext(permissions={"can_view_transactions"})
+        filtered = TransactionSelector.apply_permission_filters(qs, actor)
+
+        ids = set(filtered.values_list("id", flat=True))
+        assert biz_creation_txn.id not in ids
+
+    def test_includes_types_actor_can_approve(self):
+        """Member WITH can_approve_business_creation should see all transactions."""
+        from apps.transaction.tests.factories import TransactionFactory
+
+        plat_id = uuid4()
+        biz_creation_txn = TransactionFactory(
+            transaction_type="business_creation_permission_request",
+            mode="request",
+            context_type=ContextType.PLATFORM,
+            context_id=plat_id,
+            status=TransactionStatus.PENDING,
+        )
+        membership_txn = TransactionFactory(
+            transaction_type="platform_membership_request",
+            mode="request",
+            context_type=ContextType.PLATFORM,
+            context_id=plat_id,
+            status=TransactionStatus.PENDING,
+        )
+
+        qs = TransactionSelector.list_for_context(
+            context_type=ContextType.PLATFORM,
+            context_id=plat_id,
+            include_terminal=True,
+        )
+        # Actor with ALL approval permissions
+        actor = _MockActorContext(
+            permissions={
+                "can_view_transactions",
+                "can_approve_business_creation",
+                "can_approve_membership_request",
+                "can_approve_verification_request",
+                "can_manage_followers",
+                "can_manage_connections",
+            }
+        )
+        filtered = TransactionSelector.apply_permission_filters(qs, actor)
+
+        ids = set(filtered.values_list("id", flat=True))
+        assert biz_creation_txn.id in ids
+        assert membership_txn.id in ids
+
+    def test_non_permission_gated_types_always_visible(self):
+        """Transaction types without approval_permission are never excluded."""
+        from apps.transaction.tests.factories import TransactionFactory
+
+        plat_id = uuid4()
+        # business_follow_request has no approval_permission
+        follow_txn = TransactionFactory(
+            transaction_type="business_follow_request",
+            mode="request",
+            context_type=ContextType.BUSINESS,
+            context_id=plat_id,
+            status=TransactionStatus.PENDING,
+        )
+
+        qs = TransactionSelector.list_for_context(
+            context_type=ContextType.BUSINESS,
+            context_id=plat_id,
+            include_terminal=True,
+        )
+        # Actor with NO permissions at all
+        actor = _MockActorContext(permissions=set())
+        filtered = TransactionSelector.apply_permission_filters(qs, actor)
+
+        ids = set(filtered.values_list("id", flat=True))
+        assert follow_txn.id in ids

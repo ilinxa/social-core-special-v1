@@ -11,10 +11,10 @@ import uuid
 
 import pytest
 
-
 # =============================================================================
 # RS01: PERMISSIONS LIST
 # =============================================================================
+
 
 class TestPermissionsList:
     """Test the shared permissions endpoint."""
@@ -27,9 +27,7 @@ class TestPermissionsList:
         data = r.json()
         perms = data if isinstance(data, list) else data.get("results", [])
         # 26 (core) + 2 (transaction) + 23 (CMS) = 51
-        assert len(perms) >= 51, (
-            f"Expected at least 51 permissions, got {len(perms)}"
-        )
+        assert len(perms) >= 51, f"Expected at least 51 permissions, got {len(perms)}"
         # Store for later use
         state.permissions = perms
 
@@ -44,6 +42,7 @@ class TestPermissionsList:
 # =============================================================================
 # RP01–RP08: PLATFORM ROLES
 # =============================================================================
+
 
 class TestPlatformRoles:
     """Test platform-scoped role CRUD and permission management."""
@@ -60,11 +59,14 @@ class TestPlatformRoles:
     def test_rp02_create_platform_role(self, api, state):
         """POST /platform/roles/ creates a platform role."""
         api.set_token(state.get_token("alice"))
-        r = api.post("platform/roles/", json={
-            "name": "Platform Moderator",
-            "level": 5,
-            "description": "Moderates platform content",
-        })
+        r = api.post(
+            "platform/roles/",
+            json={
+                "name": "Platform Moderator",
+                "level": 5,
+                "description": "Moderates platform content",
+            },
+        )
         assert r.status_code == 201, f"Create role failed: {r.text}"
         data = r.json()
         state.roles["plat:moderator"] = {"id": data["id"]}
@@ -82,9 +84,12 @@ class TestPlatformRoles:
         """PATCH /platform/roles/<id>/ updates role."""
         api.set_token(state.get_token("alice"))
         role_id = state.roles["plat:moderator"]["id"]
-        r = api.patch(f"platform/roles/{role_id}/", json={
-            "description": "Updated moderator description",
-        })
+        r = api.patch(
+            f"platform/roles/{role_id}/",
+            json={
+                "description": "Updated moderator description",
+            },
+        )
         assert r.status_code == 200
 
     def test_rp05_assign_platform_permission(self, api, state):
@@ -95,10 +100,13 @@ class TestPlatformRoles:
         api.set_token(state.get_token("alice"))
         role_id = state.roles["plat:moderator"]["id"]
         perm = state.permissions[0]
-        r = api.post(f"platform/roles/{role_id}/permissions/", json={
-            "permission_id": perm["id"],
-            "scope": "platform_only",
-        })
+        r = api.post(
+            f"platform/roles/{role_id}/permissions/",
+            json={
+                "permission_id": perm["id"],
+                "scope": "platform_only",
+            },
+        )
         assert r.status_code in (200, 201), f"Assign failed: {r.text}"
 
     def test_rp06_remove_platform_permission(self, api, state):
@@ -109,19 +117,25 @@ class TestPlatformRoles:
         api.set_token(state.get_token("alice"))
         role_id = state.roles["plat:moderator"]["id"]
         perm = state.permissions[0]
-        r = api.delete(f"platform/roles/{role_id}/permissions/", json={
-            "permission_id": perm["id"],
-        })
+        r = api.delete(
+            f"platform/roles/{role_id}/permissions/",
+            json={
+                "permission_id": perm["id"],
+            },
+        )
         assert r.status_code in (200, 204)
 
     def test_rp07_delete_platform_role(self, api, state):
         """DELETE /platform/roles/<id>/ deletes a custom role."""
         api.set_token(state.get_token("alice"))
         # Create a disposable role
-        r = api.post("platform/roles/", json={
-            "name": "Temp Role",
-            "level": 9,
-        })
+        r = api.post(
+            "platform/roles/",
+            json={
+                "name": "Temp Role",
+                "level": 9,
+            },
+        )
         assert r.status_code == 201
         temp_id = r.json()["id"]
 
@@ -131,10 +145,13 @@ class TestPlatformRoles:
     def test_rp08_duplicate_role_name(self, api, state):
         """POST /platform/roles/ with duplicate name returns 400/409."""
         api.set_token(state.get_token("alice"))
-        r = api.post("platform/roles/", json={
-            "name": "Platform Moderator",
-            "level": 6,
-        })
+        r = api.post(
+            "platform/roles/",
+            json={
+                "name": "Platform Moderator",
+                "level": 6,
+            },
+        )
         # 403 if platform membership missing
         assert r.status_code in (400, 403, 409)
 
@@ -142,6 +159,7 @@ class TestPlatformRoles:
 # =============================================================================
 # RP09–RP14: PLATFORM MEMBERS
 # =============================================================================
+
 
 class TestPlatformMembers:
     """Test platform membership management."""
@@ -198,13 +216,16 @@ class TestPlatformMembers:
             pytest.skip("Platform not configured")
 
         base_role_id = db_helper.get_base_member_role_id("platform", platform_id)
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "platform_membership_invitation",
-            "target_user_id": member_id,
-            "context_type": "platform",
-            "context_id": platform_id,
-            "payload": {"role_id": base_role_id},
-        })
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "platform_membership_invitation",
+                "target_user_id": member_id,
+                "context_type": "platform",
+                "context_id": platform_id,
+                "payload": {"role_id": base_role_id},
+            },
+        )
         if r.status_code != 201:
             pytest.skip(f"Platform invitation failed: {r.text}")
         invite_id = r.json()["id"]
@@ -218,10 +239,11 @@ class TestPlatformMembers:
         api.set_token(state.get_token("alice"))
         r = api.get("platform/members/")
         assert r.status_code == 200
-        members = r.json() if isinstance(r.json(), list) else r.json().get("results", [])
+        members = (
+            r.json() if isinstance(r.json(), list) else r.json().get("results", [])
+        )
         member_membership = [
-            m for m in members
-            if m.get("user", {}).get("email") == member_email
+            m for m in members if m.get("user", {}).get("email") == member_email
         ]
         assert member_membership, f"Member {member_email} not found in member list"
 
@@ -243,9 +265,12 @@ class TestPlatformMembers:
         mid = state.memberships["plat:testmember"]["id"]
         role_id = state.roles["plat:moderator"]["id"]
 
-        r = api.patch(f"platform/members/{mid}/role/", json={
-            "role_id": role_id,
-        })
+        r = api.patch(
+            f"platform/members/{mid}/role/",
+            json={
+                "role_id": role_id,
+            },
+        )
         assert r.status_code == 200, f"Change role failed: {r.text}"
 
     def test_rp13_suspend_member(self, api, state):
@@ -283,6 +308,7 @@ class TestPlatformMembers:
         api.set_token(state.get_token("alice"))
         r = api.post("platform/members/leave/")
         # Owner should be rejected
-        assert r.status_code in (400, 403), (
-            f"Owner should not be able to leave, got {r.status_code}"
-        )
+        assert r.status_code in (
+            400,
+            403,
+        ), f"Owner should not be able to leave, got {r.status_code}"

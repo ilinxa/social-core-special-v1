@@ -43,20 +43,18 @@ class EmailTemplate(TimeStampedModel):
     name = models.CharField(
         max_length=100,
         db_index=True,
-        help_text="Unique identifier (e.g., 'welcome', 'password_reset')"
+        help_text="Unique identifier (e.g., 'welcome', 'password_reset')",
     )
 
     # Content
     subject = models.CharField(
-        max_length=255,
-        help_text="Email subject line. Supports {{ variables }}"
+        max_length=255, help_text="Email subject line. Supports {{ variables }}"
     )
     html_body = models.TextField(
         help_text="HTML email content. Supports {{ variables }}"
     )
     text_body = models.TextField(
-        blank=True,
-        help_text="Plain text fallback. Auto-generated from HTML if empty."
+        blank=True, help_text="Plain text fallback. Auto-generated from HTML if empty."
     )
 
     # Variable schema for validation
@@ -66,54 +64,50 @@ class EmailTemplate(TimeStampedModel):
         help_text=(
             "JSON schema defining expected variables. "
             "Example: {'user_name': {'type': 'string', 'required': true}}"
-        )
+        ),
     )
 
     # Metadata
     description = models.TextField(
-        blank=True,
-        help_text="Internal description for admins"
+        blank=True, help_text="Internal description for admins"
     )
     category = models.CharField(
         max_length=50,
         blank=True,
         db_index=True,
-        help_text="Category for organization (auth, transactional, marketing)"
+        help_text="Category for organization (auth, transactional, marketing)",
     )
 
     # Status
     is_active = models.BooleanField(
-        default=True,
-        help_text="Inactive templates cannot be used"
+        default=True, help_text="Inactive templates cannot be used"
     )
 
     # Versioning
     version = models.PositiveIntegerField(
-        default=1,
-        help_text="Version number (new row created on each edit)"
+        default=1, help_text="Version number (new row created on each edit)"
     )
     is_current = models.BooleanField(
         default=True,
         db_index=True,
-        help_text="True for the latest version of each template"
+        help_text="True for the latest version of each template",
     )
 
     class Meta:
-        db_table = 'email_templates'
-        ordering = ['category', 'name', '-version']
-        verbose_name = 'email template'
-        verbose_name_plural = 'email templates'
+        db_table = "email_templates"
+        ordering = ["category", "name", "-version"]
+        verbose_name = "email template"
+        verbose_name_plural = "email templates"
         constraints = [
             # Enforce unique (name, version) pairs
             models.UniqueConstraint(
-                fields=['name', 'version'],
-                name='unique_template_version'
+                fields=["name", "version"], name="unique_template_version"
             ),
             # Only one current version per template name
             models.UniqueConstraint(
-                fields=['name'],
+                fields=["name"],
                 condition=models.Q(is_current=True),
-                name='unique_current_template'
+                name="unique_current_template",
             ),
         ]
 
@@ -179,21 +173,17 @@ class EmailLog(TimeStampedModel):
     """
 
     class Status(models.TextChoices):
-        PENDING = 'pending', 'Pending'
-        QUEUED = 'queued', 'Queued'
-        SENDING = 'sending', 'Sending'
-        SENT = 'sent', 'Sent'
-        DELIVERED = 'delivered', 'Delivered'
-        BOUNCED = 'bounced', 'Bounced'
-        COMPLAINED = 'complained', 'Complained'
-        FAILED = 'failed', 'Failed'
+        PENDING = "pending", "Pending"
+        QUEUED = "queued", "Queued"
+        SENDING = "sending", "Sending"
+        SENT = "sent", "Sent"
+        DELIVERED = "delivered", "Delivered"
+        BOUNCED = "bounced", "Bounced"
+        COMPLAINED = "complained", "Complained"
+        FAILED = "failed", "Failed"
 
     # Use UUID for external reference
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # Recipient (no FK to User - emails can go to non-users)
     to_email = models.EmailField(db_index=True)
@@ -206,15 +196,13 @@ class EmailLog(TimeStampedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='logs'
+        related_name="logs",
     )
     template_name = models.CharField(
-        max_length=100,
-        help_text="Template name at time of send"
+        max_length=100, help_text="Template name at time of send"
     )
     template_version = models.PositiveIntegerField(
-        default=1,
-        help_text="Template version at time of send"
+        default=1, help_text="Template version at time of send"
     )
 
     # Rendered content (stored for debugging/resend)
@@ -224,17 +212,12 @@ class EmailLog(TimeStampedModel):
 
     # Context used for rendering (for debugging)
     context = models.JSONField(
-        default=dict,
-        blank=True,
-        help_text="Variables used to render template"
+        default=dict, blank=True, help_text="Variables used to render template"
     )
 
     # Status tracking
     status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING,
-        db_index=True
+        max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True
     )
 
     # SES tracking
@@ -242,7 +225,7 @@ class EmailLog(TimeStampedModel):
         max_length=255,
         blank=True,
         db_index=True,
-        help_text="Provider message ID (SES Message-ID)"
+        help_text="Provider message ID (SES Message-ID)",
     )
 
     # Error tracking
@@ -264,43 +247,33 @@ class EmailLog(TimeStampedModel):
 
     # Bounce details (populated by webhook)
     bounce_type = models.CharField(
-        max_length=20,
-        blank=True,
-        help_text="permanent/transient"
+        max_length=20, blank=True, help_text="permanent/transient"
     )
     bounce_subtype = models.CharField(
-        max_length=50,
-        blank=True,
-        help_text="e.g., General, NoEmail, Suppressed"
+        max_length=50, blank=True, help_text="e.g., General, NoEmail, Suppressed"
     )
 
     class Meta:
-        db_table = 'email_logs'
-        ordering = ['-created_at']
-        verbose_name = 'email log'
-        verbose_name_plural = 'email logs'
+        db_table = "email_logs"
+        ordering = ["-created_at"]
+        verbose_name = "email log"
+        verbose_name_plural = "email logs"
         indexes = [
             models.Index(
-                fields=['to_email', 'created_at'],
-                name='emaillogs_to_created_idx'
+                fields=["to_email", "created_at"], name="emaillogs_to_created_idx"
             ),
             models.Index(
-                fields=['status', 'created_at'],
-                name='emaillogs_status_created_idx'
+                fields=["status", "created_at"], name="emaillogs_status_created_idx"
             ),
             models.Index(
-                fields=['template_name', 'created_at'],
-                name='emaillogs_tpl_created_idx'
+                fields=["template_name", "created_at"], name="emaillogs_tpl_created_idx"
             ),
-            models.Index(
-                fields=['message_id'],
-                name='emaillogs_message_id_idx'
-            ),
+            models.Index(fields=["message_id"], name="emaillogs_message_id_idx"),
             # Partial index for retry queue scanning (only failed emails)
             models.Index(
-                fields=['next_retry_at'],
-                condition=models.Q(status='failed'),
-                name='emaillogs_failed_retry_idx'
+                fields=["next_retry_at"],
+                condition=models.Q(status="failed"),
+                name="emaillogs_failed_retry_idx",
             ),
         ]
 
@@ -313,7 +286,4 @@ class EmailLog(TimeStampedModel):
     @property
     def can_retry(self):
         """Check if this email can be retried."""
-        return (
-            self.status == self.Status.FAILED and
-            self.retry_count < self.max_retries
-        )
+        return self.status == self.Status.FAILED and self.retry_count < self.max_retries

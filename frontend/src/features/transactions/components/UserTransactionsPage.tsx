@@ -59,6 +59,14 @@ const TRANSACTION_TYPE_LABELS: Record<string, string> = {
   platform_membership_request: "Membership Request",
   business_ownership_transfer: "Ownership Transfer",
   platform_ownership_transfer: "Ownership Transfer",
+  business_creation_permission_request: "Business Creation Request",
+  business_verification_request: "Verification Request",
+  business_follow_request: "Follow Request",
+  business_follow_approval_request: "Follow Approval Request",
+  platform_follow_request: "Follow Request",
+  business_connection_request: "Connection Request",
+  business_platform_connection_request: "Connection Request",
+  user_connection_request: "Connection Request",
 };
 
 function getTransactionTypeLabel(type: string): string {

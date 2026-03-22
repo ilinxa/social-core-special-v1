@@ -7,23 +7,18 @@ Usage:
     from apps.core.permissions import IsAuthenticated, IsOwner
 """
 
-from apps.core.permissions.base import (
-    # Authentication
+from apps.core.permissions.base import (  # Authentication; Staff/Admin; Ownership; Verification; Utility
+    AllowAny,
+    DenyAll,
     IsAuthenticated,
     IsAuthenticatedOrReadOnly,
-    # Staff/Admin
+    IsOwner,
+    IsOwnerOrReadOnly,
+    IsOwnerOrStaff,
     IsStaff,
     IsStaffOrReadOnly,
     IsSuperuser,
-    # Ownership
-    IsOwner,
-    IsOwnerOrStaff,
-    IsOwnerOrReadOnly,
-    # Verification
     IsVerified,
-    # Utility
-    DenyAll,
-    AllowAny,
 )
 
 __all__ = [

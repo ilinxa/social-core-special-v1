@@ -32,7 +32,6 @@ Usage:
 """
 
 import logging
-from typing import Optional
 from urllib.parse import urlencode
 
 import requests
@@ -50,9 +49,9 @@ class GoogleOAuthBackend:
     Implements authorization code flow with PKCE for secure OAuth.
     """
 
-    AUTHORIZATION_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
-    TOKEN_URL = 'https://oauth2.googleapis.com/token'
-    USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
+    AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+    TOKEN_URL = "https://oauth2.googleapis.com/token"
+    USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
     @classmethod
     def get_authorization_url(cls, state_params: dict, redirect_uri: str = None) -> str:
@@ -66,33 +65,30 @@ class GoogleOAuthBackend:
         Returns:
             Authorization URL to redirect user to
         """
-        client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', None)
+        client_id = getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", None)
         if not client_id:
-            raise OAuthError(message="Google OAuth not configured", provider='google')
+            raise OAuthError(message="Google OAuth not configured", provider="google")
 
-        backend_url = getattr(settings, 'BACKEND_URL', 'http://localhost:8000')
+        backend_url = getattr(settings, "BACKEND_URL", "http://localhost:8000")
         default_redirect = f"{backend_url}/api/v1/auth/oauth/google/callback/"
 
         params = {
-            'client_id': client_id,
-            'redirect_uri': redirect_uri or default_redirect,
-            'response_type': 'code',
-            'scope': 'openid email profile',
-            'state': state_params['state_token'],
-            'code_challenge': state_params['code_challenge'],
-            'code_challenge_method': 'S256',
-            'access_type': 'offline',  # Get refresh token
-            'prompt': 'consent'  # Always show consent screen (for refresh token)
+            "client_id": client_id,
+            "redirect_uri": redirect_uri or default_redirect,
+            "response_type": "code",
+            "scope": "openid email profile",
+            "state": state_params["state_token"],
+            "code_challenge": state_params["code_challenge"],
+            "code_challenge_method": "S256",
+            "access_type": "offline",  # Get refresh token
+            "prompt": "consent",  # Always show consent screen (for refresh token)
         }
 
         return f"{cls.AUTHORIZATION_URL}?{urlencode(params)}"
 
     @classmethod
     def exchange_code(
-        cls,
-        code: str,
-        code_verifier: str,
-        redirect_uri: str = None
+        cls, code: str, code_verifier: str, redirect_uri: str = None
     ) -> dict:
         """
         Exchange authorization code for tokens.
@@ -108,39 +104,39 @@ class GoogleOAuthBackend:
         Raises:
             OAuthError: If exchange fails
         """
-        client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', None)
-        client_secret = getattr(settings, 'GOOGLE_OAUTH_CLIENT_SECRET', None)
+        client_id = getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", None)
+        client_secret = getattr(settings, "GOOGLE_OAUTH_CLIENT_SECRET", None)
 
         if not client_id or not client_secret:
-            raise OAuthError(message="Google OAuth not configured", provider='google')
+            raise OAuthError(message="Google OAuth not configured", provider="google")
 
-        backend_url = getattr(settings, 'BACKEND_URL', 'http://localhost:8000')
+        backend_url = getattr(settings, "BACKEND_URL", "http://localhost:8000")
         default_redirect = f"{backend_url}/api/v1/auth/oauth/google/callback/"
 
         try:
             response = requests.post(
                 cls.TOKEN_URL,
                 data={
-                    'client_id': client_id,
-                    'client_secret': client_secret,
-                    'code': code,
-                    'code_verifier': code_verifier,  # PKCE verification
-                    'grant_type': 'authorization_code',
-                    'redirect_uri': redirect_uri or default_redirect
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "code": code,
+                    "code_verifier": code_verifier,  # PKCE verification
+                    "grant_type": "authorization_code",
+                    "redirect_uri": redirect_uri or default_redirect,
                 },
-                timeout=30
+                timeout=30,
             )
 
             if response.status_code != 200:
                 error_data = response.json() if response.content else {}
                 logger.error(
                     "oauth.google.exchange_failed",
-                    extra={'status': response.status_code, 'error': error_data}
+                    extra={"status": response.status_code, "error": error_data},
                 )
                 raise OAuthError(
                     message="Failed to exchange authorization code",
-                    provider='google',
-                    oauth_error=error_data.get('error_description', 'Unknown error')
+                    provider="google",
+                    oauth_error=error_data.get("error_description", "Unknown error"),
                 )
 
             return response.json()
@@ -148,9 +144,8 @@ class GoogleOAuthBackend:
         except requests.RequestException as e:
             logger.error(f"Google OAuth request failed: {e}")
             raise OAuthError(
-                message="Failed to connect to Google",
-                provider='google'
-            )
+                message="Failed to connect to Google", provider="google"
+            ) from e
 
     @classmethod
     def verify_id_token(cls, id_token: str) -> dict:
@@ -169,15 +164,13 @@ class GoogleOAuthBackend:
             OAuthError: If verification fails
         """
         try:
-            from google.oauth2 import id_token as google_id_token
             from google.auth.transport import requests as google_requests
+            from google.oauth2 import id_token as google_id_token
 
-            client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', None)
+            client_id = getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", None)
 
             idinfo = google_id_token.verify_oauth2_token(
-                id_token,
-                google_requests.Request(),
-                client_id
+                id_token, google_requests.Request(), client_id
             )
 
             return idinfo
@@ -189,10 +182,7 @@ class GoogleOAuthBackend:
 
         except ValueError as e:
             logger.error(f"Google ID token verification failed: {e}")
-            raise OAuthError(
-                message=f"Invalid ID token: {e}",
-                provider='google'
-            )
+            raise OAuthError(message=f"Invalid ID token: {e}", provider="google") from e
 
     @classmethod
     def _get_userinfo_fallback(cls, access_token: str) -> dict:
@@ -204,14 +194,13 @@ class GoogleOAuthBackend:
         try:
             response = requests.get(
                 cls.USERINFO_URL,
-                headers={'Authorization': f'Bearer {access_token}'},
-                timeout=30
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=30,
             )
 
             if response.status_code != 200:
                 raise OAuthError(
-                    message="Failed to get user info from Google",
-                    provider='google'
+                    message="Failed to get user info from Google", provider="google"
                 )
 
             return response.json()
@@ -219,9 +208,8 @@ class GoogleOAuthBackend:
         except requests.RequestException as e:
             logger.error(f"Google userinfo request failed: {e}")
             raise OAuthError(
-                message="Failed to connect to Google",
-                provider='google'
-            )
+                message="Failed to connect to Google", provider="google"
+            ) from e
 
     @classmethod
     def get_user_info(cls, access_token: str) -> dict:
@@ -237,14 +225,13 @@ class GoogleOAuthBackend:
         try:
             response = requests.get(
                 cls.USERINFO_URL,
-                headers={'Authorization': f'Bearer {access_token}'},
-                timeout=30
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=30,
             )
 
             if response.status_code != 200:
                 raise OAuthError(
-                    message="Failed to get user info from Google",
-                    provider='google'
+                    message="Failed to get user info from Google", provider="google"
                 )
 
             return response.json()
@@ -252,6 +239,5 @@ class GoogleOAuthBackend:
         except requests.RequestException as e:
             logger.error(f"Google userinfo request failed: {e}")
             raise OAuthError(
-                message="Failed to connect to Google",
-                provider='google'
-            )
+                message="Failed to connect to Google", provider="google"
+            ) from e

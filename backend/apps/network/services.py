@@ -10,15 +10,16 @@ from uuid import UUID
 from django.db import transaction as db_transaction
 from django.utils import timezone
 
+from apps.core.exceptions import BusinessRuleViolation, ConflictError, PermissionDenied
 from apps.core.observability import get_logger
 from apps.core.observability.audit import AuditService
 from apps.core.observability.audit.models import AuditLog
-from apps.core.exceptions import (
-    ConflictError, NotFound, PermissionDenied, BusinessRuleViolation,
-)
 from apps.network.models import (
-    Follow, FollowStatus, FolloweeType,
-    Connection, ConnectionType, ConnectionStatus,
+    Connection,
+    ConnectionStatus,
+    ConnectionType,
+    Follow,
+    FollowStatus,
 )
 
 logger = get_logger(__name__)
@@ -56,7 +57,9 @@ class FollowService:
             existing.status = FollowStatus.ACTIVE
             existing.removed_at = None
             existing.removed_by = None
-            existing.save(update_fields=["status", "removed_at", "removed_by", "updated_at"])
+            existing.save(
+                update_fields=["status", "removed_at", "removed_by", "updated_at"]
+            )
             follow = existing
         else:
             follow = Follow.objects.create(
@@ -118,7 +121,10 @@ class FollowService:
             actor=user,
             resource=follow,
             request=request,
-            details={"followee_type": follow.followee_type, "followee_id": str(follow.followee_id)},
+            details={
+                "followee_type": follow.followee_type,
+                "followee_id": str(follow.followee_id),
+            },
         )
         logger.info("network.follow.removed", follow_id=str(follow.id))
         return follow
@@ -126,11 +132,15 @@ class FollowService:
     @staticmethod
     @db_transaction.atomic
     def remove_follower(
-        *, follow_id: UUID, actor, actor_context, request=None,
+        *,
+        follow_id: UUID,
+        actor,
+        actor_context,
+        request=None,
     ) -> Follow:
         """Account manager removes a follower. Requires can_manage_followers."""
-        from apps.network.selectors import FollowSelector
         from apps.network.policies import NetworkPolicy
+        from apps.network.selectors import FollowSelector
 
         follow = FollowSelector.get_by_id(follow_id=follow_id)
 
@@ -174,24 +184,30 @@ class FollowService:
             removed_by=str(actor.id),
         )
 
-        # Notify the removed follower
-        try:
-            from apps.notifications.services import NotificationService
-            NotificationService.send(
-                user=follow.follower,
-                notification_type="new_follower",
-                context={
-                    "follower_id": str(follow.follower_id),
-                    "followee_type": follow.followee_type,
-                    "followee_id": str(follow.followee_id),
-                    "action": "removed",
-                },
-            )
-        except Exception:
-            logger.warning(
-                "network.follower.removed.notification_failed",
-                follow_id=str(follow.id),
-            )
+        # Notify the removed follower (deferred until transaction commits)
+        _follow = follow
+
+        def _send_removal_notification():
+            try:
+                from apps.notifications.services import NotificationService
+
+                NotificationService.send(
+                    user=_follow.follower,
+                    notification_type="new_follower",
+                    context={
+                        "follower_id": str(_follow.follower_id),
+                        "followee_type": _follow.followee_type,
+                        "followee_id": str(_follow.followee_id),
+                        "action": "removed",
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "network.follower.removed.notification_failed",
+                    follow_id=str(_follow.id),
+                )
+
+        db_transaction.on_commit(_send_removal_notification)
 
         return follow
 
@@ -245,10 +261,17 @@ class ConnectionService:
             existing.disconnected_at = None
             existing.disconnected_by = None
             existing.initiated_by_id = initiated_by_id
-            existing.save(update_fields=[
-                "status", "note", "connected_at", "disconnected_at",
-                "disconnected_by", "initiated_by_id", "updated_at",
-            ])
+            existing.save(
+                update_fields=[
+                    "status",
+                    "note",
+                    "connected_at",
+                    "disconnected_at",
+                    "disconnected_by",
+                    "initiated_by_id",
+                    "updated_at",
+                ]
+            )
             connection = existing
         else:
             connection = Connection.objects.create(
@@ -262,8 +285,11 @@ class ConnectionService:
             )
 
         from django.contrib.auth import get_user_model
+
         User = get_user_model()
-        actor = User.objects.filter(id=initiated_by_id).first() if initiated_by_id else None
+        actor = (
+            User.objects.filter(id=initiated_by_id).first() if initiated_by_id else None
+        )
 
         AuditService.log(
             action=AuditLog.Action.CONNECTION_CREATED,
@@ -299,7 +325,10 @@ class ConnectionService:
     ) -> Connection:
         """Create an account↔account connection. Reactivates if disconnected."""
         ca_type, ca_id, cb_type, cb_id = ConnectionService._canonical_account_pair(
-            a_type, a_id, b_type, b_id,
+            a_type,
+            a_id,
+            b_type,
+            b_id,
         )
 
         existing = Connection.objects.filter(
@@ -324,10 +353,17 @@ class ConnectionService:
             existing.disconnected_at = None
             existing.disconnected_by = None
             existing.initiated_by_id = initiated_by_id
-            existing.save(update_fields=[
-                "status", "note", "connected_at", "disconnected_at",
-                "disconnected_by", "initiated_by_id", "updated_at",
-            ])
+            existing.save(
+                update_fields=[
+                    "status",
+                    "note",
+                    "connected_at",
+                    "disconnected_at",
+                    "disconnected_by",
+                    "initiated_by_id",
+                    "updated_at",
+                ]
+            )
             connection = existing
         else:
             connection = Connection.objects.create(
@@ -343,8 +379,11 @@ class ConnectionService:
             )
 
         from django.contrib.auth import get_user_model
+
         User = get_user_model()
-        actor = User.objects.filter(id=initiated_by_id).first() if initiated_by_id else None
+        actor = (
+            User.objects.filter(id=initiated_by_id).first() if initiated_by_id else None
+        )
 
         AuditService.log(
             action=AuditLog.Action.CONNECTION_CREATED,
@@ -368,7 +407,10 @@ class ConnectionService:
     @staticmethod
     @db_transaction.atomic
     def disconnect_user_connection(
-        *, connection_id: UUID, user, request=None,
+        *,
+        connection_id: UUID,
+        user,
+        request=None,
     ) -> Connection:
         """User disconnects from another user."""
         from apps.network.selectors import ConnectionSelector
@@ -398,9 +440,14 @@ class ConnectionService:
         connection.status = ConnectionStatus.DISCONNECTED
         connection.disconnected_at = now
         connection.disconnected_by = user
-        connection.save(update_fields=[
-            "status", "disconnected_at", "disconnected_by", "updated_at",
-        ])
+        connection.save(
+            update_fields=[
+                "status",
+                "disconnected_at",
+                "disconnected_by",
+                "updated_at",
+            ]
+        )
 
         AuditService.log(
             action=AuditLog.Action.CONNECTION_DISCONNECTED,
@@ -422,11 +469,15 @@ class ConnectionService:
     @staticmethod
     @db_transaction.atomic
     def disconnect_account_connection(
-        *, connection_id: UUID, actor, actor_context, request=None,
+        *,
+        connection_id: UUID,
+        actor,
+        actor_context,
+        request=None,
     ) -> Connection:
         """Account manager disconnects an account connection."""
-        from apps.network.selectors import ConnectionSelector
         from apps.network.policies import NetworkPolicy
+        from apps.network.selectors import ConnectionSelector
 
         connection = ConnectionSelector.get_by_id(connection_id=connection_id)
 
@@ -449,7 +500,9 @@ class ConnectionService:
             (connection.account_b_type, connection.account_b_id),
         ]:
             if NetworkPolicy.can_manage_connections(
-                user=actor, account_type=acct_type, account_id=acct_id,
+                user=actor,
+                account_type=acct_type,
+                account_id=acct_id,
             ):
                 has_perm = True
                 break
@@ -465,9 +518,14 @@ class ConnectionService:
         connection.status = ConnectionStatus.DISCONNECTED
         connection.disconnected_at = now
         connection.disconnected_by = actor
-        connection.save(update_fields=[
-            "status", "disconnected_at", "disconnected_by", "updated_at",
-        ])
+        connection.save(
+            update_fields=[
+                "status",
+                "disconnected_at",
+                "disconnected_by",
+                "updated_at",
+            ]
+        )
 
         AuditService.log(
             action=AuditLog.Action.CONNECTION_DISCONNECTED,

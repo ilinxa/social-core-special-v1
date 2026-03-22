@@ -7,27 +7,43 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('organization', '0002_create_platform_singleton'),
+        ("organization", "0002_create_platform_singleton"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='businessaccount',
-            name='city',
-            field=models.CharField(blank=True, db_index=True, default='', help_text='City name (validated against predefined city list).', max_length=100),
+            model_name="businessaccount",
+            name="city",
+            field=models.CharField(
+                blank=True,
+                db_index=True,
+                default="",
+                help_text="City name (validated against predefined city list).",
+                max_length=100,
+            ),
         ),
         migrations.AddField(
-            model_name='businessaccount',
-            name='is_platform_branch',
-            field=models.BooleanField(db_index=True, default=False, help_text='Whether this business is a platform-owned branch.'),
+            model_name="businessaccount",
+            name="is_platform_branch",
+            field=models.BooleanField(
+                db_index=True,
+                default=False,
+                help_text="Whether this business is a platform-owned branch.",
+            ),
         ),
         migrations.AddField(
-            model_name='businessprofile',
-            name='tags',
-            field=models.JSONField(blank=True, default=list, help_text='Business tags for discovery (e.g., saas, fintech).'),
+            model_name="businessprofile",
+            name="tags",
+            field=models.JSONField(
+                blank=True,
+                default=list,
+                help_text="Business tags for discovery (e.g., saas, fintech).",
+            ),
         ),
         migrations.AddIndex(
-            model_name='businessprofile',
-            index=django.contrib.postgres.indexes.GinIndex(fields=['tags'], name='bizprofile_tags_gin'),
+            model_name="businessprofile",
+            index=django.contrib.postgres.indexes.GinIndex(
+                fields=["tags"], name="bizprofile_tags_gin"
+            ),
         ),
     ]

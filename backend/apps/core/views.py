@@ -89,10 +89,8 @@ class PermissionInjectMixin:
             and hasattr(response, "data")
             and isinstance(response.data, dict)
         ):
-            response.data["_permissions"] = (
-                self.policy_class.get_viewer_permissions(
-                    **self._build_policy_kwargs()
-                )
+            response.data["_permissions"] = self.policy_class.get_viewer_permissions(
+                **self._build_policy_kwargs()
             )
 
         return response

@@ -7,7 +7,9 @@ This prevents race conditions and accidental duplicates under concurrency.
 """
 
 import uuid
+
 from django.db import models
+
 from apps.core.models import AuditModel
 
 

@@ -215,6 +215,14 @@ export const NAV_CONFIG: NavContextConfig = {
           activeMatch: "prefix",
         },
         {
+          key: "plat-approved-creators",
+          label: "Approved Creators",
+          icon: Building2,
+          href: "/pconsole/approved-creators",
+          permission: "can_approve_business_creation",
+          activeMatch: "prefix",
+        },
+        {
           key: "plat-members",
           label: "Members",
           icon: Users,

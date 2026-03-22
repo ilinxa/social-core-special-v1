@@ -6,18 +6,25 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('organization', '0004_businessaccount_max_members_and_more'),
+        ("organization", "0004_add_member_quota_fields"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='businessaccount',
-            name='open_member_request',
-            field=models.BooleanField(db_index=True, default=False, help_text='Whether users can send membership requests to this business.'),
+            model_name="businessaccount",
+            name="open_member_request",
+            field=models.BooleanField(
+                db_index=True,
+                default=False,
+                help_text="Whether users can send membership requests to this business.",
+            ),
         ),
         migrations.AddField(
-            model_name='platformaccount',
-            name='open_member_request',
-            field=models.BooleanField(default=False, help_text='Whether users can send membership requests to the platform.'),
+            model_name="platformaccount",
+            name="open_member_request",
+            field=models.BooleanField(
+                default=False,
+                help_text="Whether users can send membership requests to the platform.",
+            ),
         ),
     ]

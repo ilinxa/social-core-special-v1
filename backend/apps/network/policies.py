@@ -24,6 +24,7 @@ class NetworkPolicy:
             return False
 
         from apps.network.selectors import FollowSelector
+
         return not FollowSelector.is_following(
             follower_id=user.id,
             followee_type=followee_type,
@@ -39,7 +40,10 @@ class NetworkPolicy:
 
     @staticmethod
     def can_manage_followers(
-        *, user, account_type: str, account_id: UUID,
+        *,
+        user,
+        account_type: str,
+        account_id: UUID,
     ) -> bool:
         """Check if user has can_manage_followers permission for the account."""
         if not user.is_authenticated:
@@ -75,8 +79,10 @@ class NetworkPolicy:
             return False
 
         from apps.network.selectors import ConnectionSelector
+
         return not ConnectionSelector.is_connected(
-            user_a_id=user.id, user_b_id=target_user_id,
+            user_a_id=user.id,
+            user_b_id=target_user_id,
         )
 
     @staticmethod
@@ -92,7 +98,10 @@ class NetworkPolicy:
 
     @staticmethod
     def can_manage_connections(
-        *, user, account_type: str, account_id: UUID,
+        *,
+        user,
+        account_type: str,
+        account_id: UUID,
     ) -> bool:
         """Check if user has can_manage_connections permission for the account."""
         if not user.is_authenticated:
@@ -120,13 +129,17 @@ class NetworkPolicy:
 
     @staticmethod
     def get_follow_permissions(
-        *, viewer, followee_type: str, followee_id: UUID,
+        *,
+        viewer,
+        followee_type: str,
+        followee_id: UUID,
     ) -> dict:
         """Get follow-related permissions for a viewer on a target entity."""
         if not viewer.is_authenticated:
             return {"can_follow": False, "can_unfollow": False}
 
         from apps.network.selectors import FollowSelector
+
         follow = FollowSelector.get_follow_for_user(
             follower_id=viewer.id,
             followee_type=followee_type,
@@ -141,7 +154,9 @@ class NetworkPolicy:
 
     @staticmethod
     def get_connection_permissions_for_user(
-        *, viewer, target_user_id: UUID,
+        *,
+        viewer,
+        target_user_id: UUID,
     ) -> dict:
         """Get connection-related permissions for a viewer on a target user."""
         if not viewer.is_authenticated:
@@ -151,8 +166,10 @@ class NetworkPolicy:
             return {"can_connect": False, "can_disconnect": False}
 
         from apps.network.selectors import ConnectionSelector
+
         conn = ConnectionSelector.get_connection_between_users(
-            user_a_id=viewer.id, user_b_id=target_user_id,
+            user_a_id=viewer.id,
+            user_b_id=target_user_id,
         )
         is_connected = conn is not None and conn.status == "active"
 

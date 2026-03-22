@@ -1,12 +1,12 @@
 # apps/network/tests/test_outcome_handlers.py
 import uuid
-
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from apps.core.types import ActorContext
-from apps.network.models import Follow, FollowStatus, Connection, ConnectionStatus
-from apps.network.outcome_handlers import FollowOutcomeHandler, ConnectionOutcomeHandler
+from apps.network.models import Connection, ConnectionStatus, Follow, FollowStatus
+from apps.network.outcome_handlers import ConnectionOutcomeHandler, FollowOutcomeHandler
 from apps.users.tests.factories import UserFactory
 
 

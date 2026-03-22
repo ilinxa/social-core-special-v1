@@ -15,7 +15,6 @@ import pytest
 from apps.core.exceptions import NotFound
 from apps.users.selectors import UserSelector
 
-
 # =============================================================================
 # SINGLE USER QUERY TESTS
 # =============================================================================

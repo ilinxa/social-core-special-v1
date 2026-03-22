@@ -13,14 +13,14 @@ Covers all write operations:
     - update_last_login
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from django.utils import timezone
 
 from apps.core.exceptions import ConflictError, ValidationError
-from apps.users.services import UserService
 from apps.users.models import User
-
+from apps.users.services import UserService
 
 # =============================================================================
 # CREATE USER TESTS
@@ -34,8 +34,7 @@ class TestUserServiceCreateUser:
     def test_create_user_success(self):
         """Can create user with valid data."""
         user = UserService.create_user(
-            email="newuser@example.com",
-            password="ValidPass123!"
+            email="newuser@example.com", password="ValidPass123!"
         )
 
         assert user.email == "newuser@example.com"
@@ -48,8 +47,7 @@ class TestUserServiceCreateUser:
     def test_create_user_email_normalized(self):
         """Email is normalized and lowercased."""
         user = UserService.create_user(
-            email="  TEST@EXAMPLE.COM  ",
-            password="ValidPass123!"
+            email="  TEST@EXAMPLE.COM  ", password="ValidPass123!"
         )
 
         assert user.email == "test@example.com"
@@ -60,8 +58,7 @@ class TestUserServiceCreateUser:
 
         with pytest.raises(ConflictError) as exc_info:
             UserService.create_user(
-                email="existing@example.com",
-                password="ValidPass123!"
+                email="existing@example.com", password="ValidPass123!"
             )
 
         assert "email already exists" in str(exc_info.value)
@@ -72,17 +69,13 @@ class TestUserServiceCreateUser:
 
         with pytest.raises(ConflictError):
             UserService.create_user(
-                email="EXISTING@example.com",
-                password="ValidPass123!"
+                email="EXISTING@example.com", password="ValidPass123!"
             )
 
     def test_create_user_weak_password_raises(self):
         """Creating user with weak password raises ValidationError."""
         with pytest.raises(ValidationError) as exc_info:
-            UserService.create_user(
-                email="test@example.com",
-                password="weak"
-            )
+            UserService.create_user(email="test@example.com", password="weak")
 
         assert exc_info.value.details["field"] == "password"
 
@@ -93,7 +86,7 @@ class TestUserServiceCreateUser:
         user = UserService.create_user(
             email="referred@example.com",
             password="ValidPass123!",
-            referred_by_id=referrer.id
+            referred_by_id=referrer.id,
         )
 
         assert user.referred_by == referrer
@@ -101,9 +94,7 @@ class TestUserServiceCreateUser:
     def test_create_user_with_invalid_referrer(self):
         """Invalid referrer ID is silently ignored."""
         user = UserService.create_user(
-            email="referred@example.com",
-            password="ValidPass123!",
-            referred_by_id=99999
+            email="referred@example.com", password="ValidPass123!", referred_by_id=99999
         )
 
         assert user.referred_by is None
@@ -112,8 +103,7 @@ class TestUserServiceCreateUser:
     def test_create_user_logs_audit(self, mock_audit):
         """User creation is logged to audit."""
         user = UserService.create_user(
-            email="audit@example.com",
-            password="ValidPass123!"
+            email="audit@example.com", password="ValidPass123!"
         )
 
         mock_audit.assert_called_once()
@@ -178,10 +168,7 @@ class TestUserServiceUpdateProfile:
         """Can update first name."""
         user = user_factory()
 
-        profile = UserService.update_profile(
-            user=user,
-            first_name="John"
-        )
+        profile = UserService.update_profile(user=user, first_name="John")
 
         assert profile.first_name == "John"
 
@@ -189,10 +176,7 @@ class TestUserServiceUpdateProfile:
         """Can update last name."""
         user = user_factory()
 
-        profile = UserService.update_profile(
-            user=user,
-            last_name="Doe"
-        )
+        profile = UserService.update_profile(user=user, last_name="Doe")
 
         assert profile.last_name == "Doe"
 
@@ -200,10 +184,7 @@ class TestUserServiceUpdateProfile:
         """Can update phone."""
         user = user_factory()
 
-        profile = UserService.update_profile(
-            user=user,
-            phone="+1234567890"
-        )
+        profile = UserService.update_profile(user=user, phone="+1234567890")
 
         assert profile.phone == "+1234567890"
 
@@ -211,10 +192,7 @@ class TestUserServiceUpdateProfile:
         """Can update timezone."""
         user = user_factory()
 
-        profile = UserService.update_profile(
-            user=user,
-            timezone="America/New_York"
-        )
+        profile = UserService.update_profile(user=user, timezone="America/New_York")
 
         assert profile.timezone == "America/New_York"
 
@@ -222,10 +200,7 @@ class TestUserServiceUpdateProfile:
         """Can update language."""
         user = user_factory()
 
-        profile = UserService.update_profile(
-            user=user,
-            language="es"
-        )
+        profile = UserService.update_profile(user=user, language="es")
 
         assert profile.language == "es"
 
@@ -234,10 +209,7 @@ class TestUserServiceUpdateProfile:
         user = user_factory()
 
         profile = UserService.update_profile(
-            user=user,
-            first_name="John",
-            last_name="Doe",
-            phone="+1234567890"
+            user=user, first_name="John", last_name="Doe", phone="+1234567890"
         )
 
         assert profile.first_name == "John"
@@ -249,9 +221,7 @@ class TestUserServiceUpdateProfile:
         user = user_factory()
 
         profile = UserService.update_profile(
-            user=user,
-            first_name="  John  ",
-            last_name="  Doe  "
+            user=user, first_name="  John  ", last_name="  Doe  "
         )
 
         assert profile.first_name == "John"
@@ -264,9 +234,7 @@ class TestUserServiceUpdateProfile:
         user.profile.save()
 
         profile = UserService.update_profile(
-            user=user,
-            first_name=None,
-            last_name="Doe"
+            user=user, first_name=None, last_name="Doe"
         )
 
         assert profile.first_name == "Original"
@@ -278,10 +246,7 @@ class TestUserServiceUpdateProfile:
         user.profile.first_name = "John"
         user.profile.save()
 
-        profile = UserService.update_profile(
-            user=user,
-            first_name=""
-        )
+        profile = UserService.update_profile(user=user, first_name="")
 
         assert profile.first_name == ""
 
@@ -290,10 +255,7 @@ class TestUserServiceUpdateProfile:
         """Profile update with changes is logged to audit."""
         user = user_factory()
 
-        UserService.update_profile(
-            user=user,
-            first_name="John"
-        )
+        UserService.update_profile(user=user, first_name="John")
 
         mock_audit.assert_called_once()
         call_kwargs = mock_audit.call_args.kwargs
@@ -307,10 +269,7 @@ class TestUserServiceUpdateProfile:
         user.profile.save()
 
         # Update with same value
-        UserService.update_profile(
-            user=user,
-            first_name="John"
-        )
+        UserService.update_profile(user=user, first_name="John")
 
         mock_audit.assert_not_called()
 
@@ -328,10 +287,7 @@ class TestUserServiceUpdateAvatar:
         """Can update user avatar."""
         user = user_factory()
 
-        profile = UserService.update_avatar(
-            user=user,
-            avatar=sample_image
-        )
+        profile = UserService.update_avatar(user=user, avatar=sample_image)
 
         assert profile.avatar is not None
         assert profile.has_avatar is True
@@ -390,12 +346,20 @@ class TestUserServiceDeactivateUser:
 
     @patch("apps.users.services.AuditService.log")
     def test_deactivate_user_logs_audit(self, mock_audit, user_factory):
-        """User deactivation is logged to audit."""
+        """User deactivation is logged to audit and sessions are revoked."""
         user = user_factory(is_active=True)
 
         UserService.deactivate_user(user=user)
 
-        mock_audit.assert_called_once()
+        # First call: USER_DEACTIVATED, second call: ALL_SESSIONS_REVOKED (from logout_all)
+        assert mock_audit.call_count == 2
+        actions = [
+            call.kwargs.get("action") or call.args[0]
+            for call in mock_audit.call_args_list
+        ]
+        from apps.core.observability.audit.models import AuditLog
+
+        assert AuditLog.Action.USER_DEACTIVATED in actions
 
 
 @pytest.mark.django_db
@@ -435,10 +399,7 @@ class TestUserServiceChangeUsername:
         """Can change username."""
         user = user_factory()
 
-        result = UserService.change_username(
-            user=user,
-            new_username="newusername"
-        )
+        result = UserService.change_username(user=user, new_username="newusername")
 
         assert result.username == "newusername"
 
@@ -446,10 +407,7 @@ class TestUserServiceChangeUsername:
         """Username is lowercased."""
         user = user_factory()
 
-        result = UserService.change_username(
-            user=user,
-            new_username="MyUsername"
-        )
+        result = UserService.change_username(user=user, new_username="MyUsername")
 
         assert result.username == "myusername"
 
@@ -457,10 +415,7 @@ class TestUserServiceChangeUsername:
         """Username is stripped of whitespace."""
         user = user_factory()
 
-        result = UserService.change_username(
-            user=user,
-            new_username="  newusername  "
-        )
+        result = UserService.change_username(user=user, new_username="  newusername  ")
 
         assert result.username == "newusername"
 
@@ -469,10 +424,7 @@ class TestUserServiceChangeUsername:
         user = user_factory()
 
         with pytest.raises(ValidationError) as exc_info:
-            UserService.change_username(
-                user=user,
-                new_username="ab"  # Too short
-            )
+            UserService.change_username(user=user, new_username="ab")  # Too short
 
         assert exc_info.value.details["field"] == "username"
 
@@ -482,8 +434,7 @@ class TestUserServiceChangeUsername:
 
         with pytest.raises(ValidationError):
             UserService.change_username(
-                user=user,
-                new_username="user@name"  # Invalid character
+                user=user, new_username="user@name"  # Invalid character
             )
 
     def test_change_username_too_long_raises(self, user_factory):
@@ -491,10 +442,7 @@ class TestUserServiceChangeUsername:
         user = user_factory()
 
         with pytest.raises(ValidationError):
-            UserService.change_username(
-                user=user,
-                new_username="a" * 31  # Max is 30
-            )
+            UserService.change_username(user=user, new_username="a" * 31)  # Max is 30
 
     def test_change_username_duplicate_raises(self, user_factory):
         """Duplicate username raises ConflictError."""
@@ -502,10 +450,7 @@ class TestUserServiceChangeUsername:
         user = user_factory()
 
         with pytest.raises(ConflictError) as exc_info:
-            UserService.change_username(
-                user=user,
-                new_username="taken"
-            )
+            UserService.change_username(user=user, new_username="taken")
 
         assert "already taken" in str(exc_info.value)
 
@@ -515,20 +460,14 @@ class TestUserServiceChangeUsername:
         user = user_factory()
 
         with pytest.raises(ConflictError):
-            UserService.change_username(
-                user=user,
-                new_username="TAKEN"
-            )
+            UserService.change_username(user=user, new_username="TAKEN")
 
     def test_change_username_same_user_allowed(self, user_factory):
         """User can change to same username (case change)."""
         user = user_factory(username="myname")
 
         # This should work - same user
-        result = UserService.change_username(
-            user=user,
-            new_username="myname"
-        )
+        result = UserService.change_username(user=user, new_username="myname")
 
         assert result.username == "myname"
 
@@ -557,10 +496,7 @@ class TestUserServiceChangeEmail:
         """Can change email."""
         user = user_factory(email="old@example.com", is_verified=True)
 
-        result = UserService.change_email(
-            user=user,
-            new_email="new@example.com"
-        )
+        result = UserService.change_email(user=user, new_email="new@example.com")
 
         assert result.email == "new@example.com"
 
@@ -568,10 +504,7 @@ class TestUserServiceChangeEmail:
         """Email change unverifies the user."""
         user = user_factory(is_verified=True)
 
-        result = UserService.change_email(
-            user=user,
-            new_email="new@example.com"
-        )
+        result = UserService.change_email(user=user, new_email="new@example.com")
 
         assert result.is_verified is False
 
@@ -579,10 +512,7 @@ class TestUserServiceChangeEmail:
         """New email is normalized and lowercased."""
         user = user_factory()
 
-        result = UserService.change_email(
-            user=user,
-            new_email="  NEW@EXAMPLE.COM  "
-        )
+        result = UserService.change_email(user=user, new_email="  NEW@EXAMPLE.COM  ")
 
         assert result.email == "new@example.com"
 
@@ -592,10 +522,7 @@ class TestUserServiceChangeEmail:
         user = user_factory()
 
         with pytest.raises(ConflictError) as exc_info:
-            UserService.change_email(
-                user=user,
-                new_email="existing@example.com"
-            )
+            UserService.change_email(user=user, new_email="existing@example.com")
 
         assert "email already exists" in str(exc_info.value)
 
@@ -605,20 +532,14 @@ class TestUserServiceChangeEmail:
         user = user_factory()
 
         with pytest.raises(ConflictError):
-            UserService.change_email(
-                user=user,
-                new_email="EXISTING@example.com"
-            )
+            UserService.change_email(user=user, new_email="EXISTING@example.com")
 
     def test_change_email_same_user_allowed(self, user_factory):
         """User can change to same email."""
         user = user_factory(email="same@example.com")
 
         # This should work - same user
-        result = UserService.change_email(
-            user=user,
-            new_email="same@example.com"
-        )
+        result = UserService.change_email(user=user, new_email="same@example.com")
 
         assert result.email == "same@example.com"
 

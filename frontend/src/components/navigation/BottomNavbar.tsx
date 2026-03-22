@@ -63,7 +63,7 @@ export function BottomNavbar() {
   const items = getBottomNavItems(context);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0  z-40 border-t border-border bg-background md:hidden">
+    <nav aria-label="Mobile navigation" className="fixed bottom-0 left-0 right-0  z-40 border-t border-border bg-background md:hidden">
       <div className="flex h-14  items-center justify-around px-2">
         
         {items.map((item) => {

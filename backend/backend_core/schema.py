@@ -19,17 +19,17 @@ class JWTAuthenticationScheme(OpenApiAuthenticationExtension):
     with our JWT authentication.
     """
 
-    target_class = 'apps.auth.authentication.JWTAuthentication'
-    name = 'BearerAuth'
+    target_class = "apps.auth.authentication.JWTAuthentication"
+    name = "BearerAuth"
 
     def get_security_definition(self, auto_schema):
         return {
-            'type': 'http',
-            'scheme': 'bearer',
-            'bearerFormat': 'JWT',
-            'description': (
-                'JWT access token. Obtain from POST /api/v1/auth/login/ '
-                'and include as: `Authorization: Bearer <token>`'
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": (
+                "JWT access token. Obtain from POST /api/v1/auth/login/ "
+                "and include as: `Authorization: Bearer <token>`"
             ),
         }
 
@@ -41,16 +41,16 @@ class JWTAuthenticationOptionalScheme(OpenApiAuthenticationExtension):
     For endpoints that support both authenticated and anonymous access.
     """
 
-    target_class = 'apps.auth.authentication.JWTAuthenticationOptional'
-    name = 'BearerAuthOptional'
+    target_class = "apps.auth.authentication.JWTAuthenticationOptional"
+    name = "BearerAuthOptional"
 
     def get_security_definition(self, auto_schema):
         return {
-            'type': 'http',
-            'scheme': 'bearer',
-            'bearerFormat': 'JWT',
-            'description': (
-                'Optional JWT access token. If provided, user context is available. '
-                'If not provided, request is treated as anonymous.'
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": (
+                "Optional JWT access token. If provided, user context is available. "
+                "If not provided, request is treated as anonymous."
             ),
         }

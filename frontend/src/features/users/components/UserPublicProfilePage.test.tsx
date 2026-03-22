@@ -46,6 +46,8 @@ function createMockUser(
       display_name: "John Doe",
       avatar_url: null,
       has_avatar: false,
+      cover_image_url: null,
+      has_cover_image: false,
       bio: "Hello, I'm a developer",
       country: "US",
       city: "New York",

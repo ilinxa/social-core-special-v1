@@ -20,14 +20,15 @@ Available Models:
 """
 
 import uuid
-from django.db import models
-from django.conf import settings
-from django.utils import timezone
 
+from django.conf import settings
+from django.db import models
+from django.utils import timezone
 
 # =============================================================================
 # TIMESTAMPED MODEL
 # =============================================================================
+
 
 class TimeStampedModel(models.Model):
     """
@@ -44,13 +45,10 @@ class TimeStampedModel(models.Model):
     """
 
     created_at = models.DateTimeField(
-        auto_now_add=True,
-        db_index=True,
-        help_text="Timestamp when record was created"
+        auto_now_add=True, db_index=True, help_text="Timestamp when record was created"
     )
     updated_at = models.DateTimeField(
-        auto_now=True,
-        help_text="Timestamp when record was last updated"
+        auto_now=True, help_text="Timestamp when record was last updated"
     )
 
     class Meta:
@@ -61,6 +59,7 @@ class TimeStampedModel(models.Model):
 # =============================================================================
 # SOFT DELETE MODEL
 # =============================================================================
+
 
 class SoftDeleteManager(models.Manager):
     """
@@ -113,12 +112,10 @@ class SoftDeleteModel(models.Model):
     is_deleted = models.BooleanField(
         default=False,
         db_index=True,
-        help_text="Flag indicating if record is soft-deleted"
+        help_text="Flag indicating if record is soft-deleted",
     )
     deleted_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Timestamp when record was soft-deleted"
+        null=True, blank=True, help_text="Timestamp when record was soft-deleted"
     )
     deleted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -126,7 +123,7 @@ class SoftDeleteModel(models.Model):
         null=True,
         blank=True,
         related_name="%(app_label)s_%(class)s_deleted",
-        help_text="User who soft-deleted this record"
+        help_text="User who soft-deleted this record",
     )
 
     # Custom managers
@@ -164,6 +161,7 @@ class SoftDeleteModel(models.Model):
 # USER STAMPED MODEL
 # =============================================================================
 
+
 class UserStampedModel(TimeStampedModel):
     """
     Abstract model tracking which user created/modified records.
@@ -189,7 +187,7 @@ class UserStampedModel(TimeStampedModel):
         null=True,
         blank=True,
         related_name="%(app_label)s_%(class)s_created",
-        help_text="User who created this record"
+        help_text="User who created this record",
     )
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -197,7 +195,7 @@ class UserStampedModel(TimeStampedModel):
         null=True,
         blank=True,
         related_name="%(app_label)s_%(class)s_updated",
-        help_text="User who last updated this record"
+        help_text="User who last updated this record",
     )
 
     class Meta:
@@ -207,6 +205,7 @@ class UserStampedModel(TimeStampedModel):
 # =============================================================================
 # UUID MODEL
 # =============================================================================
+
 
 class UUIDModel(models.Model):
     """
@@ -240,7 +239,7 @@ class UUIDModel(models.Model):
         primary_key=True,
         default=uuid.uuid4,
         editable=False,
-        help_text="Unique identifier (UUID v4)"
+        help_text="Unique identifier (UUID v4)",
     )
 
     class Meta:
@@ -250,6 +249,7 @@ class UUIDModel(models.Model):
 # =============================================================================
 # COMBINED BASE MODELS (Common Patterns)
 # =============================================================================
+
 
 class BaseModel(TimeStampedModel, SoftDeleteModel):
     """

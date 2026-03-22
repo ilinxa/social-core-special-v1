@@ -21,7 +21,11 @@ Usage:
     DJANGO_SETTINGS_MODULE=backend_core.settings.production
 """
 
+import logging as _logging
+
 from .base import *
+
+_prod_logger = _logging.getLogger(__name__)
 
 # ============================================
 # SECURITY - DEBUG MODE
@@ -30,6 +34,13 @@ DEBUG = False
 
 # Validate that DEBUG is actually False
 assert DEBUG == False, "DEBUG must be False in production!"
+
+# Validate that SECRET_KEY is not the dev default
+if SECRET_KEY.startswith("django-insecure"):
+    raise ValueError(
+        "SECRET_KEY starts with 'django-insecure' — set a strong key in production!\n"
+        'Generate with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"'
+    )
 
 # ============================================
 # ALLOWED HOSTS
@@ -60,6 +71,7 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
 
 # Security headers
 SECURE_BROWSER_XSS_FILTER = True
@@ -70,6 +82,9 @@ X_FRAME_OPTIONS = "DENY"
 SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+
+# Referrer policy (defense-in-depth — nginx also sets this header)
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # Secure proxy SSL header (if using nginx/load balancer)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -85,25 +100,28 @@ DATABASES = {
         "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
         "HOST": os.getenv("POSTGRES_HOST", "db"),  # Docker service name
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
-        
         # Connection pooling for production
         "CONN_MAX_AGE": 600,  # 10 minutes
-        
         # Additional options
         "OPTIONS": {
             "connect_timeout": 10,
-            "sslmode": os.getenv("POSTGRES_SSLMODE", "prefer"),
+            "sslmode": os.getenv("POSTGRES_SSLMODE", "require"),
+            "options": "-c statement_timeout=30000",
         },
     }
 }
 
 # Validate database credentials are set
-if not all([
-    os.getenv("POSTGRES_DB"),
-    os.getenv("POSTGRES_USER"),
-    os.getenv("POSTGRES_PASSWORD"),
-]):
-    raise ValueError("Database credentials (POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD) must be set!")
+if not all(
+    [
+        os.getenv("POSTGRES_DB"),
+        os.getenv("POSTGRES_USER"),
+        os.getenv("POSTGRES_PASSWORD"),
+    ]
+):
+    raise ValueError(
+        "Database credentials (POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD) must be set!"
+    )
 
 # ============================================
 # REDIS CONFIGURATION
@@ -162,13 +180,18 @@ SESSION_SAVE_EVERY_REQUEST = False
 # Get allowed origins from environment
 CORS_ALLOWED_ORIGINS_STR = os.getenv("CORS_ALLOWED_ORIGINS", "")
 CORS_ALLOWED_ORIGINS = [
-    origin.strip() 
-    for origin in CORS_ALLOWED_ORIGINS_STR.split(",") 
-    if origin.strip()
+    origin.strip() for origin in CORS_ALLOWED_ORIGINS_STR.split(",") if origin.strip()
 ]
 
 # Ensure credentials support
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF trusted origins (defaults to CORS origins)
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", CORS_ALLOWED_ORIGINS_STR).split(",")
+    if origin.strip()
+]
 
 # Cross-origin cookie policy:
 # "None" when frontend and backend are on different domains (requires HTTPS)
@@ -184,34 +207,34 @@ if USE_S3:
     # ========================================
     # AWS S3 / CLOUDFLARE R2 CONFIGURATION
     # ========================================
-    
+
     # Validate required S3 credentials
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
     AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-    
+
     if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME]):
         raise ValueError(
             "When USE_S3=true, you must set: "
             "AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME"
         )
-    
+
     # Endpoint URL (required for Cloudflare R2)
     AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", None)
-    
+
     # Region
     AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "auto")
-    
+
     # Custom domain (CDN)
     AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN", None)
-    
+
     # S3 settings
     AWS_S3_FILE_OVERWRITE = False
     AWS_DEFAULT_ACL = None  # Use bucket's default ACL
     AWS_S3_OBJECT_PARAMETERS = {
         "CacheControl": "max-age=86400",  # 1 day
     }
-    
+
     # Storage backends
     STORAGES = {
         "default": {
@@ -228,7 +251,7 @@ if USE_S3:
             },
         },
     }
-    
+
     # URLs
     if AWS_S3_CUSTOM_DOMAIN:
         STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
@@ -239,20 +262,20 @@ if USE_S3:
     else:
         STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
         MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/"
-    
-    print("☁️  Using S3/Cloudflare R2 for static and media files")
+
+    _prod_logger.info("Using S3/Cloudflare R2 for static and media files")
 
 else:
     # ========================================
     # LOCAL/NGINX FILE SERVING
     # ========================================
-    
+
     STATIC_URL = "/static/"
     STATIC_ROOT = "/app/staticfiles"
 
     MEDIA_URL = "/media/"
     MEDIA_ROOT = "/app/media"
-    
+
     # WhiteNoise for serving static files (if nginx is not serving them)
     # Add WhiteNoise middleware
     if "whitenoise.middleware.WhiteNoiseMiddleware" not in MIDDLEWARE:
@@ -260,7 +283,7 @@ else:
             MIDDLEWARE.index("django.middleware.security.SecurityMiddleware") + 1,
             "whitenoise.middleware.WhiteNoiseMiddleware",
         )
-    
+
     # Configure storages
     STORAGES = {
         "default": {
@@ -270,19 +293,18 @@ else:
             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
         },
     }
-    
+
     # WhiteNoise settings
     WHITENOISE_MAX_AGE = 31536000  # 1 year
     WHITENOISE_COMPRESS_OFFLINE = True
-    
-    print("📁 Using local filesystem for static and media files")
+
+    _prod_logger.info("Using local filesystem for static and media files")
 
 # ============================================
 # EMAIL CONFIGURATION
 # ============================================
 EMAIL_BACKEND = os.getenv(
-    "EMAIL_BACKEND",
-    "django.core.mail.backends.smtp.EmailBackend"
+    "EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend"
 )
 
 # SMTP Settings
@@ -357,26 +379,72 @@ LOGGING = {
 # ============================================
 # ADMINS
 # ============================================
-# Admins receive error emails
+# Admins receive error emails (format: DJANGO_ADMINS=Name:email@example.com,Name2:email2@example.com)
+_admins_str = os.getenv("DJANGO_ADMINS", "")
 ADMINS = [
-    # ("Your Name", "your_email@example.com"),
+    tuple(entry.strip().split(":")) for entry in _admins_str.split(",") if ":" in entry
 ]
 
 MANAGERS = ADMINS
 
 # ============================================
-# OPTIONAL: SENTRY INTEGRATION
+# SENTRY ERROR TRACKING (env-var gated)
 # ============================================
-# Uncomment and configure if using Sentry for error tracking
-# SENTRY_DSN = os.getenv("SENTRY_DSN", None)
-# if SENTRY_DSN:
-#     import sentry_sdk
-#     from sentry_sdk.integrations.django import DjangoIntegration
-#     
-#     sentry_sdk.init(
-#         dsn=SENTRY_DSN,
-#         integrations=[DjangoIntegration()],
-#         traces_sample_rate=0.1,
-#         send_default_pii=False,
-#     )
+# Only activates when SENTRY_DSN environment variable is set.
+# No impact when absent — sentry-sdk does nothing without init().
+SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.django import DjangoIntegration
 
+    # PII scrubbing — strip sensitive fields from event data before sending.
+    # Duplicates SENSITIVE_KEYS from processors.py inline because apps.core
+    # is not importable at settings-load time.
+    _SENTRY_SENSITIVE_KEYS = frozenset(
+        {
+            "password",
+            "token",
+            "secret",
+            "api_key",
+            "apikey",
+            "authorization",
+            "credit_card",
+            "creditcard",
+            "ssn",
+            "access_token",
+            "refresh_token",
+            "cookie",
+            "session_id",
+            "private_key",
+            "privatekey",
+            "otp",
+            "verification_code",
+            "csrf",
+        }
+    )
+
+    def _sentry_before_send(event, hint):
+        """Strip sensitive fields from Sentry events."""
+        if "request" in event and "data" in event["request"]:
+            data = event["request"]["data"]
+            if isinstance(data, dict):
+                for key in list(data.keys()):
+                    if key.lower() in _SENTRY_SENSITIVE_KEYS:
+                        data[key] = "[REDACTED]"
+        return event
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration(), CeleryIntegration()],
+        release=os.getenv("GIT_SHA", "unknown"),
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        send_default_pii=False,
+        before_send=_sentry_before_send,
+    )
+
+    _prod_logger.info(
+        "Sentry initialized (environment=%s)",
+        os.getenv("SENTRY_ENVIRONMENT", "production"),
+    )

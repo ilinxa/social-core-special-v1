@@ -21,10 +21,10 @@ Usage:
 
 from rest_framework.permissions import BasePermission
 
-
 # =============================================================================
 # AUTHENTICATION PERMISSIONS
 # =============================================================================
+
 
 class IsAuthenticated(BasePermission):
     """
@@ -40,10 +40,7 @@ class IsAuthenticated(BasePermission):
     message = "Authentication required"
 
     def has_permission(self, request, view):
-        return bool(
-            request.user and
-            request.user.is_authenticated
-        )
+        return bool(request.user and request.user.is_authenticated)
 
 
 class IsAuthenticatedOrReadOnly(BasePermission):
@@ -65,15 +62,13 @@ class IsAuthenticatedOrReadOnly(BasePermission):
     def has_permission(self, request, view):
         if request.method in self.SAFE_METHODS:
             return True
-        return bool(
-            request.user and
-            request.user.is_authenticated
-        )
+        return bool(request.user and request.user.is_authenticated)
 
 
 # =============================================================================
 # STAFF/ADMIN PERMISSIONS
 # =============================================================================
+
 
 class IsStaff(BasePermission):
     """
@@ -91,9 +86,7 @@ class IsStaff(BasePermission):
 
     def has_permission(self, request, view):
         return bool(
-            request.user and
-            request.user.is_authenticated and
-            request.user.is_staff
+            request.user and request.user.is_authenticated and request.user.is_staff
         )
 
 
@@ -114,9 +107,7 @@ class IsStaffOrReadOnly(BasePermission):
         if request.method in self.SAFE_METHODS:
             return True
         return bool(
-            request.user and
-            request.user.is_authenticated and
-            request.user.is_staff
+            request.user and request.user.is_authenticated and request.user.is_staff
         )
 
 
@@ -134,15 +125,14 @@ class IsSuperuser(BasePermission):
 
     def has_permission(self, request, view):
         return bool(
-            request.user and
-            request.user.is_authenticated and
-            request.user.is_superuser
+            request.user and request.user.is_authenticated and request.user.is_superuser
         )
 
 
 # =============================================================================
 # OWNERSHIP PERMISSIONS
 # =============================================================================
+
 
 class IsOwner(BasePermission):
     """
@@ -225,6 +215,7 @@ class IsOwnerOrReadOnly(IsOwner):
 # VERIFIED USER PERMISSIONS
 # =============================================================================
 
+
 class IsVerified(BasePermission):
     """
     Allows access only to users with verified email.
@@ -253,6 +244,7 @@ class IsVerified(BasePermission):
 # =============================================================================
 # ACTION-BASED PERMISSIONS
 # =============================================================================
+
 
 class DenyAll(BasePermission):
     """

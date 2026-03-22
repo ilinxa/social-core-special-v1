@@ -4,7 +4,7 @@ Notification Views
 API views for notification preferences and history.
 """
 
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -23,7 +23,7 @@ from apps.notifications.serializers import (
     NotificationPreferenceUpdateSerializer,
 )
 from apps.notifications.services import PreferenceService
-from apps.notifications.types import get_configurable_types, get_notification_type
+from apps.notifications.types import get_configurable_types
 
 
 class PreferencesView(APIView):
@@ -56,7 +56,7 @@ class PreferencesView(APIView):
         responses={
             200: OpenApiResponse(
                 response=AllPreferencesSerializer,
-                description="Preferences grouped by category"
+                description="Preferences grouped by category",
             ),
             401: OpenApiResponse(description="Not authenticated"),
         },
@@ -96,13 +96,13 @@ class PreferenceDetailView(APIView):
                 name="notification_type",
                 type=str,
                 location=OpenApiParameter.PATH,
-                description="Notification type identifier (e.g., 'welcome', 'new_login')"
+                description="Notification type identifier (e.g., 'welcome', 'new_login')",
             )
         ],
         responses={
             200: OpenApiResponse(
                 response=NotificationPreferenceSerializer,
-                description="Preference details"
+                description="Preference details",
             ),
             401: OpenApiResponse(description="Not authenticated"),
             404: OpenApiResponse(description="Unknown notification type"),
@@ -111,8 +111,7 @@ class PreferenceDetailView(APIView):
     def get(self, request, notification_type):
         """Get preference for a specific notification type."""
         preference = PreferenceService.get_preference(
-            user=request.user,
-            notification_type=notification_type
+            user=request.user, notification_type=notification_type
         )
         serializer = NotificationPreferenceSerializer(preference)
         return Response(serializer.data)
@@ -138,16 +137,18 @@ class PreferenceDetailView(APIView):
                 name="notification_type",
                 type=str,
                 location=OpenApiParameter.PATH,
-                description="Notification type identifier"
+                description="Notification type identifier",
             )
         ],
         request=NotificationPreferenceUpdateSerializer,
         responses={
             200: OpenApiResponse(
                 response=NotificationPreferenceSerializer,
-                description="Updated preference"
+                description="Updated preference",
             ),
-            400: OpenApiResponse(description="No fields provided or type not configurable"),
+            400: OpenApiResponse(
+                description="No fields provided or type not configurable"
+            ),
             401: OpenApiResponse(description="Not authenticated"),
             404: OpenApiResponse(description="Unknown notification type"),
         },
@@ -157,17 +158,16 @@ class PreferenceDetailView(APIView):
         serializer = NotificationPreferenceUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        preference = PreferenceService.update_preference(
+        PreferenceService.update_preference(
             user=request.user,
             notification_type=notification_type,
             request=request,
-            **serializer.validated_data
+            **serializer.validated_data,
         )
 
         # Return updated preference
         result = PreferenceService.get_preference(
-            user=request.user,
-            notification_type=notification_type
+            user=request.user, notification_type=notification_type
         )
         return Response(NotificationPreferenceSerializer(result).data)
 
@@ -185,7 +185,7 @@ class PreferenceDetailView(APIView):
                 name="notification_type",
                 type=str,
                 location=OpenApiParameter.PATH,
-                description="Notification type identifier"
+                description="Notification type identifier",
             )
         ],
         responses={
@@ -197,8 +197,7 @@ class PreferenceDetailView(APIView):
     def delete(self, request, notification_type):
         """Reset preference to defaults."""
         PreferenceService.reset_preference(
-            user=request.user,
-            notification_type=notification_type
+            user=request.user, notification_type=notification_type
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -233,27 +232,27 @@ class NotificationHistoryView(APIView):
                 type=str,
                 location=OpenApiParameter.QUERY,
                 description="Filter by notification type",
-                required=False
+                required=False,
             ),
             OpenApiParameter(
                 name="status",
                 type=str,
                 location=OpenApiParameter.QUERY,
                 description="Filter by status (pending, sent, failed, partial)",
-                required=False
+                required=False,
             ),
             OpenApiParameter(
                 name="limit",
                 type=int,
                 location=OpenApiParameter.QUERY,
                 description="Maximum results to return (default: 50, max: 100)",
-                required=False
+                required=False,
             ),
         ],
         responses={
             200: OpenApiResponse(
                 response=NotificationHistorySerializer,
-                description="Notification history"
+                description="Notification history",
             ),
             401: OpenApiResponse(description="Not authenticated"),
         },
@@ -267,22 +266,24 @@ class NotificationHistoryView(APIView):
         - status: Filter by status
         - limit: Max results (default 50, max 100)
         """
-        notification_type = request.query_params.get('notification_type')
-        status_filter = request.query_params.get('status')
-        limit = min(int(request.query_params.get('limit', 50)), 100)
+        notification_type = request.query_params.get("notification_type")
+        status_filter = request.query_params.get("status")
+        limit = min(int(request.query_params.get("limit", 50)), 100)
 
         notifications = NotificationLogSelector.get_user_history(
             user=request.user,
             notification_type=notification_type,
             status=status_filter,
-            limit=limit
+            limit=limit,
         )
 
         serializer = NotificationLogSerializer(notifications, many=True)
-        return Response({
-            'notifications': serializer.data,
-            'count': len(serializer.data),
-        })
+        return Response(
+            {
+                "notifications": serializer.data,
+                "count": len(serializer.data),
+            }
+        )
 
 
 class ConfigurableTypesView(APIView):
@@ -316,7 +317,9 @@ class ConfigurableTypesView(APIView):
         """Get all configurable notification types."""
         types = get_configurable_types()
         serializer = ConfigurableTypeSerializer(types, many=True)
-        return Response({
-            'types': serializer.data,
-            'count': len(serializer.data),
-        })
+        return Response(
+            {
+                "types": serializer.data,
+                "count": len(serializer.data),
+            }
+        )

@@ -25,7 +25,9 @@ class BusinessAccountSelector:
     """Read-only queries for BusinessAccount."""
 
     @staticmethod
-    def get_by_id(*, business_id: UUID, include_deleted: bool = False) -> BusinessAccount:
+    def get_by_id(
+        *, business_id: UUID, include_deleted: bool = False
+    ) -> BusinessAccount:
         """
         Get a business by its UUID.
 
@@ -39,7 +41,9 @@ class BusinessAccountSelector:
         Raises:
             NotFound: If business doesn't exist.
         """
-        manager = BusinessAccount.all_objects if include_deleted else BusinessAccount.objects
+        manager = (
+            BusinessAccount.all_objects if include_deleted else BusinessAccount.objects
+        )
         try:
             return manager.select_related("profile").get(id=business_id)
         except BusinessAccount.DoesNotExist:
@@ -64,7 +68,9 @@ class BusinessAccountSelector:
         Raises:
             NotFound: If business doesn't exist with this slug.
         """
-        manager = BusinessAccount.all_objects if include_deleted else BusinessAccount.objects
+        manager = (
+            BusinessAccount.all_objects if include_deleted else BusinessAccount.objects
+        )
         try:
             return manager.select_related("profile").get(slug=slug)
         except BusinessAccount.DoesNotExist:
@@ -127,7 +133,11 @@ class BusinessAccountSelector:
     @staticmethod
     def list_by_country(*, country: str) -> QuerySet[BusinessAccount]:
         """Get active businesses by country."""
-        return BusinessAccount.objects.active().filter(country=country).select_related("profile")
+        return (
+            BusinessAccount.objects.active()
+            .filter(country=country)
+            .select_related("profile")
+        )
 
     @staticmethod
     def slug_exists(*, slug: str, exclude_business_id: UUID | None = None) -> bool:
@@ -159,8 +169,8 @@ class BusinessAccountSelector:
         """
         Get businesses where user is the owner (via RBAC membership).
         """
-        from apps.rbac.selectors import MembershipSelector
         from apps.core.constants import AccountType, MembershipStatus
+        from apps.rbac.selectors import MembershipSelector
 
         owner_memberships = MembershipSelector.get_memberships_for_user(
             user=user,
@@ -181,8 +191,8 @@ class BusinessAccountSelector:
         """
         Get businesses where user is an active member (including owner).
         """
-        from apps.rbac.selectors import MembershipSelector
         from apps.core.constants import AccountType, MembershipStatus
+        from apps.rbac.selectors import MembershipSelector
 
         memberships = MembershipSelector.get_memberships_for_user(
             user=user,

@@ -9,8 +9,8 @@ The CMS uses MembershipPolicy.authorize_action() directly in service methods
 policy checks that go beyond permission checks.
 """
 
-from apps.core.exceptions import BusinessRuleViolation
 from apps.cms.models import Page, PageSectionPlacement, SectionBlockPlacement
+from apps.core.exceptions import BusinessRuleViolation
 
 
 class CMSPolicy:

@@ -7,19 +7,16 @@ Usage:
     from apps.core.serializers import BaseInputSerializer, BaseOutputSerializer
 """
 
-from apps.core.serializers.base import (
-    # Base classes
+from apps.core.serializers.base import (  # Base classes; Mixins; Common responses
     BaseInputSerializer,
     BaseOutputSerializer,
-    # Mixins
+    EmptySerializer,
+    IDSerializer,
+    MessageSerializer,
+    PaginatedResponseSerializer,
     TimestampFieldsMixin,
     UserStampFieldsMixin,
-    # Common responses
-    EmptySerializer,
-    MessageSerializer,
-    IDSerializer,
     UUIDSerializer,
-    PaginatedResponseSerializer,
 )
 
 __all__ = [

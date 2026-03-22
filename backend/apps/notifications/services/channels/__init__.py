@@ -4,7 +4,7 @@ Channel Registry
 Maps channel names to their implementation classes.
 """
 
-from typing import Optional, Type
+from typing import Type
 
 from apps.notifications.services.channels.base import BaseChannel
 from apps.notifications.services.channels.email_channel import EmailChannel
@@ -18,13 +18,13 @@ from apps.notifications.services.channels.sms_channel import SMSChannel
 # Add new channels here when implementing push/SMS.
 
 CHANNEL_REGISTRY = {
-    'email': EmailChannel,
-    'push': PushChannel,
-    'sms': SMSChannel,
+    "email": EmailChannel,
+    "push": PushChannel,
+    "sms": SMSChannel,
 }
 
 
-def get_channel(name: str) -> Optional[Type[BaseChannel]]:
+def get_channel(name: str) -> Type[BaseChannel] | None:
     """
     Get channel class by name.
 
@@ -43,11 +43,11 @@ def get_available_channels() -> list:
 
 
 __all__ = [
-    'BaseChannel',
-    'EmailChannel',
-    'PushChannel',
-    'SMSChannel',
-    'CHANNEL_REGISTRY',
-    'get_channel',
-    'get_available_channels',
+    "BaseChannel",
+    "EmailChannel",
+    "PushChannel",
+    "SMSChannel",
+    "CHANNEL_REGISTRY",
+    "get_channel",
+    "get_available_channels",
 ]

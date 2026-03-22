@@ -14,7 +14,7 @@ Components:
     - middleware: RequestLoggingMiddleware for HTTP request logging
 """
 
-from apps.core.observability.logging.config import get_logger, configure_logging
+from apps.core.observability.logging.config import configure_logging, get_logger
 
 __all__ = [
     "get_logger",

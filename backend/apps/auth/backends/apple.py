@@ -29,7 +29,6 @@ Configuration Required:
 
 import logging
 import time
-from typing import Optional
 from urllib.parse import urlencode
 
 import jwt
@@ -52,9 +51,9 @@ class AppleOAuthBackend:
     - Nonce is required for ID token validation
     """
 
-    AUTHORIZATION_URL = 'https://appleid.apple.com/auth/authorize'
-    TOKEN_URL = 'https://appleid.apple.com/auth/token'
-    KEYS_URL = 'https://appleid.apple.com/auth/keys'
+    AUTHORIZATION_URL = "https://appleid.apple.com/auth/authorize"
+    TOKEN_URL = "https://appleid.apple.com/auth/token"
+    KEYS_URL = "https://appleid.apple.com/auth/keys"
 
     @classmethod
     def get_authorization_url(cls, state_params: dict, redirect_uri: str = None) -> str:
@@ -68,23 +67,23 @@ class AppleOAuthBackend:
         Returns:
             Authorization URL to redirect user to
         """
-        client_id = getattr(settings, 'APPLE_OAUTH_CLIENT_ID', None)
+        client_id = getattr(settings, "APPLE_OAUTH_CLIENT_ID", None)
         if not client_id:
-            raise OAuthError(message="Apple OAuth not configured", provider='apple')
+            raise OAuthError(message="Apple OAuth not configured", provider="apple")
 
-        backend_url = getattr(settings, 'BACKEND_URL', 'http://localhost:8000')
+        backend_url = getattr(settings, "BACKEND_URL", "http://localhost:8000")
         default_redirect = f"{backend_url}/api/v1/auth/oauth/apple/callback/"
 
         params = {
-            'client_id': client_id,
-            'redirect_uri': redirect_uri or default_redirect,
-            'response_type': 'code id_token',
-            'response_mode': 'form_post',  # Apple uses POST callback
-            'scope': 'name email',
-            'state': state_params['state_token'],
-            'nonce': state_params['nonce'],  # Required for Apple
-            'code_challenge': state_params['code_challenge'],
-            'code_challenge_method': 'S256'
+            "client_id": client_id,
+            "redirect_uri": redirect_uri or default_redirect,
+            "response_type": "code id_token",
+            "response_mode": "form_post",  # Apple uses POST callback
+            "scope": "name email",
+            "state": state_params["state_token"],
+            "nonce": state_params["nonce"],  # Required for Apple
+            "code_challenge": state_params["code_challenge"],
+            "code_challenge_method": "S256",
         }
 
         return f"{cls.AUTHORIZATION_URL}?{urlencode(params)}"
@@ -103,37 +102,31 @@ class AppleOAuthBackend:
         Raises:
             OAuthError: If configuration is missing
         """
-        team_id = getattr(settings, 'APPLE_OAUTH_TEAM_ID', None)
-        client_id = getattr(settings, 'APPLE_OAUTH_CLIENT_ID', None)
-        key_id = getattr(settings, 'APPLE_OAUTH_KEY_ID', None)
-        private_key = getattr(settings, 'APPLE_OAUTH_PRIVATE_KEY', None)
+        team_id = getattr(settings, "APPLE_OAUTH_TEAM_ID", None)
+        client_id = getattr(settings, "APPLE_OAUTH_CLIENT_ID", None)
+        key_id = getattr(settings, "APPLE_OAUTH_KEY_ID", None)
+        private_key = getattr(settings, "APPLE_OAUTH_PRIVATE_KEY", None)
 
         if not all([team_id, client_id, key_id, private_key]):
-            raise OAuthError(message="Apple OAuth not configured", provider='apple')
+            raise OAuthError(message="Apple OAuth not configured", provider="apple")
 
         now = int(time.time())
 
         payload = {
-            'iss': team_id,
-            'iat': now,
-            'exp': now + 86400 * 180,  # 180 days max
-            'aud': 'https://appleid.apple.com',
-            'sub': client_id
+            "iss": team_id,
+            "iat": now,
+            "exp": now + 86400 * 180,  # 180 days max
+            "aud": "https://appleid.apple.com",
+            "sub": client_id,
         }
 
-        headers = {
-            'kid': key_id,
-            'alg': 'ES256'
-        }
+        headers = {"kid": key_id, "alg": "ES256"}
 
-        return jwt.encode(payload, private_key, algorithm='ES256', headers=headers)
+        return jwt.encode(payload, private_key, algorithm="ES256", headers=headers)
 
     @classmethod
     def exchange_code(
-        cls,
-        code: str,
-        code_verifier: str,
-        redirect_uri: str = None
+        cls, code: str, code_verifier: str, redirect_uri: str = None
     ) -> dict:
         """
         Exchange authorization code for tokens.
@@ -149,11 +142,11 @@ class AppleOAuthBackend:
         Raises:
             OAuthError: If exchange fails
         """
-        client_id = getattr(settings, 'APPLE_OAUTH_CLIENT_ID', None)
+        client_id = getattr(settings, "APPLE_OAUTH_CLIENT_ID", None)
         if not client_id:
-            raise OAuthError(message="Apple OAuth not configured", provider='apple')
+            raise OAuthError(message="Apple OAuth not configured", provider="apple")
 
-        backend_url = getattr(settings, 'BACKEND_URL', 'http://localhost:8000')
+        backend_url = getattr(settings, "BACKEND_URL", "http://localhost:8000")
         default_redirect = f"{backend_url}/api/v1/auth/oauth/apple/callback/"
 
         try:
@@ -162,26 +155,26 @@ class AppleOAuthBackend:
             response = requests.post(
                 cls.TOKEN_URL,
                 data={
-                    'client_id': client_id,
-                    'client_secret': client_secret,
-                    'code': code,
-                    'code_verifier': code_verifier,
-                    'grant_type': 'authorization_code',
-                    'redirect_uri': redirect_uri or default_redirect
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "code": code,
+                    "code_verifier": code_verifier,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": redirect_uri or default_redirect,
                 },
-                timeout=30
+                timeout=30,
             )
 
             if response.status_code != 200:
                 error_data = response.json() if response.content else {}
                 logger.error(
                     "oauth.apple.exchange_failed",
-                    extra={'status': response.status_code, 'error': error_data}
+                    extra={"status": response.status_code, "error": error_data},
                 )
                 raise OAuthError(
                     message="Failed to exchange authorization code",
-                    provider='apple',
-                    oauth_error=error_data.get('error', 'Unknown error')
+                    provider="apple",
+                    oauth_error=error_data.get("error", "Unknown error"),
                 )
 
             return response.json()
@@ -189,9 +182,8 @@ class AppleOAuthBackend:
         except requests.RequestException as e:
             logger.error(f"Apple OAuth request failed: {e}")
             raise OAuthError(
-                message="Failed to connect to Apple",
-                provider='apple'
-            )
+                message="Failed to connect to Apple", provider="apple"
+            ) from e
 
     @classmethod
     def verify_id_token(cls, id_token_str: str, expected_nonce: str) -> dict:
@@ -216,24 +208,26 @@ class AppleOAuthBackend:
         Raises:
             OAuthError: If verification fails
         """
-        client_id = getattr(settings, 'APPLE_OAUTH_CLIENT_ID', None)
+        client_id = getattr(settings, "APPLE_OAUTH_CLIENT_ID", None)
 
         try:
             # Get Apple's public keys
             keys_response = requests.get(cls.KEYS_URL, timeout=30)
             if keys_response.status_code != 200:
-                raise OAuthError(message="Failed to fetch Apple public keys", provider='apple')
+                raise OAuthError(
+                    message="Failed to fetch Apple public keys", provider="apple"
+                )
 
-            apple_keys = keys_response.json()['keys']
+            apple_keys = keys_response.json()["keys"]
 
             # Decode header to get key ID
             header = jwt.get_unverified_header(id_token_str)
-            kid = header.get('kid')
+            kid = header.get("kid")
 
             # Find matching key
-            apple_key = next((k for k in apple_keys if k['kid'] == kid), None)
+            apple_key = next((k for k in apple_keys if k["kid"] == kid), None)
             if not apple_key:
-                raise OAuthError(message="Apple public key not found", provider='apple')
+                raise OAuthError(message="Apple public key not found", provider="apple")
 
             # Convert JWK to PEM
             public_key = jwt.algorithms.RSAAlgorithm.from_jwk(apple_key)
@@ -242,20 +236,19 @@ class AppleOAuthBackend:
             payload = jwt.decode(
                 id_token_str,
                 public_key,
-                algorithms=['RS256'],
+                algorithms=["RS256"],
                 audience=client_id,
-                issuer='https://appleid.apple.com'
+                issuer="https://appleid.apple.com",
             )
 
             # Validate nonce (CRITICAL for Apple)
-            if payload.get('nonce') != expected_nonce:
+            if payload.get("nonce") != expected_nonce:
                 logger.error(
                     "oauth.apple.nonce_mismatch",
-                    extra={'expected_hash': hash(expected_nonce)}
+                    extra={"expected_hash": hash(expected_nonce)},
                 )
                 raise OAuthError(
-                    message="Nonce mismatch - possible replay attack",
-                    provider='apple'
+                    message="Nonce mismatch - possible replay attack", provider="apple"
                 )
 
             return payload
@@ -263,19 +256,17 @@ class AppleOAuthBackend:
         except jwt.InvalidTokenError as e:
             logger.error(f"Apple ID token verification failed: {e}")
             raise OAuthError(
-                message=f"Invalid Apple ID token: {e}",
-                provider='apple'
-            )
+                message=f"Invalid Apple ID token: {e}", provider="apple"
+            ) from e
 
         except requests.RequestException as e:
             logger.error(f"Apple keys request failed: {e}")
             raise OAuthError(
-                message="Failed to connect to Apple",
-                provider='apple'
-            )
+                message="Failed to connect to Apple", provider="apple"
+            ) from e
 
     @classmethod
-    def parse_user_data(cls, user_data: Optional[str]) -> dict:
+    def parse_user_data(cls, user_data: str | None) -> dict:
         """
         Parse user data from Apple callback.
 
@@ -293,14 +284,15 @@ class AppleOAuthBackend:
 
         try:
             import json
+
             data = json.loads(user_data)
 
             # Extract name if present
-            name = data.get('name', {})
+            name = data.get("name", {})
             return {
-                'first_name': name.get('firstName', ''),
-                'last_name': name.get('lastName', ''),
-                'email': data.get('email', '')
+                "first_name": name.get("firstName", ""),
+                "last_name": name.get("lastName", ""),
+                "email": data.get("email", ""),
             }
 
         except (json.JSONDecodeError, TypeError):

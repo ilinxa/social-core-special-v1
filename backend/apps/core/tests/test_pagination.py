@@ -12,12 +12,11 @@ Covers:
 import pytest
 
 from apps.core.pagination.page import (
-    StandardPagination,
-    SmallResultsPagination,
     LargeResultsPagination,
     NoPagination,
+    SmallResultsPagination,
+    StandardPagination,
 )
-
 
 # =============================================================================
 # STANDARD PAGINATION TESTS

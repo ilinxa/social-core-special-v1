@@ -27,8 +27,8 @@ class ConsoleBackend(BaseEmailBackend):
         from_email: str,
         subject: str,
         html_body: str,
-        text_body: str = '',
-        reply_to: str = ''
+        text_body: str = "",
+        reply_to: str = "",
     ) -> str:
         """
         Print email to console.
@@ -46,6 +46,9 @@ class ConsoleBackend(BaseEmailBackend):
         """
         message_id = f"console-{uuid.uuid4()}"
 
+        # print() is intentional here: this is a dev console backend whose
+        # purpose is human-readable terminal output. Using logger would lose
+        # the formatted box layout. Never used in production (local.py only).
         separator = "=" * 60
         print(f"\n{separator}")
         print("EMAIL SENT (Console Backend)")

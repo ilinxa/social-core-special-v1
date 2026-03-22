@@ -22,9 +22,9 @@ Usage:
 from django.conf import settings
 
 from apps.email.services.backends.base import BaseEmailBackend
+from apps.email.services.backends.console import ConsoleBackend
 from apps.email.services.backends.ses import SESBackend
 from apps.email.services.backends.smtp import SMTPBackend
-from apps.email.services.backends.console import ConsoleBackend
 
 
 def get_email_backend() -> BaseEmailBackend:
@@ -39,12 +39,12 @@ def get_email_backend() -> BaseEmailBackend:
     Returns:
         Configured email backend instance
     """
-    backend_name = getattr(settings, 'EMAIL_BACKEND_TYPE', 'console')
+    backend_name = getattr(settings, "EMAIL_BACKEND_TYPE", "console")
 
     backends = {
-        'ses': SESBackend,
-        'smtp': SMTPBackend,
-        'console': ConsoleBackend,
+        "ses": SESBackend,
+        "smtp": SMTPBackend,
+        "console": ConsoleBackend,
     }
 
     backend_class = backends.get(backend_name, ConsoleBackend)
@@ -52,9 +52,9 @@ def get_email_backend() -> BaseEmailBackend:
 
 
 __all__ = [
-    'get_email_backend',
-    'BaseEmailBackend',
-    'SESBackend',
-    'SMTPBackend',
-    'ConsoleBackend',
+    "get_email_backend",
+    "BaseEmailBackend",
+    "SESBackend",
+    "SMTPBackend",
+    "ConsoleBackend",
 ]

@@ -62,8 +62,8 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
         db_index=True,
         max_length=255,
         error_messages={
-            'unique': 'A user with this email already exists.',
-        }
+            "unique": "A user with this email already exists.",
+        },
     )
 
     # Public identifier (auto-generated, user-changeable)
@@ -71,71 +71,80 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
         max_length=30,
         unique=True,
         db_index=True,
-        help_text='Unique public identifier. Auto-generated on creation, changeable later.'
+        help_text="Unique public identifier. Auto-generated on creation, changeable later.",
     )
 
     # Status flags
     is_active = models.BooleanField(
-        default=True,
-        help_text='Designates whether this user can log in.'
+        default=True, help_text="Designates whether this user can log in."
     )
     is_verified = models.BooleanField(
         default=False,
         db_index=True,
-        help_text='Designates whether email has been verified.'
+        help_text="Designates whether email has been verified.",
     )
     is_staff = models.BooleanField(
-        default=False,
-        help_text='Designates whether user can access admin site.'
+        default=False, help_text="Designates whether user can access admin site."
     )
     can_create_business = models.BooleanField(
         default=False,
         db_index=True,
-        help_text='Designates whether user has been approved to create business accounts.'
+        help_text="Designates whether user has been approved to create business accounts.",
     )
+
+    # Account lockout (progressive lockout after failed login attempts)
+    failed_login_attempts = models.PositiveSmallIntegerField(
+        default=0, help_text="Number of consecutive failed login attempts."
+    )
+    locked_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Account locked until this time due to too many failed login attempts.",
+    )
+
     # is_superuser is inherited from PermissionsMixin
 
     # Referral tracking
     referred_by = models.ForeignKey(
-        'self',
+        "self",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='referrals',
-        help_text='User who referred this user.'
+        related_name="referrals",
+        help_text="User who referred this user.",
     )
 
     # Timestamps
     # last_login is inherited from AbstractBaseUser
     date_joined = models.DateTimeField(
-        auto_now_add=True,
-        help_text='Account creation timestamp.'
+        auto_now_add=True, help_text="Account creation timestamp."
     )
 
     # AbstractBaseUser requirements
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []  # Email is already required as USERNAME_FIELD
 
     # Custom manager
     objects = CustomUserManager()
 
     class Meta:
-        db_table = 'users'
-        verbose_name = 'user'
-        verbose_name_plural = 'users'
-        ordering = ['-date_joined']
+        db_table = "users"
+        verbose_name = "user"
+        verbose_name_plural = "users"
+        ordering = ["-date_joined"]
         indexes = [
-            models.Index(fields=['email', 'is_active'], name='users_email_active_idx'),
-            models.Index(fields=['is_verified', 'is_active'], name='users_verified_active_idx'),
-            models.Index(fields=['date_joined'], name='users_date_joined_idx'),
-            models.Index(fields=['last_login'], name='users_last_login_idx'),
-            models.Index(fields=['referred_by'], name='users_referred_by_idx'),
+            models.Index(fields=["email", "is_active"], name="users_email_active_idx"),
+            models.Index(
+                fields=["is_verified", "is_active"], name="users_verified_active_idx"
+            ),
+            models.Index(fields=["date_joined"], name="users_date_joined_idx"),
+            models.Index(fields=["last_login"], name="users_last_login_idx"),
+            models.Index(fields=["referred_by"], name="users_referred_by_idx"),
         ]
         constraints = [
             # Business rule: Cannot refer yourself
             models.CheckConstraint(
-                check=~models.Q(id=models.F('referred_by_id')),
-                name='no_self_referral'
+                check=~models.Q(id=models.F("referred_by_id")), name="no_self_referral"
             ),
         ]
 
@@ -156,9 +165,9 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
             - First name is set
         """
         return (
-            self.is_verified and
-            hasattr(self, 'profile') and
-            bool(self.profile.first_name)
+            self.is_verified
+            and hasattr(self, "profile")
+            and bool(self.profile.first_name)
         )
 
     def get_full_name(self):
@@ -167,7 +176,7 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
 
         Required by Django admin.
         """
-        if hasattr(self, 'profile'):
+        if hasattr(self, "profile"):
             return self.profile.full_name
         return self.email
 
@@ -177,9 +186,9 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
 
         Required by Django admin.
         """
-        if hasattr(self, 'profile'):
+        if hasattr(self, "profile"):
             return self.profile.display_name
-        return self.email.split('@')[0]
+        return self.email.split("@")[0]
 
 
 class UserProfile(TimeStampedModel):
@@ -204,100 +213,90 @@ class UserProfile(TimeStampedModel):
     """
 
     user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        primary_key=True,
-        related_name='profile'
+        User, on_delete=models.CASCADE, primary_key=True, related_name="profile"
     )
 
     # Personal information
     first_name = models.CharField(
-        max_length=150,
-        blank=True,
-        help_text="User's first name"
+        max_length=150, blank=True, help_text="User's first name"
     )
     last_name = models.CharField(
-        max_length=150,
-        blank=True,
-        help_text="User's last name"
+        max_length=150, blank=True, help_text="User's last name"
     )
 
     # Contact information
     phone = models.CharField(
         max_length=20,
         blank=True,
-        help_text='Phone number with country code (e.g., +1234567890)'
+        help_text="Phone number with country code (e.g., +1234567890)",
     )
 
     # Media
     avatar = models.ImageField(
-        upload_to='avatars/%Y/%m/',
-        blank=True,
-        null=True,
-        help_text='Profile picture'
+        upload_to="avatars/%Y/%m/", blank=True, null=True, help_text="Profile picture"
     )
     cover_image = models.ImageField(
-        upload_to='covers/%Y/%m/',
+        upload_to="covers/%Y/%m/",
         blank=True,
         null=True,
-        help_text='Profile cover photo'
+        help_text="Profile cover photo",
     )
 
     # Preferences
     timezone = models.CharField(
         max_length=50,
-        default='UTC',
-        help_text="User's preferred timezone (e.g., 'America/New_York')"
+        default="UTC",
+        help_text="User's preferred timezone (e.g., 'America/New_York')",
     )
     language = models.CharField(
         max_length=10,
-        default='en',
-        help_text="User's preferred language code (e.g., 'en', 'fr')"
+        default="en",
+        help_text="User's preferred language code (e.g., 'en', 'fr')",
     )
 
     # Explore / Discovery fields
     bio = models.TextField(
         max_length=500,
         blank=True,
-        default='',
-        help_text='Short bio for profile discovery.'
+        default="",
+        help_text="Short bio for profile discovery.",
     )
     country = models.CharField(
         max_length=2,
         blank=True,
-        default='',
+        default="",
         db_index=True,
-        help_text='ISO 3166-1 alpha-2 country code.'
+        help_text="ISO 3166-1 alpha-2 country code.",
     )
     city = models.CharField(
         max_length=100,
         blank=True,
-        default='',
+        default="",
         db_index=True,
-        help_text='City name (validated against predefined city list).'
+        help_text="City name (validated against predefined city list).",
     )
     tags = models.JSONField(
         default=list,
         blank=True,
-        help_text='User tags for discovery (e.g., developer, designer).'
+        help_text="User tags for discovery (e.g., developer, designer).",
     )
     is_public = models.BooleanField(
         default=True,
         db_index=True,
-        help_text='Whether this profile is publicly visible to other users.'
+        help_text="Whether this profile is publicly visible to other users.",
     )
     visibility_overrides = models.JSONField(
         default=dict,
         blank=True,
-        help_text='Per-field visibility level overrides for T2 fields.',
+        help_text="Per-field visibility level overrides for T2 fields.",
     )
 
     class Meta:
-        db_table = 'user_profiles'
-        verbose_name = 'user profile'
-        verbose_name_plural = 'user profiles'
+        db_table = "user_profiles"
+        verbose_name = "user profile"
+        verbose_name_plural = "user profiles"
         indexes = [
-            GinIndex(fields=['tags'], name='userprofile_tags_gin'),
+            GinIndex(fields=["tags"], name="userprofile_tags_gin"),
         ]
 
     def __str__(self):
@@ -327,7 +326,7 @@ class UserProfile(TimeStampedModel):
         """
         if self.first_name and self.last_name:
             return f"{self.first_name} {self.last_name}"
-        return self.first_name or self.user.email.split('@')[0]
+        return self.first_name or self.user.email.split("@")[0]
 
     @property
     def has_avatar(self):

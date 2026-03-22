@@ -18,13 +18,13 @@ from typing import FrozenSet
 
 from django.http import HttpRequest, HttpResponse
 
+from apps.core.observability.logging.config import get_logger
 from apps.core.observability.logging.context import (
     bind_request_context,
     clear_request_context,
     generate_request_id,
 )
-from apps.core.observability.logging.config import get_logger
-
+from apps.core.observability.metrics import metrics
 
 logger = get_logger(__name__)
 
@@ -47,16 +47,18 @@ class RequestLoggingMiddleware:
 
     # Paths to skip logging (health checks, metrics endpoints)
     # These get hit frequently by load balancers and would flood logs
-    SKIP_LOGGING_PATHS: FrozenSet[str] = frozenset([
-        "/health",
-        "/health/",
-        "/healthz",
-        "/healthz/",
-        "/ready",
-        "/ready/",
-        "/metrics",
-        "/metrics/",
-    ])
+    SKIP_LOGGING_PATHS: FrozenSet[str] = frozenset(
+        [
+            "/health",
+            "/health/",
+            "/healthz",
+            "/healthz/",
+            "/ready",
+            "/ready/",
+            "/metrics",
+            "/metrics/",
+        ]
+    )
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -68,9 +70,7 @@ class RequestLoggingMiddleware:
             return self.get_response(request)
 
         # Extract or generate request ID
-        request_id = (
-            request.META.get("HTTP_X_REQUEST_ID") or generate_request_id()
-        )
+        request_id = request.META.get("HTTP_X_REQUEST_ID") or generate_request_id()
 
         # Extract user ID if authenticated
         user_id = None
@@ -111,6 +111,22 @@ class RequestLoggingMiddleware:
                 duration_ms=duration_ms,
             )
 
+            # Emit metrics (NoOp backend = zero cost; pre-wired for Prometheus)
+            # NOTE: 'endpoint' tag may have high cardinality from UUIDs in paths.
+            # Normalize to route patterns when implementing a real metrics backend.
+            metrics.increment(
+                "http.requests.total",
+                tags={
+                    "method": request.method,
+                    "status_code": str(response.status_code),
+                },
+            )
+            metrics.histogram(
+                "http.request.duration_ms",
+                duration_ms,
+                tags={"method": request.method, "endpoint": request.path},
+            )
+
             # Add request ID to response headers
             response["X-Request-ID"] = request_id
 
@@ -125,6 +141,16 @@ class RequestLoggingMiddleware:
                 error=str(e),
                 error_type=type(e).__name__,
                 duration_ms=duration_ms,
+            )
+
+            metrics.increment(
+                "http.requests.total",
+                tags={"method": request.method, "status_code": "500"},
+            )
+            metrics.histogram(
+                "http.request.duration_ms",
+                duration_ms,
+                tags={"method": request.method, "endpoint": request.path},
             )
             raise
 

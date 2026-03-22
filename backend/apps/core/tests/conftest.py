@@ -7,12 +7,11 @@ import pytest
 from rest_framework.test import APIClient, APIRequestFactory
 
 from apps.users.tests.factories import (
-    UserFactory,
-    VerifiedUserFactory,
     StaffUserFactory,
     SuperuserFactory,
+    UserFactory,
+    VerifiedUserFactory,
 )
-
 
 # =============================================================================
 # API CLIENT FIXTURES

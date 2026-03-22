@@ -1,6 +1,7 @@
 # apps/network/admin.py
 from django.contrib import admin
-from apps.network.models import Follow, Connection
+
+from apps.network.models import Connection, Follow
 
 
 @admin.register(Follow)

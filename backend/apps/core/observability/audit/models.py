@@ -20,6 +20,7 @@ Usage:
 """
 
 import uuid
+
 from django.db import models
 
 
@@ -36,6 +37,7 @@ class AuditLog(models.Model):
         Audit action types.
         Format: {domain}.{resource}.{action}
         """
+
         # Authentication
         LOGIN_SUCCESS = "auth.login.success", "Login Success"
         LOGIN_FAILED = "auth.login.failed", "Login Failed"
@@ -44,8 +46,14 @@ class AuditLog(models.Model):
 
         # Password
         PASSWORD_CHANGED = "auth.password.changed", "Password Changed"
-        PASSWORD_RESET_REQUESTED = "auth.password.reset_requested", "Password Reset Requested"
-        PASSWORD_RESET_COMPLETED = "auth.password.reset_completed", "Password Reset Completed"
+        PASSWORD_RESET_REQUESTED = (
+            "auth.password.reset_requested",
+            "Password Reset Requested",
+        )
+        PASSWORD_RESET_COMPLETED = (
+            "auth.password.reset_completed",
+            "Password Reset Completed",
+        )
 
         # Email Verification
         VERIFICATION_SENT = "auth.verification.sent", "Verification Sent"
@@ -76,7 +84,10 @@ class AuditLog(models.Model):
         COVER_IMAGE_DELETED = "user.cover_image.deleted", "Cover Image Deleted"
 
         # Notifications
-        NOTIFICATION_PREFERENCE_UPDATED = "notification.preference.updated", "Notification Preference Updated"
+        NOTIFICATION_PREFERENCE_UPDATED = (
+            "notification.preference.updated",
+            "Notification Preference Updated",
+        )
 
         # Email Templates (Admin)
         EMAIL_TEMPLATE_CREATED = "email.template.created", "Email Template Created"
@@ -91,10 +102,19 @@ class AuditLog(models.Model):
         DATA_EXPORTED = "data.exported", "Data Exported"
         SENSITIVE_DATA_ACCESSED = "data.sensitive.accessed", "Sensitive Data Accessed"
 
+        # Authorization
+        AUTHORIZATION_DENIED = "auth.authorization.denied", "Authorization Denied"
+
         # Organization - Platform
         PLATFORM_CONFIGURED = "org.platform.configured", "Platform Configured"
-        PLATFORM_SETTINGS_UPDATED = "org.platform.settings_updated", "Platform Settings Updated"
-        PLATFORM_PROFILE_UPDATED = "org.platform.profile_updated", "Platform Profile Updated"
+        PLATFORM_SETTINGS_UPDATED = (
+            "org.platform.settings_updated",
+            "Platform Settings Updated",
+        )
+        PLATFORM_PROFILE_UPDATED = (
+            "org.platform.profile_updated",
+            "Platform Profile Updated",
+        )
 
         # Organization - Business
         BUSINESS_CREATED = "org.business.created", "Business Created"
@@ -104,8 +124,14 @@ class AuditLog(models.Model):
         BUSINESS_ARCHIVED = "org.business.archived", "Business Archived"
         BUSINESS_DELETED = "org.business.deleted", "Business Deleted"
         BUSINESS_SLUG_CHANGED = "org.business.slug_changed", "Business Slug Changed"
-        BUSINESS_PROFILE_UPDATED = "org.business.profile_updated", "Business Profile Updated"
-        BUSINESS_CREATION_PERMISSION_GRANTED = "org.business.creation_permission_granted", "Business Creation Permission Granted"
+        BUSINESS_PROFILE_UPDATED = (
+            "org.business.profile_updated",
+            "Business Profile Updated",
+        )
+        BUSINESS_CREATION_PERMISSION_GRANTED = (
+            "org.business.creation_permission_granted",
+            "Business Creation Permission Granted",
+        )
 
         # Organization - Verification
         VERIFICATION_APPROVED = "org.verification.approved", "Verification Approved"
@@ -116,14 +142,20 @@ class AuditLog(models.Model):
         # 1. OWNERSHIP_TRANSFER_INITIATED (Organization system) - When transaction created
         # 2. OWNERSHIP_TRANSFERRED (RBAC system) - When transaction accepted
         # 3. OWNER_MEMBERSHIP_CREATED (RBAC system) - When new owner membership created
-        OWNERSHIP_TRANSFER_INITIATED = "org.ownership.transfer_initiated", "Ownership Transfer Initiated"
+        OWNERSHIP_TRANSFER_INITIATED = (
+            "org.ownership.transfer_initiated",
+            "Ownership Transfer Initiated",
+        )
 
         # RBAC - Roles
         ROLE_CREATED = "rbac.role.created", "Role Created"
         ROLE_UPDATED = "rbac.role.updated", "Role Updated"
         ROLE_DELETED = "rbac.role.deleted", "Role Deleted"
         ROLE_PERMISSION_ADDED = "rbac.role.permission_added", "Permission Added to Role"
-        ROLE_PERMISSION_REMOVED = "rbac.role.permission_removed", "Permission Removed from Role"
+        ROLE_PERMISSION_REMOVED = (
+            "rbac.role.permission_removed",
+            "Permission Removed from Role",
+        )
 
         # RBAC - Membership
         MEMBERSHIP_CREATED = "rbac.membership.created", "Membership Created"
@@ -151,7 +183,10 @@ class AuditLog(models.Model):
         TRANSACTION_INFO_REQUESTED = "txn.info_requested", "Transaction Info Requested"
         TRANSACTION_RESUBMITTED = "txn.resubmitted", "Transaction Resubmitted"
         TRANSACTION_PENDING_REVIEW = "txn.pending_review", "Transaction Pending Review"
-        TRANSACTION_REVIEW_APPROVED = "txn.review_approved", "Transaction Review Approved"
+        TRANSACTION_REVIEW_APPROVED = (
+            "txn.review_approved",
+            "Transaction Review Approved",
+        )
 
         # Forms - Templates
         FORM_TEMPLATE_CREATED = "forms.template.created", "Form Template Created"
@@ -189,18 +224,42 @@ class AuditLog(models.Model):
         CMS_PAGE_ARCHIVED = "cms.page.archived", "CMS Page Archived"
 
         # CMS - Templates
-        CMS_SECTION_TEMPLATE_CREATED = "cms.section_template.created", "Section Template Created"
-        CMS_SECTION_TEMPLATE_UPDATED = "cms.section_template.updated", "Section Template Updated"
-        CMS_SECTION_TEMPLATE_DELETED = "cms.section_template.deleted", "Section Template Deleted"
-        CMS_BLOCK_TEMPLATE_CREATED = "cms.block_template.created", "Block Template Created"
-        CMS_BLOCK_TEMPLATE_UPDATED = "cms.block_template.updated", "Block Template Updated"
-        CMS_BLOCK_TEMPLATE_DELETED = "cms.block_template.deleted", "Block Template Deleted"
-        CMS_BLOCK_SCHEMA_CHANGED = "cms.block_template.schema_changed", "Block Schema Changed"
+        CMS_SECTION_TEMPLATE_CREATED = (
+            "cms.section_template.created",
+            "Section Template Created",
+        )
+        CMS_SECTION_TEMPLATE_UPDATED = (
+            "cms.section_template.updated",
+            "Section Template Updated",
+        )
+        CMS_SECTION_TEMPLATE_DELETED = (
+            "cms.section_template.deleted",
+            "Section Template Deleted",
+        )
+        CMS_BLOCK_TEMPLATE_CREATED = (
+            "cms.block_template.created",
+            "Block Template Created",
+        )
+        CMS_BLOCK_TEMPLATE_UPDATED = (
+            "cms.block_template.updated",
+            "Block Template Updated",
+        )
+        CMS_BLOCK_TEMPLATE_DELETED = (
+            "cms.block_template.deleted",
+            "Block Template Deleted",
+        )
+        CMS_BLOCK_SCHEMA_CHANGED = (
+            "cms.block_template.schema_changed",
+            "Block Schema Changed",
+        )
 
         # CMS - Content
         CMS_CONTENT_DRAFT_SAVED = "cms.content.draft_saved", "CMS Content Draft Saved"
         CMS_CONTENT_ROLLBACK = "cms.content.rollback", "CMS Content Rolled Back"
-        CMS_VISIBILITY_TOGGLED = "cms.placement.visibility_toggled", "CMS Visibility Toggled"
+        CMS_VISIBILITY_TOGGLED = (
+            "cms.placement.visibility_toggled",
+            "CMS Visibility Toggled",
+        )
 
         # CMS - Media
         CMS_MEDIA_UPLOADED = "cms.media.uploaded", "CMS Media Uploaded"
@@ -217,15 +276,42 @@ class AuditLog(models.Model):
         CMS_API_KEY_REVOKED = "cms.api_key.revoked", "CMS API Key Revoked"
         CMS_API_KEY_UPDATED = "cms.api_key.updated", "CMS API Key Updated"
 
+        # Chat
+        CHAT_CONVERSATION_CREATED = (
+            "chat.conversation.created",
+            "Chat Conversation Created",
+        )
+        CHAT_MESSAGE_SENT = "chat.message.sent", "Chat Message Sent"
+        CHAT_MESSAGE_EDITED = "chat.message.edited", "Chat Message Edited"
+        CHAT_MESSAGE_DELETED = "chat.message.deleted", "Chat Message Deleted"
+        CHAT_PARTICIPANT_ADDED = (
+            "chat.participant.added",
+            "Chat Participant Added",
+        )
+        CHAT_PARTICIPANT_REMOVED = (
+            "chat.participant.removed",
+            "Chat Participant Removed",
+        )
+        CHAT_REQUEST_ACCEPTED = (
+            "chat.request.accepted",
+            "Chat Request Accepted",
+        )
+        CHAT_BLOCK_CREATED = "chat.block.created", "Chat Block Created"
+        CHAT_BLOCK_REMOVED = "chat.block.removed", "Chat Block Removed"
+
         # Network
         FOLLOW_CREATED = "network.follow.created", "Follow Created"
         FOLLOW_REMOVED = "network.follow.removed", "Follow Removed"
         FOLLOWER_REMOVED = "network.follower.removed", "Follower Removed"
         CONNECTION_CREATED = "network.connection.created", "Connection Created"
-        CONNECTION_DISCONNECTED = "network.connection.disconnected", "Connection Disconnected"
+        CONNECTION_DISCONNECTED = (
+            "network.connection.disconnected",
+            "Connection Disconnected",
+        )
 
     class ActorType(models.TextChoices):
         """Type of actor performing the action."""
+
         USER = "user", "User"
         ADMIN = "admin", "Administrator"
         SYSTEM = "system", "System"
@@ -233,6 +319,7 @@ class AuditLog(models.Model):
 
     class Outcome(models.TextChoices):
         """Outcome of the action."""
+
         SUCCESS = "success", "Success"
         FAILURE = "failure", "Failure"
         DENIED = "denied", "Permission Denied"
@@ -372,7 +459,9 @@ class AuditLog(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.timestamp} | {self.actor_email or self.actor_type} | {self.action}"
+        return (
+            f"{self.timestamp} | {self.actor_email or self.actor_type} | {self.action}"
+        )
 
     def save(self, *args, **kwargs):
         """Enforce append-only behavior."""

@@ -1,5 +1,7 @@
 "use client";
 
+import { useShallow } from "zustand/react/shallow";
+
 import { useMembershipStore } from "@/stores/membership-store";
 import { NAV_CONFIG } from "@/lib/navigation-config";
 import { useNavContext } from "@/hooks/use-nav-context";
@@ -14,7 +16,7 @@ import type { NavSection } from "@/types/navigation";
  */
 export function useFilteredNav(): NavSection[] {
   const context = useNavContext();
-  const memberships = useMembershipStore((s) => s.memberships);
+  const memberships = useMembershipStore(useShallow((s) => s.memberships));
 
   const sections = NAV_CONFIG[context.type];
 

@@ -12,18 +12,17 @@ Tests cover:
     - Helper functions (_extract_message, _extract_details, _status_to_code, _get_view_name)
 """
 
-import pytest
 from unittest.mock import MagicMock
 
-from rest_framework.exceptions import (
-    AuthenticationFailed as DRFAuthenticationFailed,
-    NotAuthenticated as DRFNotAuthenticated,
-    NotFound as DRFNotFound,
-    PermissionDenied as DRFPermissionDenied,
-    Throttled as DRFThrottled,
-    ValidationError as DRFValidationError,
-    MethodNotAllowed as DRFMethodNotAllowed,
-)
+import pytest
+from django.test import override_settings
+from rest_framework.exceptions import AuthenticationFailed as DRFAuthenticationFailed
+from rest_framework.exceptions import MethodNotAllowed as DRFMethodNotAllowed
+from rest_framework.exceptions import NotAuthenticated as DRFNotAuthenticated
+from rest_framework.exceptions import NotFound as DRFNotFound
+from rest_framework.exceptions import PermissionDenied as DRFPermissionDenied
+from rest_framework.exceptions import Throttled as DRFThrottled
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.test import APIRequestFactory
 from rest_framework.views import APIView
 
@@ -56,10 +55,10 @@ from apps.core.exceptions.handler import (
     get_status_code,
 )
 
-
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def handler_context():
@@ -77,6 +76,7 @@ def handler_context():
 # =============================================================================
 # get_status_code TESTS
 # =============================================================================
+
 
 class TestGetStatusCode:
     """Tests for the get_status_code() function."""
@@ -124,6 +124,7 @@ class TestGetStatusCode:
 # exception_handler TESTS — DRF EXCEPTIONS
 # =============================================================================
 
+
 class TestExceptionHandlerDRFExceptions:
     """Tests for DRF built-in exceptions handled by the custom exception_handler."""
 
@@ -142,10 +143,12 @@ class TestExceptionHandlerDRFExceptions:
 
     def test_drf_validation_error_multiple_fields(self, handler_context):
         """DRF ValidationError with multiple fields returns 400 with wrapped error format."""
-        exc = DRFValidationError({
-            "email": ["Enter a valid email address."],
-            "username": ["This field is required."],
-        })
+        exc = DRFValidationError(
+            {
+                "email": ["Enter a valid email address."],
+                "username": ["This field is required."],
+            }
+        )
 
         response = exception_handler(exc, handler_context)
 
@@ -158,9 +161,9 @@ class TestExceptionHandlerDRFExceptions:
 
     def test_drf_validation_error_non_field_errors(self, handler_context):
         """DRF ValidationError with non_field_errors returns message from first error."""
-        exc = DRFValidationError({
-            "non_field_errors": ["The two passwords did not match."]
-        })
+        exc = DRFValidationError(
+            {"non_field_errors": ["The two passwords did not match."]}
+        )
 
         response = exception_handler(exc, handler_context)
 
@@ -212,7 +215,9 @@ class TestExceptionHandlerDRFExceptions:
         assert response.data["error"]["code"] == "token_expired"
         assert response.data["error"]["message"] == "Token has expired"
 
-    def test_drf_authentication_failed_preserves_token_already_used(self, handler_context):
+    def test_drf_authentication_failed_preserves_token_already_used(
+        self, handler_context
+    ):
         """DRF AuthenticationFailed with code='token_already_used' preserves it."""
         exc = DRFAuthenticationFailed(
             detail="Token has already been used", code="token_already_used"
@@ -226,7 +231,9 @@ class TestExceptionHandlerDRFExceptions:
 
     def test_drf_authentication_failed_preserves_token_invalid(self, handler_context):
         """DRF AuthenticationFailed with code='token_invalid' preserves it."""
-        exc = DRFAuthenticationFailed(detail="Token has been revoked", code="token_invalid")
+        exc = DRFAuthenticationFailed(
+            detail="Token has been revoked", code="token_invalid"
+        )
 
         response = exception_handler(exc, handler_context)
 
@@ -310,6 +317,7 @@ class TestExceptionHandlerDRFExceptions:
 # exception_handler TESTS — DOMAIN EXCEPTIONS
 # =============================================================================
 
+
 class TestExceptionHandlerDomainExceptions:
     """Tests for DomainException subclasses handled by the custom exception_handler."""
 
@@ -370,7 +378,9 @@ class TestExceptionHandlerDomainExceptions:
 
     def test_not_found_custom_message(self, handler_context):
         """NotFound with custom message uses that message."""
-        exc = NotFound(message="Organization not found", resource="Organization", resource_id="abc")
+        exc = NotFound(
+            message="Organization not found", resource="Organization", resource_id="abc"
+        )
 
         response = exception_handler(exc, handler_context)
 
@@ -670,43 +680,54 @@ class TestExceptionHandlerDomainExceptions:
 # exception_handler TESTS — UNHANDLED EXCEPTIONS
 # =============================================================================
 
-class TestExceptionHandlerUnhandledExceptions:
-    """Tests for unhandled (non-DRF, non-domain) exceptions."""
 
+class TestExceptionHandlerUnhandledExceptionsDebug:
+    """Tests for unhandled exceptions in DEBUG mode (development).
+
+    pytest-django sets DEBUG=False by default, so we use @override_settings
+    to test the development path where unhandled exceptions return None
+    (letting Django show the debug traceback page).
+    """
+
+    @override_settings(DEBUG=True)
     def test_regular_python_exception_returns_none(self, handler_context):
-        """A plain Python exception should return None (unhandled)."""
+        """A plain Python exception should return None in DEBUG mode."""
         exc = ValueError("Something went wrong")
 
         response = exception_handler(exc, handler_context)
 
         assert response is None
 
+    @override_settings(DEBUG=True)
     def test_runtime_error_returns_none(self, handler_context):
-        """RuntimeError should return None (unhandled)."""
+        """RuntimeError should return None in DEBUG mode."""
         exc = RuntimeError("Unexpected runtime error")
 
         response = exception_handler(exc, handler_context)
 
         assert response is None
 
+    @override_settings(DEBUG=True)
     def test_type_error_returns_none(self, handler_context):
-        """TypeError should return None (unhandled)."""
+        """TypeError should return None in DEBUG mode."""
         exc = TypeError("Wrong type")
 
         response = exception_handler(exc, handler_context)
 
         assert response is None
 
+    @override_settings(DEBUG=True)
     def test_key_error_returns_none(self, handler_context):
-        """KeyError should return None (unhandled)."""
+        """KeyError should return None in DEBUG mode."""
         exc = KeyError("missing_key")
 
         response = exception_handler(exc, handler_context)
 
         assert response is None
 
+    @override_settings(DEBUG=True)
     def test_generic_exception_returns_none(self, handler_context):
-        """Generic Exception should return None (unhandled)."""
+        """Generic Exception should return None in DEBUG mode."""
         exc = Exception("Generic failure")
 
         response = exception_handler(exc, handler_context)
@@ -714,9 +735,54 @@ class TestExceptionHandlerUnhandledExceptions:
         assert response is None
 
 
+class TestExceptionHandlerUnhandledExceptionsProduction:
+    """Tests for unhandled exceptions when DEBUG=False (production mode)."""
+
+    @override_settings(DEBUG=False)
+    def test_regular_python_exception_returns_json_500(self, handler_context):
+        """In production, unhandled exceptions return a JSON 500 response."""
+        exc = ValueError("Something went wrong")
+
+        response = exception_handler(exc, handler_context)
+
+        assert response is not None
+        assert response.status_code == 500
+        assert response.data == {
+            "error": {
+                "message": "An unexpected error occurred",
+                "code": "internal_error",
+                "details": {},
+            }
+        }
+
+    @override_settings(DEBUG=False)
+    def test_runtime_error_returns_json_500(self, handler_context):
+        """RuntimeError in production returns JSON 500."""
+        exc = RuntimeError("Unexpected runtime error")
+
+        response = exception_handler(exc, handler_context)
+
+        assert response is not None
+        assert response.status_code == 500
+        assert response.data["error"]["code"] == "internal_error"
+
+    @override_settings(DEBUG=False)
+    def test_unhandled_exception_does_not_leak_details(self, handler_context):
+        """Production JSON 500 response must not contain exception details."""
+        exc = ValueError("sensitive internal info about database schema")
+
+        response = exception_handler(exc, handler_context)
+
+        assert response is not None
+        assert "sensitive" not in str(response.data)
+        assert "database" not in str(response.data)
+        assert response.data["error"]["details"] == {}
+
+
 # =============================================================================
 # HELPER FUNCTION TESTS — _extract_message
 # =============================================================================
+
 
 class TestExtractMessage:
     """Tests for the _extract_message() helper function."""
@@ -792,6 +858,7 @@ class TestExtractMessage:
 # HELPER FUNCTION TESTS — _extract_details
 # =============================================================================
 
+
 class TestExtractDetails:
     """Tests for the _extract_details() helper function."""
 
@@ -844,6 +911,7 @@ class TestExtractDetails:
 # HELPER FUNCTION TESTS — _status_to_code
 # =============================================================================
 
+
 class TestStatusToCode:
     """Tests for the _status_to_code() helper function."""
 
@@ -879,6 +947,7 @@ class TestStatusToCode:
 # =============================================================================
 # HELPER FUNCTION TESTS — _get_view_name
 # =============================================================================
+
 
 class TestGetViewName:
     """Tests for the _get_view_name() helper function."""
@@ -926,6 +995,7 @@ class TestGetViewName:
 # =============================================================================
 # INTEGRATION TESTS — RESPONSE FORMAT CONSISTENCY
 # =============================================================================
+
 
 class TestResponseFormatConsistency:
     """Tests that all handled exceptions produce consistent response format."""
@@ -992,7 +1062,9 @@ class TestResponseFormatConsistency:
         exceptions_to_test = [
             DomainException(message="Test", details={"a": 1}),
             NotFound(resource="User", resource_id="99"),
-            ConflictError(message="Duplicate", resource="Order", conflict_type="duplicate"),
+            ConflictError(
+                message="Duplicate", resource="Order", conflict_type="duplicate"
+            ),
             TokenExpired(),
             RateLimitExceeded(retry_after=60),
             ServiceUnavailable(service="email", retry_after=30),
@@ -1010,6 +1082,7 @@ class TestResponseFormatConsistency:
 # =============================================================================
 # LOGGING TESTS
 # =============================================================================
+
 
 class TestExceptionHandlerLogging:
     """Tests that the handler logs domain and unhandled exceptions correctly."""

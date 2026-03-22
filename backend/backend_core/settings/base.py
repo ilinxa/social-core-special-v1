@@ -1,5 +1,5 @@
-from pathlib import Path
 import os
+from pathlib import Path
 
 # =============================================================================
 # LOAD ENVIRONMENT VARIABLES FROM .env FILE
@@ -17,29 +17,29 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load .env.dev first (for development) - takes priority
-dev_dotenv_path = BACKEND_DIR / '.env.dev'
+dev_dotenv_path = BACKEND_DIR / ".env.dev"
 if dev_dotenv_path.exists():
     load_dotenv(dev_dotenv_path, override=False)
 
 # Then load .env (for production or additional vars)
-dotenv_path = BACKEND_DIR / '.env'
+dotenv_path = BACKEND_DIR / ".env"
 if dotenv_path.exists():
     load_dotenv(dotenv_path, override=False)
 
 # Also try to load from project root (django_base_v1/.env)
-root_dotenv_path = BACKEND_DIR.parent / '.env'
+root_dotenv_path = BACKEND_DIR.parent / ".env"
 if root_dotenv_path.exists():
     load_dotenv(root_dotenv_path, override=False)
 
 # ============================================
 # SECRET KEY CONFIGURATION
 # ============================================
-# SECURITY WARNING: keep the secret key used in production secret!
-# This default is ONLY for local development
-# Production MUST override this with a strong, randomly generated key
+# Dev-safe defaults: These values are intentionally set for local development.
+# Production settings (production.py) override all of these via environment variables.
+# The insecure prefix below triggers a startup error in production.py if left unchanged.
 SECRET_KEY = os.getenv(
     "DJANGO_SECRET_KEY",
-    "django-insecure-CHANGE-THIS-IN-PRODUCTION-4bil&5)m#3(5ac@a-n@thoa3inoq$&9(+7jp6(7ghfa45y3upf"
+    "django-insecure-CHANGE-THIS-IN-PRODUCTION-4bil&5)m#3(5ac@a-n@thoa3inoq$&9(+7jp6(7ghfa45y3upf",
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -47,17 +47,15 @@ SECRET_KEY = os.getenv(
 ALLOWED_HOSTS = []
 
 
-
 # ===========================================
 # CUSTOM USER MODEL - CRITICAL: Must be set BEFORE any migrations
 # ===========================================
-AUTH_USER_MODEL = 'users.User'
+AUTH_USER_MODEL = "users.User"
 
 # Application definition
 
 INSTALLED_APPS = [
     "daphne",
-
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -66,7 +64,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.postgres",
     # Third-party
-
     "rest_framework",
     "drf_spectacular",
     "corsheaders",
@@ -100,6 +97,8 @@ INSTALLED_APPS = [
     "apps.explore",
     # Network (follows, connections)
     "apps.network",
+    # Chat (conversations, messages, real-time)
+    "apps.chat",
 ]
 
 MIDDLEWARE = [
@@ -118,6 +117,8 @@ MIDDLEWARE = [
     # === LATE PROCESSING ===
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # === CACHE HEADERS (last: sets Cache-Control on API responses) ===
+    "apps.core.middleware.CacheControlMiddleware",
 ]
 
 ROOT_URLCONF = "backend_core.urls"
@@ -152,7 +153,7 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
         "OPTIONS": {
             "min_length": 8,
-        }
+        },
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
@@ -160,6 +161,15 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
+]
+
+# Password hashing algorithms (Argon2 preferred, PBKDF2 as fallback for existing hashes)
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
 ]
 
 
@@ -174,15 +184,15 @@ USE_TZ = True
 REST_FRAMEWORK = {
     # Renderer classes
     "DEFAULT_RENDERER_CLASSES": [
-        "rest_framework.renderers.JSONRenderer", # output format will be JSON
+        "rest_framework.renderers.JSONRenderer",  # output format will be JSON
         # "rest_framework.renderers.BrowsableAPIRenderer"
     ],
-    # Parser classes
+    # Parser classes (JSON only by default — file upload views set their own parsers)
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
-        "rest_framework.parsers.FormParser",
-        "rest_framework.parsers.MultiPartParser",
     ],
+    # Test client default format (matches parser restriction)
+    "TEST_REQUEST_DEFAULT_FORMAT": "json",
     # Authentication classes
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "apps.auth.authentication.JWTAuthentication",
@@ -195,12 +205,11 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.StandardPagination",
     "PAGE_SIZE": 20,
     # Versioning (configured for future v2 routes - currently URLs use hardcoded api/v1/ prefix)
-    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.URLPathVersioning',
-    'DEFAULT_VERSION': 'v1',
-    'ALLOWED_VERSIONS': ['v1'],
+    "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.URLPathVersioning",
+    "DEFAULT_VERSION": "v1",
+    "ALLOWED_VERSIONS": ["v1"],
     # Schema generation
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",  # ← Critical
-
     # Throttling (can be overridden in specific views)
     # Limits request rates (anti-abuse / anti-DDoS)
     #
@@ -219,15 +228,14 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        'anon': '100/hour',         # Anonymous users (global)
-        'user': '1000/hour',        # Authenticated users (global)
-        'burst': '60/minute',       # For views with throttle_scope='burst'
-        'login': '5/minute',        # For login endpoints
-        'password_reset': '3/hour', # For password reset endpoints
-        'verification': '5/minute', # For email verification code attempts
-        'refresh': '30/minute',     # For token refresh endpoint
+        "anon": "100/hour",  # Anonymous users (global)
+        "user": "1000/hour",  # Authenticated users (global)
+        "burst": "60/minute",  # For views with throttle_scope='burst'
+        "login": "5/minute",  # For login endpoints
+        "password_reset": "3/hour",  # For password reset endpoints
+        "verification": "5/minute",  # For email verification code attempts
+        "refresh": "30/minute",  # For token refresh endpoint
     },
-    
     # Exception handler
     # Defines how exceptions are converted into HTTP responses (Python => HTTP)
     # Uses custom handler to convert DomainException hierarchy to consistent responses
@@ -271,31 +279,24 @@ This API uses JWT (JSON Web Token) authentication:
     """,
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
-
     # Contact information
     "CONTACT": {
         "name": "API Support",
         "email": "support@example.com",
     },
-
     # License
     "LICENSE": {
         "name": "Proprietary",
     },
-
     # Security schemes
     "SECURITY": [{"BearerAuth": []}],
-
     # Component settings
     "COMPONENT_SPLIT_REQUEST": True,
     "COMPONENT_SPLIT_PATCH": True,
-
     # Schema path prefix for versioned APIs
     "SCHEMA_PATH_PREFIX": r"/api/v[0-9]+",
-
     # Sort operations alphabetically within tags
     "SORT_OPERATIONS": True,
-
     # Tag ordering
     "TAGS": [
         {"name": "Authentication", "description": "Login, logout, token management"},
@@ -305,12 +306,14 @@ This API uses JWT (JSON Web Token) authentication:
         {"name": "OAuth", "description": "Social login (Google, Apple)"},
         {"name": "User", "description": "User account management"},
         {"name": "User Profile", "description": "User profile and avatar"},
-        {"name": "Notifications", "description": "Notification preferences and history"},
+        {
+            "name": "Notifications",
+            "description": "Notification preferences and history",
+        },
         {"name": "Platform", "description": "Platform account and settings"},
         {"name": "Business", "description": "Business account management"},
         {"name": "Business Admin", "description": "Business admin operations (staff)"},
     ],
-
     # Swagger UI settings
     "SWAGGER_UI_SETTINGS": {
         "deepLinking": True,
@@ -321,13 +324,10 @@ This API uses JWT (JSON Web Token) authentication:
         "defaultModelsExpandDepth": 2,
         "syntaxHighlight.theme": "monokai",
     },
-
-
     # Preprocessing hooks
     "PREPROCESSING_HOOKS": [
         "drf_spectacular.hooks.preprocess_exclude_path_format",
     ],
-
     # Postprocessing hooks
     "POSTPROCESSING_HOOKS": [
         "drf_spectacular.hooks.postprocess_schema_enums",
@@ -379,32 +379,32 @@ CHANNEL_LAYERS = {
 # EMAIL CONFIGURATION
 # ============================================
 # Default sender email address
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@example.com')
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.com")
 
 # Email backend type: 'ses', 'smtp', or 'console'
-EMAIL_BACKEND_TYPE = os.getenv('EMAIL_BACKEND_TYPE', 'console')
+EMAIL_BACKEND_TYPE = os.getenv("EMAIL_BACKEND_TYPE", "console")
 
 # AWS SES settings (used when EMAIL_BACKEND_TYPE='ses')
-AWS_SES_REGION_NAME = os.getenv('AWS_SES_REGION', 'us-east-1')
-AWS_SES_CONFIGURATION_SET = os.getenv('AWS_SES_CONFIGURATION_SET', '')
+AWS_SES_REGION_NAME = os.getenv("AWS_SES_REGION", "us-east-1")
+AWS_SES_CONFIGURATION_SET = os.getenv("AWS_SES_CONFIGURATION_SET", "")
 
 # SMTP settings (used when EMAIL_BACKEND_TYPE='smtp')
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'localhost')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
-EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'false').lower() == 'true'
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() == "true"
 
 # Email log retention (days)
-EMAIL_LOG_RETENTION_DAYS = int(os.getenv('EMAIL_LOG_RETENTION_DAYS', '90'))
+EMAIL_LOG_RETENTION_DAYS = int(os.getenv("EMAIL_LOG_RETENTION_DAYS", "90"))
 
 # ============================================
 # CELERY CONFIGURATION
 # ============================================
 # Broker URL - Redis by default
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 
 # Task settings
 CELERY_TASK_ALWAYS_EAGER = False  # Set to True for synchronous testing
@@ -413,59 +413,104 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 300  # 5 minutes max per task
 
 # Serialization
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
 
 # Timezone
-CELERY_TIMEZONE = 'UTC'
+CELERY_TIMEZONE = "UTC"
 CELERY_ENABLE_UTC = True
 
 # Beat scheduler (using django-celery-beat)
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# Queue routing — workers must listen to all queues:
+#   celery worker -Q critical,default,bulk
+CELERY_TASK_ROUTES = {
+    # Critical delivery — low latency, email/notification/security
+    "apps.email.tasks.send_email_task": {"queue": "critical"},
+    "apps.notifications.tasks.dispatch_notification_task": {"queue": "critical"},
+    "auth.revoke_user_tokens": {"queue": "critical"},
+    # Retry — default queue
+    "apps.transaction.tasks.retry_outcome_execution_task": {"queue": "default"},
+    "apps.notifications.tasks.retry_partial_notification_task": {"queue": "default"},
+    "apps.email.tasks.retry_failed_emails_task": {"queue": "default"},
+    # Bulk — cleanup and batch operations
+    "apps.transaction.tasks.expire_transactions_task": {"queue": "bulk"},
+    "apps.transaction.tasks.cleanup_old_transaction_logs_task": {"queue": "bulk"},
+    "apps.transaction.tasks.send_expiration_reminder_task": {"queue": "bulk"},
+    "apps.notifications.tasks.cleanup_old_notification_logs": {"queue": "bulk"},
+    "apps.email.tasks.cleanup_old_email_logs": {"queue": "bulk"},
+    "apps.chat.tasks.expire_stale_chat_requests": {"queue": "bulk"},
+    "apps.chat.tasks.cleanup_orphan_attachments": {"queue": "bulk"},
+    "auth.cleanup_expired_tokens": {"queue": "bulk"},
+    "auth.cleanup_inactive_sessions": {"queue": "bulk"},
+    "cms.cleanup_tombstoned_media": {"queue": "bulk"},
+    "cms.prune_content_versions": {"queue": "bulk"},
+}
 
 # ============================================
 # NOTIFICATION CONFIGURATION
 # ============================================
 # Log retention (days)
-NOTIFICATION_LOG_RETENTION_DAYS = int(os.getenv('NOTIFICATION_LOG_RETENTION_DAYS', '90'))
+NOTIFICATION_LOG_RETENTION_DAYS = int(
+    os.getenv("NOTIFICATION_LOG_RETENTION_DAYS", "90")
+)
 
 # ============================================
 # JWT AUTHENTICATION CONFIGURATION
 # ============================================
 JWT_AUTH = {
-    'ACCESS_TOKEN_LIFETIME': int(os.getenv('JWT_ACCESS_TOKEN_LIFETIME', '900')),  # 15 minutes
-    'REFRESH_TOKEN_LIFETIME': int(os.getenv('JWT_REFRESH_TOKEN_LIFETIME', '604800')),  # 7 days
-    'ALGORITHM': 'HS256',
+    "ACCESS_TOKEN_LIFETIME": int(
+        os.getenv("JWT_ACCESS_TOKEN_LIFETIME", "900")
+    ),  # 15 minutes
+    "REFRESH_TOKEN_LIFETIME": int(
+        os.getenv("JWT_REFRESH_TOKEN_LIFETIME", "604800")
+    ),  # 7 days
+    "ALGORITHM": "HS256",
 }
 
+# Dedicated JWT signing key (falls back to SECRET_KEY if not set)
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", SECRET_KEY)
+
+# JWT issuer and audience claims (prevents token substitution across services)
+JWT_ISSUER = os.getenv("JWT_ISSUER", "socialmedia-adv-api")
+JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "socialmedia-adv-client")
+
 # Maximum active sessions per user
-AUTH_MAX_SESSIONS_PER_USER = int(os.getenv('AUTH_MAX_SESSIONS_PER_USER', '5'))
+AUTH_MAX_SESSIONS_PER_USER = int(os.getenv("AUTH_MAX_SESSIONS_PER_USER", "5"))
+
+# Account lockout after failed login attempts
+AUTH_MAX_FAILED_ATTEMPTS = int(os.getenv("AUTH_MAX_FAILED_ATTEMPTS", "10"))
+AUTH_LOCKOUT_DURATION = int(os.getenv("AUTH_LOCKOUT_DURATION", "900"))  # 15 minutes
 
 # ============================================
 # OAUTH CONFIGURATION
 # ============================================
 # Google OAuth
-GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '')
-GOOGLE_OAUTH_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '')
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
 
 # Apple OAuth
-APPLE_OAUTH_CLIENT_ID = os.getenv('APPLE_OAUTH_CLIENT_ID', '')  # Services ID
-APPLE_OAUTH_TEAM_ID = os.getenv('APPLE_OAUTH_TEAM_ID', '')
-APPLE_OAUTH_KEY_ID = os.getenv('APPLE_OAUTH_KEY_ID', '')
-APPLE_OAUTH_PRIVATE_KEY = os.getenv('APPLE_OAUTH_PRIVATE_KEY', '')
+APPLE_OAUTH_CLIENT_ID = os.getenv("APPLE_OAUTH_CLIENT_ID", "")  # Services ID
+APPLE_OAUTH_TEAM_ID = os.getenv("APPLE_OAUTH_TEAM_ID", "")
+APPLE_OAUTH_KEY_ID = os.getenv("APPLE_OAUTH_KEY_ID", "")
+APPLE_OAUTH_PRIVATE_KEY = os.getenv("APPLE_OAUTH_PRIVATE_KEY", "")
 
 # Frontend URL (for OAuth redirects and email links)
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+# Allowed origins for OAuth redirect_to validation
+ALLOWED_REDIRECT_ORIGINS = [FRONTEND_URL]
 
 # Backend URL (for OAuth callbacks)
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # ============================================
 # REDIS CONFIGURATION
 # ============================================
 # Used for JTI blacklist and caching
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 # ============================================
 # OBSERVABILITY CONFIGURATION
@@ -484,3 +529,9 @@ LOGGING_SERVICE_NAME = "django-api"
 # Metrics settings (future)
 METRICS_ENABLED = False
 METRICS_BACKEND = "noop"  # "noop", "prometheus"
+
+# ============================================
+# FILE UPLOAD LIMITS
+# ============================================
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB

@@ -1,16 +1,21 @@
 # apps/cms/tests/conftest.py
 import pytest
 from rest_framework.test import APIClient
+
 from apps.cms.tests.factories import (
-    SiteFactory, PageFactory, SectionTemplateFactory, BlockTemplateFactory,
-    PageSectionPlacementFactory, SectionBlockPlacementFactory,
+    BlockTemplateFactory,
     MediaFileFactory,
+    PageFactory,
+    PageSectionPlacementFactory,
+    SectionBlockPlacementFactory,
+    SectionTemplateFactory,
+    SiteFactory,
 )
-from apps.users.tests.factories import UserFactory
+from apps.core.constants import AccountType, OwnerType
 from apps.organization.tests.factories import PlatformAccountFactory
-from apps.core.constants import OwnerType, AccountType
-from apps.rbac.services import RBACService
 from apps.rbac.selectors import RoleSelector
+from apps.rbac.services import RBACService
+from apps.users.tests.factories import UserFactory
 
 
 @pytest.fixture
@@ -27,6 +32,7 @@ def user(db):
 def platform_account(db):
     """Get or create the singleton PlatformAccount."""
     from apps.organization.platform.models import PlatformAccount
+
     platform = PlatformAccount.objects.first()
     if platform:
         return platform
@@ -55,6 +61,7 @@ def platform_with_rbac(db, user, platform_account):
 def actor_context(user, platform_with_rbac):
     """Build ActorContext for the platform owner user."""
     from apps.rbac.selectors import MembershipSelector
+
     membership = MembershipSelector.get_active_membership_for_user_account(
         user=user,
         account_type=AccountType.PLATFORM,
@@ -77,7 +84,9 @@ def site(db, user, platform_with_rbac):
 @pytest.fixture
 def page(db, site):
     """Create a draft page in the test site."""
-    return PageFactory(site=site, created_by=site.created_by, updated_by=site.created_by)
+    return PageFactory(
+        site=site, created_by=site.created_by, updated_by=site.created_by
+    )
 
 
 @pytest.fixture
@@ -108,7 +117,8 @@ def block_placement(db, section_placement, block_template, user):
 @pytest.fixture
 def published_page(db, site, section_template, block_template, user):
     """Create a fully published page with sections and blocks."""
-    from apps.cms.constants import PageStatus, BlockPlacementStatus
+    from apps.cms.constants import BlockPlacementStatus, PageStatus
+
     page = PageFactory(
         site=site,
         status=PageStatus.PUBLISHED,

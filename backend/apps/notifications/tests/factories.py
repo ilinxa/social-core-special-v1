@@ -18,7 +18,6 @@ from factory.django import DjangoModelFactory
 from apps.notifications.models import NotificationLog, NotificationPreference
 from apps.users.tests.factories import UserFactory
 
-
 # =============================================================================
 # NOTIFICATION PREFERENCE FACTORIES
 # =============================================================================

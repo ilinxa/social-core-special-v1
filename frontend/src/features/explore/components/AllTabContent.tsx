@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useExploreCombined } from "@/features/explore/hooks/use-explore-queries";
+import { cn } from "@/lib/utils";
 import { BusinessCard } from "./BusinessCard";
 import { UserCard } from "./UserCard";
 
@@ -49,16 +50,12 @@ export function AllTabContent({ query, isAuthenticated }: AllTabContentProps) {
             </span>
           </div>
           <ChevronDown
-            className={`h-4 w-4 text-muted-foreground transition-transform ${
-              bizOpen ? "rotate-180" : ""
-            }`}
+            className={cn("h-4 w-4 text-muted-foreground transition-transform", bizOpen && "rotate-180")}
           />
         </button>
 
         <div
-          className={`grid transition-[grid-template-rows] duration-200 ${
-            bizOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-          }`}
+          className={cn("grid transition-[grid-template-rows] duration-200", bizOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}
         >
           <div className="overflow-hidden">
             <div className="max-h-112 overflow-y-auto px-4 pb-4">
@@ -105,16 +102,12 @@ export function AllTabContent({ query, isAuthenticated }: AllTabContentProps) {
               </span>
             </div>
             <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                usersOpen ? "rotate-180" : ""
-              }`}
+              className={cn("h-4 w-4 text-muted-foreground transition-transform", usersOpen && "rotate-180")}
             />
           </button>
 
           <div
-            className={`grid transition-[grid-template-rows] duration-200 ${
-              usersOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-            }`}
+            className={cn("grid transition-[grid-template-rows] duration-200", usersOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}
           >
             <div className="overflow-hidden">
               <div className="max-h-112 overflow-y-auto px-4 pb-4">

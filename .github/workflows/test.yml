@@ -1,0 +1,126 @@
+name: Backend Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['backend/**']
+  pull_request:
+    branches: [main, develop]
+    paths: ['backend/**']
+
+jobs:
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: 'backend/requirements/*.txt'
+      - run: pip install -r backend/requirements/local.txt
+      - name: Check formatting (black)
+        run: cd backend && black --check .
+      - name: Check import sorting (isort)
+        run: cd backend && isort --check-only .
+      - name: Lint (flake8)
+        run: cd backend && flake8 .
+
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: 'backend/requirements/*.txt'
+      - run: pip install pip-audit detect-secrets
+      - name: Audit Python dependencies
+        run: pip-audit -r backend/requirements/base.txt
+      - name: Scan for leaked secrets
+        run: detect-secrets scan backend/ --all-files --force-use-all-plugins
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: backend_core_db
+          POSTGRES_USER: django_user
+          POSTGRES_PASSWORD: ci_test_password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DJANGO_SETTINGS_MODULE: backend_core.settings.local_docker
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: backend_core_db
+      POSTGRES_USER: django_user
+      POSTGRES_PASSWORD: ci_test_password
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: 'backend/requirements/*.txt'
+      - run: pip install -r backend/requirements/local.txt
+
+      - name: Verify dependency consistency
+        run: cd backend && pip check
+
+      - name: Check for missing migrations
+        run: cd backend && python manage.py makemigrations --check
+
+      - name: Run migrations from zero
+        run: cd backend && python manage.py migrate
+
+      - name: Django system checks
+        run: cd backend && python manage.py check --deploy --fail-level ERROR
+
+      - name: Run tests with coverage
+        run: >-
+          cd backend && pytest
+          -o 'DJANGO_SETTINGS_MODULE=backend_core.settings.local_docker'
+          --cov --cov-config=pyproject.toml
+          --cov-report=term-missing
+          --cov-report=xml:coverage.xml
+          -x --tb=short
+
+      - name: Verify coverage threshold
+        run: cd backend && coverage report --fail-under=80
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/coverage.xml
+          retention-days: 30
+
+  build:
+    name: Docker Build Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t django-backend:${{ github.sha }} ./backend

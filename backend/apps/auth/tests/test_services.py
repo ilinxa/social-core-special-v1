@@ -15,38 +15,53 @@ Security-critical tests are marked with comments so they are never deleted.
 
 import uuid
 from datetime import timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.core.cache import cache
 from django.utils import timezone
 
-from apps.auth.services import AuthService, DeviceInfo, TokenPair, PasswordService, VerificationService
+from apps.auth.blacklist import JTIBlacklist
+from apps.auth.models import (
+    DeviceSession,
+    EmailVerificationToken,
+    PasswordResetToken,
+    RefreshToken,
+)
+from apps.auth.services import (
+    AuthService,
+    DeviceInfo,
+    PasswordService,
+    TokenPair,
+    VerificationService,
+)
 from apps.auth.services.oauth_service import OAuthStateManager
+from apps.auth.tests.factories import (
+    DeviceSessionFactory,
+    EmailVerificationTokenFactory,
+    OAuthConnectionFactory,
+    PasswordResetTokenFactory,
+    RefreshTokenFactory,
+)
 from apps.core.exceptions import (
-    InvalidCredentials,
     AccountInactive,
     AccountNotVerified,
+    InvalidCredentials,
+    OAuthError,
     TokenExpired,
     TokenInvalid,
     ValidationError,
-    OAuthError,
 )
-from apps.auth.models import RefreshToken, DeviceSession, EmailVerificationToken, PasswordResetToken
-from apps.auth.blacklist import JTIBlacklist
-from apps.auth.tests.factories import (
-    RefreshTokenFactory,
-    DeviceSessionFactory,
-    EmailVerificationTokenFactory,
-    PasswordResetTokenFactory,
-    OAuthConnectionFactory,
+from apps.users.tests.factories import (
+    InactiveUserFactory,
+    UserFactory,
+    VerifiedUserFactory,
 )
-from apps.users.tests.factories import UserFactory, VerifiedUserFactory, InactiveUserFactory
-
 
 # =============================================================================
 # HELPERS
 # =============================================================================
+
 
 def _device_info(**overrides):
     """Return a default DeviceInfo for testing."""
@@ -91,7 +106,9 @@ class TestAuthServiceLogin:
 
     @patch(_NOTIF)
     @patch(_AUDIT_AUTH)
-    def test_login_wrong_password_raises_invalid_credentials(self, mock_audit, mock_notif):
+    def test_login_wrong_password_raises_invalid_credentials(
+        self, mock_audit, mock_notif
+    ):
         """SECURITY: wrong password must raise InvalidCredentials (same as wrong email)."""
         user = UserFactory()
         with pytest.raises(InvalidCredentials):
@@ -141,7 +158,9 @@ class TestAuthServiceLogin:
 
     @patch(_NOTIF)
     @patch(_AUDIT_AUTH)
-    def test_login_unverified_with_require_verified_raises(self, mock_audit, mock_notif):
+    def test_login_unverified_with_require_verified_raises(
+        self, mock_audit, mock_notif
+    ):
         """When require_verified=True an unverified user is rejected."""
         user = UserFactory(is_verified=False)
         with pytest.raises(AccountNotVerified):
@@ -154,7 +173,9 @@ class TestAuthServiceLogin:
 
     @patch(_NOTIF)
     @patch(_AUDIT_AUTH)
-    def test_login_unverified_without_require_verified_succeeds(self, mock_audit, mock_notif):
+    def test_login_unverified_without_require_verified_succeeds(
+        self, mock_audit, mock_notif
+    ):
         """Default login succeeds even if user is not verified."""
         user = UserFactory(is_verified=False)
         result_user, tokens, session = AuthService.login(
@@ -166,7 +187,9 @@ class TestAuthServiceLogin:
 
     @patch(_NOTIF)
     @patch(_AUDIT_AUTH)
-    def test_login_verified_with_require_verified_succeeds(self, mock_audit, mock_notif):
+    def test_login_verified_with_require_verified_succeeds(
+        self, mock_audit, mock_notif
+    ):
         """Verified user passes require_verified check."""
         user = VerifiedUserFactory()
         result_user, tokens, session = AuthService.login(
@@ -211,7 +234,9 @@ class TestAuthServiceLogin:
 
     @patch(_NOTIF)
     @patch(_AUDIT_AUTH)
-    def test_login_updates_existing_session_for_same_device(self, mock_audit, mock_notif):
+    def test_login_updates_existing_session_for_same_device(
+        self, mock_audit, mock_notif
+    ):
         """Logging in again from the same device updates the session, not creates a new one."""
         user = UserFactory()
         _, _, session1 = AuthService.login(
@@ -246,7 +271,9 @@ class TestAuthServiceLogin:
             device_info=_device_info(device_id="device-new"),
         )
 
-        active_sessions = DeviceSession.objects.filter(user=user, is_active=True).count()
+        active_sessions = DeviceSession.objects.filter(
+            user=user, is_active=True
+        ).count()
         # Should not exceed 5 + 1 current
         assert active_sessions <= 6
 
@@ -264,7 +291,9 @@ class TestAuthServiceLogin:
 
     @patch(_NOTIF)
     @patch(_AUDIT_AUTH)
-    def test_login_new_device_sends_notification(self, mock_audit, mock_notif):
+    def test_login_new_device_sends_notification(
+        self, mock_audit, mock_notif, immediate_on_commit
+    ):
         """A brand-new device login triggers a notification."""
         user = UserFactory()
         AuthService.login(
@@ -352,7 +381,9 @@ class TestAuthServiceRefresh:
 
     @patch(_NOTIF)
     @patch(_AUDIT_AUTH)
-    def test_refresh_inactive_user_raises_account_inactive(self, mock_audit, mock_notif):
+    def test_refresh_inactive_user_raises_account_inactive(
+        self, mock_audit, mock_notif
+    ):
         """Refresh with a valid token but inactive user raises AccountInactive."""
         user = UserFactory()
         token_obj, raw = RefreshTokenFactory.create_with_raw_token(user=user)
@@ -696,7 +727,9 @@ class TestAuthServiceRevokeSession:
         """Revoking own active session returns True and deactivates it."""
         user = UserFactory()
         token_obj, _ = RefreshTokenFactory.create_with_raw_token(user=user)
-        session = DeviceSessionFactory(user=user, device_id="d1", current_token=token_obj)
+        session = DeviceSessionFactory(
+            user=user, device_id="d1", current_token=token_obj
+        )
 
         result = AuthService.revoke_session(user=user, session_id=str(session.id))
         assert result is True
@@ -710,7 +743,9 @@ class TestAuthServiceRevokeSession:
         """Session revocation also revokes the associated refresh token."""
         user = UserFactory()
         token_obj, _ = RefreshTokenFactory.create_with_raw_token(user=user)
-        session = DeviceSessionFactory(user=user, device_id="d1", current_token=token_obj)
+        session = DeviceSessionFactory(
+            user=user, device_id="d1", current_token=token_obj
+        )
 
         AuthService.revoke_session(user=user, session_id=str(session.id))
 
@@ -723,7 +758,9 @@ class TestAuthServiceRevokeSession:
         """Session revocation blacklists the JTI for immediate access token invalidation."""
         user = UserFactory()
         token_obj, _ = RefreshTokenFactory.create_with_raw_token(user=user)
-        session = DeviceSessionFactory(user=user, device_id="d1", current_token=token_obj)
+        session = DeviceSessionFactory(
+            user=user, device_id="d1", current_token=token_obj
+        )
 
         AuthService.revoke_session(user=user, session_id=str(session.id))
 
@@ -789,7 +826,9 @@ class TestPasswordServiceRequestReset:
 
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
-    def test_request_reset_inactive_user_returns_true_no_token(self, mock_audit, mock_notif):
+    def test_request_reset_inactive_user_returns_true_no_token(
+        self, mock_audit, mock_notif
+    ):
         """Inactive user gets True but no token is created."""
         user = InactiveUserFactory()
         result = PasswordService.request_reset(email=user.email)
@@ -806,7 +845,9 @@ class TestPasswordServiceRequestReset:
 
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
-    def test_request_reset_nonexistent_email_no_notification(self, mock_audit, mock_notif):
+    def test_request_reset_nonexistent_email_no_notification(
+        self, mock_audit, mock_notif
+    ):
         """No notification sent when email doesn't exist."""
         PasswordService.request_reset(email="nobody@example.com")
         mock_notif.send.assert_not_called()
@@ -817,7 +858,9 @@ class TestPasswordServiceRequestReset:
         """Creating a new reset token invalidates any existing one."""
         user = UserFactory()
         PasswordService.request_reset(email=user.email)
-        first_token = PasswordResetToken.objects.filter(user=user, is_used=False).first()
+        first_token = PasswordResetToken.objects.filter(
+            user=user, is_used=False
+        ).first()
         assert first_token is not None
 
         PasswordService.request_reset(email=user.email)
@@ -839,7 +882,9 @@ class TestPasswordServiceConfirmReset:
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
     @patch(_AUDIT_AUTH)
-    def test_confirm_reset_invalid_token_raises(self, mock_a_auth, mock_audit, mock_notif, mock_redis):
+    def test_confirm_reset_invalid_token_raises(
+        self, mock_a_auth, mock_audit, mock_notif, mock_redis
+    ):
         """Non-existent token UUID raises TokenInvalid."""
         with pytest.raises(TokenInvalid):
             PasswordService.confirm_reset(
@@ -851,7 +896,9 @@ class TestPasswordServiceConfirmReset:
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
     @patch(_AUDIT_AUTH)
-    def test_confirm_reset_expired_token_raises(self, mock_a_auth, mock_audit, mock_notif, mock_redis):
+    def test_confirm_reset_expired_token_raises(
+        self, mock_a_auth, mock_audit, mock_notif, mock_redis
+    ):
         """Expired token raises TokenExpired."""
         user = UserFactory()
         token = PasswordResetTokenFactory(
@@ -884,7 +931,9 @@ class TestPasswordServiceConfirmReset:
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
     @patch(_AUDIT_AUTH)
-    def test_confirm_reset_success(self, mock_a_auth, mock_audit, mock_notif, mock_redis):
+    def test_confirm_reset_success(
+        self, mock_a_auth, mock_audit, mock_notif, mock_redis
+    ):
         """Successful reset marks token used and updates password."""
         user = UserFactory()
         token = PasswordResetTokenFactory(user=user)
@@ -906,7 +955,9 @@ class TestPasswordServiceConfirmReset:
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
     @patch(_AUDIT_AUTH)
-    def test_confirm_reset_logout_all_sessions(self, mock_a_auth, mock_audit, mock_notif, mock_redis):
+    def test_confirm_reset_logout_all_sessions(
+        self, mock_a_auth, mock_audit, mock_notif, mock_redis
+    ):
         """By default, confirm_reset logs out all sessions."""
         user = UserFactory()
         RefreshTokenFactory.create_with_raw_token(user=user)
@@ -923,7 +974,9 @@ class TestPasswordServiceConfirmReset:
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
     @patch(_AUDIT_AUTH)
-    def test_confirm_reset_no_logout_when_disabled(self, mock_a_auth, mock_audit, mock_notif, mock_redis):
+    def test_confirm_reset_no_logout_when_disabled(
+        self, mock_a_auth, mock_audit, mock_notif, mock_redis
+    ):
         """When logout_all_sessions=False, sessions are kept."""
         user = UserFactory()
         RefreshTokenFactory.create_with_raw_token(user=user)
@@ -941,10 +994,14 @@ class TestPasswordServiceConfirmReset:
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
     @patch(_AUDIT_AUTH)
-    def test_confirm_reset_used_token_raises(self, mock_a_auth, mock_audit, mock_notif, mock_redis):
+    def test_confirm_reset_used_token_raises(
+        self, mock_a_auth, mock_audit, mock_notif, mock_redis
+    ):
         """Already-used token raises TokenInvalid."""
         user = UserFactory()
-        token = PasswordResetTokenFactory(user=user, is_used=True, used_at=timezone.now())
+        token = PasswordResetTokenFactory(
+            user=user, is_used=True, used_at=timezone.now()
+        )
         with pytest.raises(TokenInvalid):
             PasswordService.confirm_reset(
                 token_uuid=token.token,
@@ -965,7 +1022,9 @@ class TestPasswordServiceChangePassword:
     @patch("apps.auth.blacklist.JTIBlacklist._get_redis", return_value="fallback")
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
-    def test_change_password_wrong_current_raises(self, mock_audit, mock_notif, mock_redis):
+    def test_change_password_wrong_current_raises(
+        self, mock_audit, mock_notif, mock_redis
+    ):
         """SECURITY: wrong current password raises InvalidCredentials."""
         user = UserFactory()
         with pytest.raises(InvalidCredentials):
@@ -978,7 +1037,9 @@ class TestPasswordServiceChangePassword:
     @patch("apps.auth.blacklist.JTIBlacklist._get_redis", return_value="fallback")
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
-    def test_change_password_weak_new_password_raises(self, mock_audit, mock_notif, mock_redis):
+    def test_change_password_weak_new_password_raises(
+        self, mock_audit, mock_notif, mock_redis
+    ):
         """Weak new password raises ValidationError."""
         user = UserFactory()
         with pytest.raises(ValidationError):
@@ -992,7 +1053,9 @@ class TestPasswordServiceChangePassword:
     @patch("apps.auth.blacklist.JTIBlacklist._get_redis", return_value="fallback")
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
-    def test_change_password_same_as_current_raises(self, mock_audit, mock_notif, mock_redis):
+    def test_change_password_same_as_current_raises(
+        self, mock_audit, mock_notif, mock_redis
+    ):
         """SECURITY: new password same as current raises ValidationError."""
         user = UserFactory()
         with pytest.raises(ValidationError):
@@ -1038,7 +1101,9 @@ class TestPasswordServiceChangePassword:
     @patch("apps.auth.blacklist.JTIBlacklist._get_redis", return_value="fallback")
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
-    def test_change_password_no_logout_when_disabled(self, mock_audit, mock_notif, mock_redis):
+    def test_change_password_no_logout_when_disabled(
+        self, mock_audit, mock_notif, mock_redis
+    ):
         """When logout_other_sessions=False, JTIs are not blacklisted."""
         user = UserFactory()
 
@@ -1054,7 +1119,9 @@ class TestPasswordServiceChangePassword:
     @patch("apps.auth.blacklist.JTIBlacklist._get_redis", return_value="fallback")
     @patch(_NOTIF)
     @patch(_AUDIT_PW)
-    def test_change_password_sends_notification(self, mock_audit, mock_notif, mock_redis):
+    def test_change_password_sends_notification(
+        self, mock_audit, mock_notif, mock_redis
+    ):
         """Password change sends a notification."""
         user = UserFactory()
         PasswordService.change_password(
@@ -1076,7 +1143,9 @@ class TestVerificationServiceCreateToken:
 
     @patch(_NOTIF)
     @patch(_AUDIT_VER)
-    def test_create_token_returns_none_if_already_verified(self, mock_audit, mock_notif):
+    def test_create_token_returns_none_if_already_verified(
+        self, mock_audit, mock_notif
+    ):
         """Already-verified user gets None."""
         user = VerifiedUserFactory()
         result = VerificationService.create_token(user=user)
@@ -1094,7 +1163,9 @@ class TestVerificationServiceCreateToken:
 
     @patch(_NOTIF)
     @patch(_AUDIT_VER)
-    def test_create_token_sends_notification(self, mock_audit, mock_notif):
+    def test_create_token_sends_notification(
+        self, mock_audit, mock_notif, immediate_on_commit
+    ):
         """Notification is sent with verification link and code."""
         user = UserFactory(is_verified=False)
         VerificationService.create_token(user=user)
@@ -1320,7 +1391,9 @@ class TestVerificationServiceResend:
 
     @patch(_NOTIF)
     @patch(_AUDIT_VER)
-    def test_resend_sends_notification(self, mock_audit, mock_notif):
+    def test_resend_sends_notification(
+        self, mock_audit, mock_notif, immediate_on_commit
+    ):
         """Resend triggers a notification."""
         user = UserFactory(is_verified=False)
         VerificationService.resend_verification(user)
@@ -1340,9 +1413,9 @@ class TestOAuthStateManager:
     def _use_locmem_cache(self, settings):
         """Use LocMemCache instead of DummyCache so cache.set/get work."""
         settings.CACHES = {
-            'default': {
-                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-                'LOCATION': 'oauth-state-test',
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                "LOCATION": "oauth-state-test",
             }
         }
 
@@ -1367,7 +1440,9 @@ class TestOAuthStateManager:
 
         verifier, challenge = OAuthStateManager.generate_pkce_pair()
         expected_digest = hashlib.sha256(verifier.encode()).digest()
-        expected_challenge = base64.urlsafe_b64encode(expected_digest).rstrip(b"=").decode()
+        expected_challenge = (
+            base64.urlsafe_b64encode(expected_digest).rstrip(b"=").decode()
+        )
         assert challenge == expected_challenge
 
     def test_create_state_returns_expected_keys(self):

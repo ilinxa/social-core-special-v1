@@ -6,21 +6,22 @@ Selectors are the single source of truth for read operations.
 They handle caching where appropriate and return domain objects.
 """
 
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 from uuid import UUID
 
 from django.core.cache import cache
 from django.db.models import QuerySet
 
+from apps.core.constants import MembershipStatus
 from apps.core.exceptions import NotFound
-from apps.core.constants import AccountType, MembershipStatus
-from apps.rbac.models import Permission, Role, RolePermission, Membership
+from apps.rbac.models import Membership, Permission, Role, RolePermission
 
 
 class PermissionSelector:
     """
     Selectors for Permission queries with caching for membership permissions.
     """
+
     CACHE_TTL = 300  # 5 minutes
 
     @staticmethod
@@ -42,7 +43,7 @@ class PermissionSelector:
             raise NotFound(
                 message="Permission not found",
                 resource="Permission",
-                resource_id=permission_id
+                resource_id=permission_id,
             )
 
     @staticmethod
@@ -57,9 +58,7 @@ class PermissionSelector:
             return Permission.objects.get(code=code)
         except Permission.DoesNotExist:
             raise NotFound(
-                message="Permission not found",
-                resource="Permission",
-                resource_id=code
+                message="Permission not found", resource="Permission", resource_id=code
             )
 
     @staticmethod
@@ -82,8 +81,7 @@ class PermissionSelector:
         """
         all_permissions = Permission.objects.all()
         return [
-            perm for perm in all_permissions
-            if scope in (perm.applicable_scopes or [])
+            perm for perm in all_permissions if scope in (perm.applicable_scopes or [])
         ]
 
     @staticmethod
@@ -107,7 +105,7 @@ class PermissionSelector:
         # If membership is not active (suspended/banned/left/removed),
         # return empty permissions - this is the correct semantic.
         try:
-            membership = Membership.objects.select_related('role').get(
+            membership = Membership.objects.select_related("role").get(
                 id=membership_id,
                 status=MembershipStatus.ACTIVE,
             )
@@ -120,9 +118,9 @@ class PermissionSelector:
             return []
 
         permissions = list(
-            membership.role.role_permissions
-            .select_related('permission')
-            .values_list('permission__code', 'scope')
+            membership.role.role_permissions.select_related("permission").values_list(
+                "permission__code", "scope"
+            )
         )
 
         cache.set(cache_key, permissions, PermissionSelector.CACHE_TTL)
@@ -138,12 +136,12 @@ class PermissionSelector:
     def invalidate_role_permissions(*, role_id: UUID) -> None:
         """Invalidate cached permissions for all memberships with this role."""
         membership_ids = list(
-            Membership.objects.filter(role_id=role_id).values_list('id', flat=True)
+            Membership.objects.filter(role_id=role_id).values_list("id", flat=True)
         )
         if membership_ids:
-            cache.delete_many([
-                f"membership_permissions:{mid}" for mid in membership_ids
-            ])
+            cache.delete_many(
+                [f"membership_permissions:{mid}" for mid in membership_ids]
+            )
 
 
 class RoleSelector:
@@ -163,17 +161,12 @@ class RoleSelector:
             return Role.objects.get(id=role_id)
         except Role.DoesNotExist:
             raise NotFound(
-                message="Role not found",
-                resource="Role",
-                resource_id=role_id
+                message="Role not found", resource="Role", resource_id=role_id
             )
 
     @staticmethod
     def get_roles_for_account(
-        *,
-        account_type: str,
-        account_id: UUID,
-        include_system: bool = True
+        *, account_type: str, account_id: UUID, include_system: bool = True
     ) -> QuerySet[Role]:
         """
         Get all roles for an account.
@@ -187,6 +180,7 @@ class RoleSelector:
             QuerySet of roles ordered by level
         """
         from django.db.models import Count, Q
+
         qs = Role.objects.filter(
             account_type=account_type,
             account_id=account_id,
@@ -248,9 +242,9 @@ class RoleSelector:
     @staticmethod
     def get_role_permissions(*, role_id: UUID) -> QuerySet[RolePermission]:
         """Get all permission assignments for a role."""
-        return RolePermission.objects.filter(
-            role_id=role_id
-        ).select_related('permission')
+        return RolePermission.objects.filter(role_id=role_id).select_related(
+            "permission"
+        )
 
 
 class MembershipSelector:
@@ -267,53 +261,56 @@ class MembershipSelector:
             NotFound: If membership doesn't exist or is soft-deleted
         """
         try:
-            return Membership.objects.select_related('role', 'user').get(
+            return Membership.objects.select_related("role", "user").get(
                 id=membership_id
             )
         except Membership.DoesNotExist:
             raise NotFound(
                 message="Membership not found",
                 resource="Membership",
-                resource_id=membership_id
+                resource_id=membership_id,
             )
 
     @staticmethod
     def get_membership_for_user_account(
-        *,
-        user,
-        account_type: str,
-        account_id: UUID
-    ) -> Optional[Membership]:
+        *, user, account_type: str, account_id: UUID
+    ) -> Membership | None:
         """
         Get a user's membership in a specific account.
 
         Returns:
             Membership or None if not a member
         """
-        return Membership.objects.filter(
-            user=user,
-            account_type=account_type,
-            account_id=account_id,
-        ).select_related('role').first()
+        return (
+            Membership.objects.filter(
+                user=user,
+                account_type=account_type,
+                account_id=account_id,
+            )
+            .select_related("role")
+            .first()
+        )
 
     @staticmethod
     def get_active_membership_for_user_account(
-        *,
-        user,
-        account_type: str,
-        account_id: UUID
-    ) -> Optional[Membership]:
+        *, user, account_type: str, account_id: UUID
+    ) -> Membership | None:
         """
         Get a user's active membership in a specific account.
 
         Returns:
             Membership or None if not an active member
         """
-        return Membership.objects.active().filter(
-            user=user,
-            account_type=account_type,
-            account_id=account_id,
-        ).select_related('role').first()
+        return (
+            Membership.objects.active()
+            .filter(
+                user=user,
+                account_type=account_type,
+                account_id=account_id,
+            )
+            .select_related("role")
+            .first()
+        )
 
     @staticmethod
     def count_active_members(*, account_type: str, account_id: UUID) -> int:
@@ -330,11 +327,11 @@ class MembershipSelector:
         *,
         account_type: str,
         account_id: UUID,
-        status: Optional[str] = None,
+        status: str | None = None,
         include_all_statuses: bool = False,
-        search: Optional[str] = None,
-        role_id: Optional[UUID] = None,
-        ordering: Optional[str] = None,
+        search: str | None = None,
+        role_id: UUID | None = None,
+        ordering: str | None = None,
     ) -> QuerySet[Membership]:
         """
         Get all memberships for an account.
@@ -370,6 +367,7 @@ class MembershipSelector:
 
         if search:
             from django.db.models import Q
+
             qs = qs.filter(
                 Q(user__email__icontains=search)
                 | Q(user__username__icontains=search)
@@ -385,13 +383,13 @@ class MembershipSelector:
         }
         order_field = order_map.get(ordering, "-joined_at")
 
-        return qs.select_related('role', 'user').order_by(order_field)
+        return qs.select_related("role", "user").order_by(order_field)
 
     @staticmethod
     def get_memberships_for_user(
         *,
         user,
-        status: Optional[str] = None,
+        status: str | None = None,
         include_all_statuses: bool = False,
         include_pending_approval: bool = False,
     ) -> QuerySet[Membership]:
@@ -413,6 +411,7 @@ class MembershipSelector:
             qs = Membership.objects.filter(user=user)
         elif include_pending_approval:
             from apps.core.constants import MembershipStatus
+
             qs = Membership.objects.filter(
                 user=user,
                 is_deleted=False,
@@ -424,57 +423,43 @@ class MembershipSelector:
         if status:
             qs = qs.filter(status=status)
 
-        return qs.select_related('role').order_by('-joined_at')
+        return qs.select_related("role").order_by("-joined_at")
 
     @staticmethod
     def get_owner_membership(
-        *,
-        account_type: str,
-        account_id: UUID
-    ) -> Optional[Membership]:
+        *, account_type: str, account_id: UUID
+    ) -> Membership | None:
         """
         Get the owner membership for an account.
 
         Returns:
             Owner membership or None if no owner exists
         """
-        return Membership.objects.filter(
-            account_type=account_type,
-            account_id=account_id,
-            is_owner=True,
-        ).select_related('role', 'user').first()
+        return (
+            Membership.objects.filter(
+                account_type=account_type,
+                account_id=account_id,
+                is_owner=True,
+            )
+            .select_related("role", "user")
+            .first()
+        )
 
     @staticmethod
-    def count_active_members(*, account_type: str, account_id: UUID) -> int:
-        """Count active and pending-approval members in an account."""
-        return Membership.objects.filter(
-            account_type=account_type,
-            account_id=account_id,
-            status__in=[MembershipStatus.ACTIVE, MembershipStatus.PENDING_APPROVAL],
-            is_deleted=False,
-        ).count()
-
-    @staticmethod
-    def is_user_member_of_account(
-        *,
-        user,
-        account_type: str,
-        account_id: UUID
-    ) -> bool:
+    def is_user_member_of_account(*, user, account_type: str, account_id: UUID) -> bool:
         """Check if user is an active member of an account."""
-        return Membership.objects.active().filter(
-            user=user,
-            account_type=account_type,
-            account_id=account_id,
-        ).exists()
+        return (
+            Membership.objects.active()
+            .filter(
+                user=user,
+                account_type=account_type,
+                account_id=account_id,
+            )
+            .exists()
+        )
 
     @staticmethod
-    def is_user_owner_of_account(
-        *,
-        user,
-        account_type: str,
-        account_id: UUID
-    ) -> bool:
+    def is_user_owner_of_account(*, user, account_type: str, account_id: UUID) -> bool:
         """Check if user is the owner of an account."""
         return Membership.objects.filter(
             user=user,
@@ -496,6 +481,7 @@ class MembershipSelector:
         Uses ORM join: Membership -> Role -> RolePermission -> Permission.
         """
         from django.contrib.auth import get_user_model
+
         User = get_user_model()
 
         user_ids = (

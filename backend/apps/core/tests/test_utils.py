@@ -11,7 +11,7 @@ Covers:
 
 import string
 import time
-from datetime import datetime, date, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
 
 import jwt as pyjwt
@@ -19,21 +19,6 @@ import pytest
 from django.conf import settings
 
 from apps.core.exceptions import TokenExpired, TokenInvalid
-from apps.core.utils.jwt import (
-    ALLOWED_ALGORITHMS,
-    decode_token,
-    decode_token_unverified,
-    encode_token,
-    get_token_expiry,
-    is_token_expired,
-)
-from apps.core.utils.password import (
-    generate_temporary_password,
-    hash_password,
-    is_password_valid,
-    validate_password_strength,
-    verify_password,
-)
 from apps.core.utils.datetime import (
     days_ago,
     days_from_now,
@@ -55,7 +40,21 @@ from apps.core.utils.datetime import (
     today_utc,
     utc_now,
 )
-
+from apps.core.utils.jwt import (
+    ALLOWED_ALGORITHMS,
+    decode_token,
+    decode_token_unverified,
+    encode_token,
+    get_token_expiry,
+    is_token_expired,
+)
+from apps.core.utils.password import (
+    generate_temporary_password,
+    hash_password,
+    is_password_valid,
+    validate_password_strength,
+    verify_password,
+)
 
 # =============================================================================
 # JWT UTILITIES — encode_token
@@ -75,7 +74,12 @@ class TestEncodeToken:
         """Encoded token contains the provided payload claims."""
         payload = {"user_id": 42, "type": "access"}
         token = encode_token(payload=payload)
-        decoded = pyjwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        decoded = pyjwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+            audience=settings.JWT_AUDIENCE,
+        )
 
         assert decoded["user_id"] == 42
         assert decoded["type"] == "access"
@@ -84,7 +88,10 @@ class TestEncodeToken:
         """Encoded token contains an 'exp' (expiration) claim."""
         token = encode_token(payload={"user_id": 1})
         decoded = pyjwt.decode(
-            token, settings.SECRET_KEY, algorithms=["HS256"],
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+            audience=settings.JWT_AUDIENCE,
             options={"verify_exp": False},
         )
         assert "exp" in decoded
@@ -93,7 +100,10 @@ class TestEncodeToken:
         """Encoded token contains an 'iat' (issued at) claim."""
         token = encode_token(payload={"user_id": 1})
         decoded = pyjwt.decode(
-            token, settings.SECRET_KEY, algorithms=["HS256"],
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+            audience=settings.JWT_AUDIENCE,
             options={"verify_exp": False},
         )
         assert "iat" in decoded
@@ -102,7 +112,10 @@ class TestEncodeToken:
         """Default expiry is 900 seconds (15 minutes) from issued time."""
         token = encode_token(payload={"user_id": 1})
         decoded = pyjwt.decode(
-            token, settings.SECRET_KEY, algorithms=["HS256"],
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+            audience=settings.JWT_AUDIENCE,
             options={"verify_exp": False},
         )
         # exp should be iat + 900
@@ -112,7 +125,10 @@ class TestEncodeToken:
         """Custom expires_in value is respected."""
         token = encode_token(payload={"user_id": 1}, expires_in=3600)
         decoded = pyjwt.decode(
-            token, settings.SECRET_KEY, algorithms=["HS256"],
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+            audience=settings.JWT_AUDIENCE,
             options={"verify_exp": False},
         )
         assert decoded["exp"] - decoded["iat"] == 3600
@@ -123,26 +139,44 @@ class TestEncodeToken:
         token = encode_token(payload={"user_id": 1}, secret=custom_secret)
 
         # Should decode with custom secret
-        decoded = pyjwt.decode(token, custom_secret, algorithms=["HS256"])
+        decoded = pyjwt.decode(
+            token,
+            custom_secret,
+            algorithms=["HS256"],
+            audience=settings.JWT_AUDIENCE,
+        )
         assert decoded["user_id"] == 1
 
         # Should NOT decode with default secret (unless they happen to match)
         if custom_secret != settings.SECRET_KEY:
             with pytest.raises(pyjwt.InvalidSignatureError):
-                pyjwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+                pyjwt.decode(
+                    token,
+                    settings.SECRET_KEY,
+                    algorithms=["HS256"],
+                    audience=settings.JWT_AUDIENCE,
+                )
 
     def test_encode_token_uses_settings_secret_key_by_default(self):
         """Token encoded without explicit secret uses settings.SECRET_KEY."""
         token = encode_token(payload={"user_id": 1})
         # Should decode successfully with settings.SECRET_KEY
-        decoded = pyjwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        decoded = pyjwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+            audience=settings.JWT_AUDIENCE,
+        )
         assert decoded["user_id"] == 1
 
     def test_encode_token_empty_payload(self):
         """Encoding an empty payload succeeds (exp and iat are still added)."""
         token = encode_token(payload={})
         decoded = pyjwt.decode(
-            token, settings.SECRET_KEY, algorithms=["HS256"],
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+            audience=settings.JWT_AUDIENCE,
             options={"verify_exp": False},
         )
         assert "exp" in decoded
@@ -157,7 +191,10 @@ class TestEncodeToken:
         }
         token = encode_token(payload=payload)
         decoded = pyjwt.decode(
-            token, settings.SECRET_KEY, algorithms=["HS256"],
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+            audience=settings.JWT_AUDIENCE,
             options={"verify_exp": False},
         )
         assert decoded["permissions"] == ["read", "write"]
@@ -170,11 +207,27 @@ class TestEncodeToken:
         after = datetime.now(timezone.utc).timestamp()
 
         decoded = pyjwt.decode(
-            token, settings.SECRET_KEY, algorithms=["HS256"],
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+            audience=settings.JWT_AUDIENCE,
             options={"verify_exp": False},
         )
         # iat is an int (truncated), before/after are floats — allow 1s margin
         assert int(before) <= decoded["iat"] <= int(after) + 1
+
+    def test_encode_token_includes_iss_and_aud_claims(self):
+        """Encoded token includes issuer and audience claims."""
+        token = encode_token(payload={"user_id": 1})
+        decoded = pyjwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+            audience=settings.JWT_AUDIENCE,
+            options={"verify_exp": False},
+        )
+        assert decoded["iss"] == settings.JWT_ISSUER
+        assert decoded["aud"] == settings.JWT_AUDIENCE
 
 
 # =============================================================================
@@ -216,6 +269,45 @@ class TestDecodeToken:
         """Decoding a malformed token raises TokenInvalid."""
         with pytest.raises(TokenInvalid):
             decode_token("not-a-valid-jwt-token")
+
+    def test_decode_token_wrong_audience_raises_token_invalid(self):
+        """Decoding a token with wrong audience raises TokenInvalid."""
+        token = pyjwt.encode(
+            {
+                "user_id": 1,
+                "iss": settings.JWT_ISSUER,
+                "aud": "wrong-audience",
+                "exp": datetime.now(timezone.utc).timestamp() + 900,
+                "iat": datetime.now(timezone.utc).timestamp(),
+            },
+            settings.SECRET_KEY,
+            algorithm="HS256",
+        )
+        with pytest.raises(TokenInvalid):
+            decode_token(token)
+
+    def test_decode_token_wrong_issuer_raises_token_invalid(self):
+        """Decoding a token with wrong issuer raises TokenInvalid."""
+        token = pyjwt.encode(
+            {
+                "user_id": 1,
+                "iss": "wrong-issuer",
+                "aud": settings.JWT_AUDIENCE,
+                "exp": datetime.now(timezone.utc).timestamp() + 900,
+                "iat": datetime.now(timezone.utc).timestamp(),
+            },
+            settings.SECRET_KEY,
+            algorithm="HS256",
+        )
+        with pytest.raises(TokenInvalid):
+            decode_token(token)
+
+    def test_decode_token_includes_iss_and_aud_claims(self):
+        """decode_token returns payload with iss and aud claims."""
+        token = encode_token(payload={"user_id": 1})
+        decoded = decode_token(token)
+        assert decoded["iss"] == settings.JWT_ISSUER
+        assert decoded["aud"] == settings.JWT_AUDIENCE
 
     def test_decode_token_empty_string_raises_token_invalid(self):
         """Decoding an empty string raises TokenInvalid."""
@@ -610,16 +702,16 @@ class TestIsPasswordValid:
         """is_password_valid returns True iff validate_password_strength returns empty list."""
         test_passwords = [
             "X9k$mP2qR#vL",  # strong
-            "password",       # common
-            "123",            # short
-            "12345678901234", # numeric
+            "password",  # common
+            "123",  # short
+            "12345678901234",  # numeric
         ]
         for pwd in test_passwords:
             errors = validate_password_strength(pwd)
             valid = is_password_valid(pwd)
-            assert valid == (len(errors) == 0), (
-                f"Mismatch for '{pwd}': errors={errors}, valid={valid}"
-            )
+            assert valid == (
+                len(errors) == 0
+            ), f"Mismatch for '{pwd}': errors={errors}, valid={valid}"
 
 
 # =============================================================================
@@ -655,34 +747,32 @@ class TestGenerateTemporaryPassword:
         # Run multiple times to reduce flakiness (shuffle is random)
         for _ in range(10):
             password = generate_temporary_password()
-            assert any(c in string.ascii_lowercase for c in password), (
-                f"No lowercase in: {password}"
-            )
+            assert any(
+                c in string.ascii_lowercase for c in password
+            ), f"No lowercase in: {password}"
 
     def test_generate_temporary_password_contains_uppercase(self):
         """Generated password contains at least one uppercase letter."""
         for _ in range(10):
             password = generate_temporary_password()
-            assert any(c in string.ascii_uppercase for c in password), (
-                f"No uppercase in: {password}"
-            )
+            assert any(
+                c in string.ascii_uppercase for c in password
+            ), f"No uppercase in: {password}"
 
     def test_generate_temporary_password_contains_digit(self):
         """Generated password contains at least one digit."""
         for _ in range(10):
             password = generate_temporary_password()
-            assert any(c in string.digits for c in password), (
-                f"No digit in: {password}"
-            )
+            assert any(c in string.digits for c in password), f"No digit in: {password}"
 
     def test_generate_temporary_password_contains_special_char(self):
         """Generated password contains at least one special character."""
         special_chars = "!@#$%^&*"
         for _ in range(10):
             password = generate_temporary_password()
-            assert any(c in special_chars for c in password), (
-                f"No special char in: {password}"
-            )
+            assert any(
+                c in special_chars for c in password
+            ), f"No special char in: {password}"
 
     def test_generate_temporary_password_unique_outputs(self):
         """Multiple calls produce different passwords (with high probability)."""
@@ -829,6 +919,7 @@ class TestToUtc:
     def test_to_utc_from_aware_datetime(self):
         """Converts aware datetime from another timezone to UTC."""
         import zoneinfo
+
         eastern = zoneinfo.ZoneInfo("America/New_York")
         # January 15, 2024 at noon Eastern (EST = UTC-5)
         eastern_dt = datetime(2024, 1, 15, 12, 0, 0, tzinfo=eastern)
@@ -1277,6 +1368,7 @@ class TestFormatIso:
     def test_format_iso_non_utc_converted_to_utc(self):
         """Non-UTC datetime is converted to UTC before formatting."""
         import zoneinfo
+
         eastern = zoneinfo.ZoneInfo("America/New_York")
         # January 15, 2024 noon EST = 5pm UTC
         dt = datetime(2024, 1, 15, 12, 0, 0, tzinfo=eastern)
@@ -1575,9 +1667,9 @@ class TestPasswordHashVerifyRoundtrip:
                 # The only acceptable failure would be CommonPasswordValidator
                 # (astronomically unlikely but theoretically possible)
                 for error in errors:
-                    assert "common" in error.lower() or "similar" in error.lower(), (
-                        f"Generated password '{password}' failed unexpected validation: {errors}"
-                    )
+                    assert (
+                        "common" in error.lower() or "similar" in error.lower()
+                    ), f"Generated password '{password}' failed unexpected validation: {errors}"
 
     def test_generated_password_can_be_hashed_and_verified(self):
         """Generated temporary password can be hashed and later verified."""
@@ -1632,6 +1724,7 @@ class TestDatetimeConsistency:
     def test_to_utc_then_to_user_timezone_roundtrip(self):
         """Converting to UTC and back to original timezone preserves the instant."""
         import zoneinfo
+
         tokyo = zoneinfo.ZoneInfo("Asia/Tokyo")
         original = datetime(2024, 6, 15, 21, 0, 0, tzinfo=tokyo)
         utc_dt = to_utc(original)

@@ -65,7 +65,8 @@ class PlatformPolicy:
         if user.is_superuser:
             return True
         return PlatformPolicy._has_platform_permission(
-            user=user, permission_code="can_edit_business",
+            user=user,
+            permission_code="can_edit_business",
         )
 
     @staticmethod
@@ -80,7 +81,8 @@ class PlatformPolicy:
         if user.is_staff or user.is_superuser:
             return True
         return PlatformPolicy._has_platform_permission(
-            user=user, permission_code="can_edit_profile",
+            user=user,
+            permission_code="can_edit_profile",
         )
 
     @staticmethod

@@ -11,7 +11,6 @@ conftest.py to avoid shadowing and ensure correct factory usage.
 import pytest
 from rest_framework.test import APIClient
 
-
 # =============================================================================
 # API Client Fixtures
 # =============================================================================

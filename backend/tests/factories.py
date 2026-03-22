@@ -9,9 +9,6 @@ Usage:
     from tests.factories import UserFactory, AdminFactory
 """
 
-from apps.users.tests.factories import (  # noqa: F401
-    UserFactory,
-    VerifiedUserFactory,
-    StaffUserFactory,
-    SuperuserFactory as AdminFactory,
-)
+from apps.users.tests.factories import StaffUserFactory
+from apps.users.tests.factories import SuperuserFactory as AdminFactory  # noqa: F401
+from apps.users.tests.factories import UserFactory, VerifiedUserFactory

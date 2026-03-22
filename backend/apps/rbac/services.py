@@ -17,25 +17,28 @@ Key methods:
 - remove_permission_from_role: Remove permission from role
 """
 
-from typing import Tuple, Optional
+from typing import Tuple
 from uuid import UUID
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
-from django.contrib.auth import get_user_model
 
-from apps.core.observability import get_logger, AuditService
-from apps.core.observability.audit.models import AuditLog
-from apps.core.constants import AccountType, PermissionScope, MembershipStatus
+from apps.core.constants import AccountType, MembershipStatus, PermissionScope
 from apps.core.exceptions import (
-    NotFound, ConflictError, PermissionDenied, BusinessRuleViolation, ValidationError
+    BusinessRuleViolation,
+    ConflictError,
+    NotFound,
+    PermissionDenied,
+    ValidationError,
 )
+from apps.core.observability import AuditService, get_logger
+from apps.core.observability.audit.models import AuditLog
 from apps.core.types import ActorContext
 from apps.core.utils.request import get_client_ip
-
-from apps.rbac.models import Permission, Role, RolePermission, Membership
-from apps.rbac.selectors import PermissionSelector, RoleSelector, MembershipSelector
+from apps.rbac.models import Membership, Permission, Role, RolePermission
 from apps.rbac.policies import MembershipPolicy, RolePolicy
+from apps.rbac.selectors import MembershipSelector, PermissionSelector, RoleSelector
 
 logger = get_logger(__name__)
 User = get_user_model()
@@ -110,7 +113,7 @@ class RBACService:
             permissions_snapshot=permissions,
             captured_at=timezone.now(),
             ip_address=get_client_ip(request) if request else None,
-            user_agent=request.META.get('HTTP_USER_AGENT') if request else None,
+            user_agent=request.META.get("HTTP_USER_AGENT") if request else None,
         )
 
     # =========================================================================
@@ -171,14 +174,16 @@ class RBACService:
         )
         # Admin gets platform_only scoped permissions (no global cross-account by default)
         admin_perms = PermissionSelector.get_permissions_by_scope(scope="platform_only")
-        RolePermission.objects.bulk_create([
-            RolePermission(
-                role=admin_role,
-                permission=perm,
-                scope=PermissionScope.PLATFORM_ONLY,
-            )
-            for perm in admin_perms
-        ])
+        RolePermission.objects.bulk_create(
+            [
+                RolePermission(
+                    role=admin_role,
+                    permission=perm,
+                    scope=PermissionScope.PLATFORM_ONLY,
+                )
+                for perm in admin_perms
+            ]
+        )
 
         # --- Global Moderator (level 5) ---
         mod_role = Role.objects.create(
@@ -191,14 +196,16 @@ class RBACService:
         )
         # Moderator gets global_only scoped permissions (cross-account moderation)
         global_perms = PermissionSelector.get_permissions_by_scope(scope="global_only")
-        RolePermission.objects.bulk_create([
-            RolePermission(
-                role=mod_role,
-                permission=perm,
-                scope=PermissionScope.GLOBAL_ONLY,
-            )
-            for perm in global_perms
-        ])
+        RolePermission.objects.bulk_create(
+            [
+                RolePermission(
+                    role=mod_role,
+                    permission=perm,
+                    scope=PermissionScope.GLOBAL_ONLY,
+                )
+                for perm in global_perms
+            ]
+        )
 
         # --- Base Member (level 10) ---
         Role.objects.create(
@@ -219,10 +226,7 @@ class RBACService:
     @staticmethod
     @transaction.atomic
     def initialize_business_account(
-        *,
-        business_id: UUID,
-        owner,
-        request=None
+        *, business_id: UUID, owner, request=None
     ) -> Membership:
         """
         Create business roles and owner membership.
@@ -263,15 +267,19 @@ class RBACService:
         )
 
         # Seed Owner role permissions (all business-scope permissions)
-        business_permissions = PermissionSelector.get_permissions_by_scope(scope="business")
-        RolePermission.objects.bulk_create([
-            RolePermission(
-                role=owner_role,
-                permission=perm,
-                scope=PermissionScope.BUSINESS,
-            )
-            for perm in business_permissions
-        ])
+        business_permissions = PermissionSelector.get_permissions_by_scope(
+            scope="business"
+        )
+        RolePermission.objects.bulk_create(
+            [
+                RolePermission(
+                    role=owner_role,
+                    permission=perm,
+                    scope=PermissionScope.BUSINESS,
+                )
+                for perm in business_permissions
+            ]
+        )
 
         # Create owner membership
         membership = Membership.objects.create(
@@ -337,17 +345,22 @@ class RBACService:
         """
         # Quota enforcement
         active_count = MembershipSelector.count_active_members(
-            account_type=account_type, account_id=account_id,
+            account_type=account_type,
+            account_id=account_id,
         )
         if account_type == AccountType.BUSINESS:
             from apps.organization.business.models import BusinessAccount
+
             max_members = BusinessAccount.objects.values_list(
-                "max_members", flat=True,
+                "max_members",
+                flat=True,
             ).get(id=account_id)
         elif account_type == AccountType.PLATFORM:
             from apps.organization.platform.models import PlatformAccount
+
             max_members = PlatformAccount.objects.values_list(
-                "max_members", flat=True,
+                "max_members",
+                flat=True,
             ).get(id=account_id)
         else:
             max_members = 0
@@ -400,10 +413,16 @@ class RBACService:
             existing.status_changed_at = timezone.now()
             existing.status_changed_by = created_by
             existing.status_reason = ""
-            existing.save(update_fields=[
-                "status", "role", "status_changed_at",
-                "status_changed_by", "status_reason", "updated_at",
-            ])
+            existing.save(
+                update_fields=[
+                    "status",
+                    "role",
+                    "status_changed_at",
+                    "status_changed_by",
+                    "status_reason",
+                    "updated_at",
+                ]
+            )
 
             PermissionSelector.invalidate_membership_permissions(
                 membership_id=existing.id,
@@ -460,7 +479,7 @@ class RBACService:
         membership_id: UUID,
         new_role_id: UUID,
         actor_context: ActorContext,
-        request=None
+        request=None,
     ) -> Membership:
         """
         Change a member's role.
@@ -478,7 +497,9 @@ class RBACService:
             NotFound: If membership or role doesn't exist
             PermissionDenied: If not authorized
         """
-        membership = MembershipSelector.get_membership_by_id(membership_id=membership_id)
+        membership = MembershipSelector.get_membership_by_id(
+            membership_id=membership_id
+        )
         new_role = RoleSelector.get_role_by_id(role_id=new_role_id)
 
         # Authorize the action
@@ -500,7 +521,9 @@ class RBACService:
         membership.save(update_fields=["role", "updated_at"])
 
         # Invalidate cached permissions
-        PermissionSelector.invalidate_membership_permissions(membership_id=membership_id)
+        PermissionSelector.invalidate_membership_permissions(
+            membership_id=membership_id
+        )
 
         logger.info(
             "rbac.membership.role_changed",
@@ -532,7 +555,7 @@ class RBACService:
         new_status: str,
         actor_context: ActorContext,
         reason: str = "",
-        request=None
+        request=None,
     ) -> Membership:
         """
         Update a member's status (suspend/ban/remove/reactivate).
@@ -551,7 +574,9 @@ class RBACService:
             NotFound: If membership doesn't exist
             PermissionDenied: If not authorized
         """
-        membership = MembershipSelector.get_membership_by_id(membership_id=membership_id)
+        membership = MembershipSelector.get_membership_by_id(
+            membership_id=membership_id
+        )
 
         # Determine required permission based on status change
         status_permission_map = {
@@ -560,7 +585,9 @@ class RBACService:
             MembershipStatus.REMOVED: "can_remove_member",
             MembershipStatus.ACTIVE: "can_suspend_member",  # Reactivation uses suspend permission
         }
-        required_permission = status_permission_map.get(new_status, "can_suspend_member")
+        required_permission = status_permission_map.get(
+            new_status, "can_suspend_member"
+        )
 
         # Authorize the action
         MembershipPolicy.authorize_action(
@@ -574,12 +601,20 @@ class RBACService:
         membership.status_changed_at = timezone.now()
         membership.status_changed_by_id = actor_context.user_id
         membership.status_reason = reason
-        membership.save(update_fields=[
-            "status", "status_changed_at", "status_changed_by", "status_reason", "updated_at"
-        ])
+        membership.save(
+            update_fields=[
+                "status",
+                "status_changed_at",
+                "status_changed_by",
+                "status_reason",
+                "updated_at",
+            ]
+        )
 
         # Invalidate cached permissions
-        PermissionSelector.invalidate_membership_permissions(membership_id=membership_id)
+        PermissionSelector.invalidate_membership_permissions(
+            membership_id=membership_id
+        )
 
         # Determine audit action based on new status
         status_action_map = {
@@ -588,7 +623,9 @@ class RBACService:
             MembershipStatus.REMOVED: AuditLog.Action.MEMBERSHIP_REMOVED,
             MembershipStatus.ACTIVE: AuditLog.Action.MEMBERSHIP_REACTIVATED,
         }
-        audit_action = status_action_map.get(new_status, AuditLog.Action.MEMBERSHIP_UPDATED)
+        audit_action = status_action_map.get(
+            new_status, AuditLog.Action.MEMBERSHIP_UPDATED
+        )
 
         logger.info(
             "rbac.membership.status_changed",
@@ -629,7 +666,9 @@ class RBACService:
             NotFound: If membership doesn't exist
             BusinessRuleViolation: If user is the owner
         """
-        membership = MembershipSelector.get_membership_by_id(membership_id=membership_id)
+        membership = MembershipSelector.get_membership_by_id(
+            membership_id=membership_id
+        )
 
         # Verify the user owns this membership
         if membership.user_id != user.id:
@@ -641,18 +680,25 @@ class RBACService:
         if membership.is_owner:
             raise BusinessRuleViolation(
                 message="You are the owner of this account. "
-                        "Transfer ownership first or delete the account.",
-                rule="owner_cannot_leave"
+                "Transfer ownership first or delete the account.",
+                rule="owner_cannot_leave",
             )
 
         membership.status = MembershipStatus.LEFT
         membership.status_changed_at = timezone.now()
         membership.status_changed_by = user
-        membership.save(update_fields=[
-            "status", "status_changed_at", "status_changed_by", "updated_at"
-        ])
+        membership.save(
+            update_fields=[
+                "status",
+                "status_changed_at",
+                "status_changed_by",
+                "updated_at",
+            ]
+        )
 
-        PermissionSelector.invalidate_membership_permissions(membership_id=membership_id)
+        PermissionSelector.invalidate_membership_permissions(
+            membership_id=membership_id
+        )
 
         logger.info(
             "rbac.membership.left",
@@ -672,10 +718,7 @@ class RBACService:
     @staticmethod
     @transaction.atomic
     def restore_membership(
-        *,
-        membership_id: UUID,
-        actor_context: ActorContext,
-        request=None
+        *, membership_id: UUID, actor_context: ActorContext, request=None
     ) -> Membership:
         """
         Restore a soft-deleted or left/removed membership.
@@ -690,14 +733,14 @@ class RBACService:
         """
         # Use all_objects to get deleted memberships
         try:
-            membership = Membership.all_objects.select_related('role', 'user').get(
+            membership = Membership.all_objects.select_related("role", "user").get(
                 id=membership_id
             )
         except Membership.DoesNotExist:
             raise NotFound(
                 message="Membership not found",
                 resource="Membership",
-                resource_id=membership_id
+                resource_id=membership_id,
             )
 
         # Check if the membership is actually deleted
@@ -746,7 +789,7 @@ class RBACService:
         account_id: UUID,
         new_owner,
         transferred_by=None,
-        request=None
+        request=None,
     ) -> Tuple[Membership, Membership]:
         """
         Transfer ownership of an account to a new owner.
@@ -779,10 +822,12 @@ class RBACService:
                 resource="Membership",
             )
 
-        new_owner_membership = MembershipSelector.get_active_membership_for_user_account(
-            user=new_owner,
-            account_type=account_type,
-            account_id=account_id,
+        new_owner_membership = (
+            MembershipSelector.get_active_membership_for_user_account(
+                user=new_owner,
+                account_type=account_type,
+                account_id=account_id,
+            )
         )
         if not new_owner_membership:
             raise NotFound(
@@ -852,7 +897,7 @@ class RBACService:
         level: int,
         description: str = "",
         actor_context: ActorContext,
-        request=None
+        request=None,
     ) -> Role:
         """
         Create a custom role for an account.
@@ -929,7 +974,7 @@ class RBACService:
         name: str = None,
         description: str = None,
         actor_context: ActorContext,
-        request=None
+        request=None,
     ) -> Role:
         """
         Update a custom role.
@@ -963,11 +1008,15 @@ class RBACService:
         changes = {}
         if name is not None and name != role.name:
             # Check for duplicate name
-            if Role.objects.filter(
-                account_type=role.account_type,
-                account_id=role.account_id,
-                name=name,
-            ).exclude(id=role_id).exists():
+            if (
+                Role.objects.filter(
+                    account_type=role.account_type,
+                    account_id=role.account_id,
+                    name=name,
+                )
+                .exclude(id=role_id)
+                .exists()
+            ):
                 raise ConflictError(
                     message=f"A role named '{name}' already exists",
                     resource="Role",
@@ -1011,10 +1060,7 @@ class RBACService:
     @staticmethod
     @transaction.atomic
     def delete_role(
-        *,
-        role_id: UUID,
-        actor_context: ActorContext,
-        request=None
+        *, role_id: UUID, actor_context: ActorContext, request=None
     ) -> None:
         """
         Delete a custom role. Blocked if role has active members.
@@ -1046,8 +1092,8 @@ class RBACService:
         if active_count > 0:
             raise BusinessRuleViolation(
                 message=f"Cannot delete role: {active_count} active member(s) assigned. "
-                        "Reassign members to a different role first.",
-                rule="role_has_active_members"
+                "Reassign members to a different role first.",
+                rule="role_has_active_members",
             )
 
         # Pass None for user since we track the actor in audit log
@@ -1079,7 +1125,7 @@ class RBACService:
         permission_id: UUID,
         scope: str,
         actor_context: ActorContext = None,
-        request=None
+        request=None,
     ) -> RolePermission:
         """
         Add permission to role. Validates scope against permission's applicable_scopes.
@@ -1099,19 +1145,23 @@ class RBACService:
             ValidationError: If scope is not valid for the permission
             ConflictError: If permission already assigned to role
         """
-        role = RoleSelector.get_role_by_id(role_id=role_id)
-        permission = PermissionSelector.get_permission_by_id(permission_id=permission_id)
+        RoleSelector.get_role_by_id(role_id=role_id)
+        permission = PermissionSelector.get_permission_by_id(
+            permission_id=permission_id
+        )
 
         # Validate scope
         if scope not in permission.applicable_scopes:
             raise ValidationError(
                 message=f"Scope '{scope}' is not valid for permission '{permission.code}'. "
-                        f"Valid scopes: {permission.applicable_scopes}",
+                f"Valid scopes: {permission.applicable_scopes}",
                 field="scope",
             )
 
         # Check for existing assignment
-        if RolePermission.objects.filter(role_id=role_id, permission_id=permission_id).exists():
+        if RolePermission.objects.filter(
+            role_id=role_id, permission_id=permission_id
+        ).exists():
             raise ConflictError(
                 message=f"Permission '{permission.code}' is already assigned to this role",
                 resource="RolePermission",
@@ -1155,7 +1205,7 @@ class RBACService:
         role_id: UUID,
         permission_id: UUID,
         actor_context: ActorContext = None,
-        request=None
+        request=None,
     ) -> None:
         """
         Remove permission from role.
@@ -1170,7 +1220,9 @@ class RBACService:
             NotFound: If role permission assignment doesn't exist
         """
         role = RoleSelector.get_role_by_id(role_id=role_id)
-        permission = PermissionSelector.get_permission_by_id(permission_id=permission_id)
+        permission = PermissionSelector.get_permission_by_id(
+            permission_id=permission_id
+        )
 
         try:
             role_permission = RolePermission.objects.get(

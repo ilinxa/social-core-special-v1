@@ -2,7 +2,7 @@ import { apiClient } from "@/lib/api-client";
 import { buildFormDataIfNeeded } from "@/lib/form-data-utils";
 import type {
   PlatformAccount,
-  PlatformAccountWithPerms,
+  PlatformAccountWithRelationship,
   PlatformProfile,
 } from "@/types/organization";
 
@@ -33,8 +33,8 @@ export interface UpdatePlatformSettingsData {
 // API FUNCTIONS
 // =============================================================================
 
-export async function fetchPlatformAccountApi(): Promise<PlatformAccountWithPerms> {
-  const response = await apiClient.get<PlatformAccountWithPerms>("/platform/account/");
+export async function fetchPlatformAccountApi(): Promise<PlatformAccountWithRelationship> {
+  const response = await apiClient.get<PlatformAccountWithRelationship>("/platform/account/");
   return response.data;
 }
 

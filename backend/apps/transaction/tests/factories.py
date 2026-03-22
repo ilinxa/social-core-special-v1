@@ -1,13 +1,12 @@
-import factory
-from uuid import uuid4
 from datetime import timedelta
+from uuid import uuid4
+
+import factory
 from django.utils import timezone
 
-from apps.transaction.models import Transaction, TransactionLog
-from apps.transaction.constants import (
-    TransactionMode, TransactionStatus, PartyType,
-)
 from apps.core.constants import ContextType
+from apps.transaction.constants import PartyType, TransactionMode, TransactionStatus
+from apps.transaction.models import Transaction, TransactionLog
 
 
 class TransactionFactory(factory.django.DjangoModelFactory):
@@ -44,6 +43,7 @@ class TransactionLogFactory(factory.django.DjangoModelFactory):
 
 class PendingInvitationFactory(TransactionFactory):
     """Shortcut for a PENDING invitation."""
+
     mode = TransactionMode.INVITATION
     status = TransactionStatus.PENDING
     initiator_type = PartyType.MEMBERSHIP_ACTOR
@@ -51,6 +51,7 @@ class PendingInvitationFactory(TransactionFactory):
 
 class PendingRequestFactory(TransactionFactory):
     """Shortcut for a PENDING request."""
+
     transaction_type = "business_membership_request"
     mode = TransactionMode.REQUEST
     status = TransactionStatus.PENDING

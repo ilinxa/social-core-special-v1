@@ -20,4 +20,6 @@ Usage:
 # from apps.core.middleware.auth import AuthMiddleware
 # from apps.core.middleware.request_id import RequestIDMiddleware
 
-__all__ = []
+from apps.core.middleware.cache_control import CacheControlMiddleware
+
+__all__ = ["CacheControlMiddleware"]

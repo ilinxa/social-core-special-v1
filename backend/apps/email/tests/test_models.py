@@ -14,20 +14,19 @@ import uuid
 import pytest
 from django.db import IntegrityError
 
-from apps.email.models import EmailTemplate, EmailLog
+from apps.email.models import EmailLog, EmailTemplate
 from apps.email.tests.factories import (
-    EmailTemplateFactory,
-    InactiveEmailTemplateFactory,
     ArchivedEmailTemplateFactory,
-    EmailLogFactory,
-    SentEmailLogFactory,
-    DeliveredEmailLogFactory,
-    FailedEmailLogFactory,
     BouncedEmailLogFactory,
     ComplainedEmailLogFactory,
+    DeliveredEmailLogFactory,
+    EmailLogFactory,
+    EmailTemplateFactory,
+    FailedEmailLogFactory,
+    InactiveEmailTemplateFactory,
     QueuedEmailLogFactory,
+    SentEmailLogFactory,
 )
-
 
 # =============================================================================
 # EMAIL TEMPLATE TESTS
@@ -66,7 +65,7 @@ class TestEmailTemplate:
 
     def test_ordering(self):
         """Templates are ordered by category, name, then -version."""
-        assert EmailTemplate._meta.ordering == ['category', 'name', '-version']
+        assert EmailTemplate._meta.ordering == ["category", "name", "-version"]
 
     def test_unique_constraint_name_version(self):
         """Two templates with the same name and version raise IntegrityError."""

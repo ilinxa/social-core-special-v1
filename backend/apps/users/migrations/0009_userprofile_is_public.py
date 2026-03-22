@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0008_explore_fields'),
+        ("users", "0008_explore_fields"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='userprofile',
-            name='is_public',
-            field=models.BooleanField(db_index=True, default=True, help_text='Whether this profile is publicly visible to other users.'),
+            model_name="userprofile",
+            name="is_public",
+            field=models.BooleanField(
+                db_index=True,
+                default=True,
+                help_text="Whether this profile is publicly visible to other users.",
+            ),
         ),
     ]

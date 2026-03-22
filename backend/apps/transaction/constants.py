@@ -33,14 +33,16 @@ class ApproverPolicy(models.TextChoices):
     AUTO_APPROVAL = "auto_approval", "Auto Approval"
 
 
-TERMINAL_STATES = frozenset([
-    TransactionStatus.ACCEPTED,
-    TransactionStatus.DENIED,
-    TransactionStatus.CANCELLED,
-    TransactionStatus.EXPIRED,
-    TransactionStatus.DISMISSED,
-    TransactionStatus.INVALIDATED,
-])
+TERMINAL_STATES = frozenset(
+    [
+        TransactionStatus.ACCEPTED,
+        TransactionStatus.DENIED,
+        TransactionStatus.CANCELLED,
+        TransactionStatus.EXPIRED,
+        TransactionStatus.DISMISSED,
+        TransactionStatus.INVALIDATED,
+    ]
+)
 
 VALID_TRANSITIONS = {
     TransactionStatus.CREATED: [

@@ -1,0 +1,307 @@
+{
+  "_meta": {
+    "schema_version": "1.0",
+    "description": "Deployment configuration — source of truth per client. Omit any field to use its default value. Dependencies are enforced at startup.",
+    "reference": "deployment_configuration_form.md"
+  },
+
+  "deployment": {
+    "name": "Acme Corp",
+    "code": "acme-corp",
+    "environment": "production",
+    "region": "us-east",
+    "tier": "standard",
+    "created_at": "2026-03-21",
+    "licensed_until": "2027-03-21",
+    "notes": ""
+  },
+
+  "org_mode": "full",
+
+  "systems": {
+    "transaction": true,
+    "forms": true,
+    "network": true,
+    "chat": false,
+    "cms": true,
+    "explore": true
+  },
+
+  "limits": {
+    "max_users": 0,
+    "max_businesses": 0,
+    "max_businesses_per_user": 1
+  },
+
+  "user": {
+    "can_create_business": false,
+    "can_be_member": true,
+    "max_memberships": 0,
+    "profile_visibility": true,
+    "profile_default_public": true,
+    "forms": true,
+
+    "network": {
+      "enabled": true,
+      "connections": true,
+      "follows": true,
+      "max_connections": 0,
+      "max_follows": 0
+    },
+
+    "chat": {
+      "enabled": true,
+      "group": true,
+      "file_sharing": true,
+      "reactions": true,
+      "search": true,
+      "max_groups": 0
+    },
+
+    "explore": {
+      "can_explore": true,
+      "search_users": true,
+      "search_businesses": true,
+      "is_discoverable": true
+    },
+
+    "transactions": {
+      "enabled": true,
+      "max_pending": 0
+    }
+  },
+
+  "business": {
+    "members": {
+      "enabled": true,
+      "invitations": true,
+      "requests": true,
+      "custom_roles": true,
+      "max_members": 1,
+      "max_roles": 0,
+      "available_permissions": [
+        "can_invite_member",
+        "can_remove_member",
+        "can_change_member_role",
+        "can_suspend_member",
+        "can_ban_member",
+        "can_approve_membership_request",
+        "can_view_members",
+        "can_create_role",
+        "can_edit_role",
+        "can_delete_role",
+        "can_edit_business",
+        "can_edit_profile",
+        "can_view_settings",
+        "can_view_legal_info",
+        "can_view_transactions",
+        "can_configure_transactions",
+        "can_create_form",
+        "can_edit_form",
+        "can_delete_form",
+        "can_view_responses",
+        "can_export_responses",
+        "can_process_response",
+        "can_manage_followers",
+        "can_manage_connections",
+        "can_manage_chat",
+        "can_view_audit_logs",
+        "can_view_cms_content",
+        "can_edit_cms_content",
+        "can_publish_cms_content",
+        "can_toggle_cms_visibility",
+        "can_view_cms_history",
+        "can_rollback_cms_content",
+        "can_export_cms_content",
+        "can_import_cms_content",
+        "can_upload_cms_media",
+        "can_edit_cms_media",
+        "can_delete_cms_media"
+      ]
+    },
+
+    "chat": {
+      "enabled": true,
+      "entity": true,
+      "group": true,
+      "file_sharing": true,
+      "max_groups": 0
+    },
+
+    "network": {
+      "enabled": true,
+      "followers": true,
+      "connections": true,
+      "max_followers": 0,
+      "max_connections": 0
+    },
+
+    "forms": {
+      "enabled": true,
+      "transaction_mapping": true,
+      "max_forms": 0
+    },
+
+    "cms": true,
+    "explore": {
+      "is_discoverable": true
+    },
+    "profile_visibility": true,
+    "profile_default_public": true,
+
+    "transactions": {
+      "enabled": true,
+      "verification": true,
+      "ownership_transfer": true
+    }
+  },
+
+  "platform": {
+    "members": {
+      "enabled": true,
+      "invitations": true,
+      "requests": true,
+      "custom_roles": true,
+      "max_members": 5,
+      "max_roles": 0
+    },
+
+    "chat": {
+      "enabled": true,
+      "entity": true
+    },
+
+    "network": true,
+    "forms": true,
+    "cms": true,
+    "explore": {
+      "is_discoverable": true
+    },
+
+    "governance": {
+      "business_approval": true,
+      "business_verification": true,
+      "approved_creators": true,
+      "global_moderation": true
+    },
+
+    "transactions": {
+      "ownership_transfer": true
+    }
+  },
+
+  "chat": {
+    "messages": {
+      "max_length": 5000,
+      "edit_window_minutes": 15,
+      "preview_length": 200
+    },
+
+    "groups": {
+      "max_participants": 100
+    },
+
+    "requests": {
+      "enabled": true,
+      "max_messages": 3,
+      "expiry_days": 30
+    },
+
+    "attachments": {
+      "max_per_message": 10,
+      "max_image_size_mb": 10,
+      "allowed_image_types": ["jpeg", "png", "gif", "webp"]
+    },
+
+    "rate_limits": {
+      "messages_per_minute": 30,
+      "conversations_per_hour": 5,
+      "requests_per_hour": 10
+    },
+
+    "presence": {
+      "ttl_seconds": 30,
+      "heartbeat_interval_seconds": 20
+    },
+
+    "reactions": {
+      "types": ["like", "heart", "laugh", "wow", "sad", "angry"]
+    }
+  },
+
+  "cms": {
+    "max_versions_per_placement": 50,
+    "max_folder_depth": 5,
+    "version_throttle_seconds": 30,
+    "api_key_rate_limit": 60,
+    "allowed_media_types": ["jpeg", "png", "gif", "webp", "svg", "pdf", "mp4", "webm", "mp3", "ogg"]
+  },
+
+  "transaction": {
+    "default_expiry_days": 30,
+    "resubmission_cooldown_days": 7,
+    "expiration_reminder_hours": 48
+  },
+
+  "network": {
+    "follow_approval_required": false,
+    "connection_approval_required": true
+  },
+
+  "auth": {
+    "signup": {
+      "email_password": true,
+      "email_verification_required": true
+    },
+
+    "verification": {
+      "method": "both",
+      "code_length": 6,
+      "expiry_minutes": 15
+    },
+
+    "password_reset": {
+      "method": "link",
+      "expiry_minutes": 60
+    },
+
+    "sessions": {
+      "max_per_user": 5,
+      "access_token_lifetime": 900,
+      "refresh_token_lifetime": 604800
+    },
+
+    "lockout": {
+      "max_failed_attempts": 10,
+      "duration": 900
+    },
+
+    "oauth": {
+      "google": true,
+      "apple": true,
+      "state_ttl": 600
+    }
+  },
+
+  "notifications": {
+    "log_retention_days": 90,
+    "email_enabled": true,
+    "push_enabled": false,
+    "sms_enabled": false
+  },
+
+  "explore": {
+    "results_per_page": 20,
+    "min_search_length": 2,
+    "suggested_tags_enabled": true
+  },
+
+  "infra": {
+    "email_backend": "console",
+    "storage_backend": "local",
+    "sentry_enabled": false,
+    "admin_url_path": "management-console",
+    "audit_log_retention_days": 730,
+    "email_log_retention_days": 90
+  }
+}

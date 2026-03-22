@@ -30,21 +30,21 @@ from apps.core.constants import (
 )
 from apps.forms.models import FormField, FormResponse, FormTemplate
 from apps.forms.tests.conftest import (
-    PUBLIC_LIBRARY_URL,
     MY_RESPONSES_URL,
-    template_list_url,
-    template_detail_url,
-    template_publish_url,
-    template_archive_url,
-    template_fork_url,
-    template_fields_url,
+    PUBLIC_LIBRARY_URL,
     field_detail_url,
     field_reorder_url,
-    response_list_url,
     response_detail_url,
-    response_submit_url,
+    response_list_url,
     response_process_url,
+    response_submit_url,
     response_void_url,
+    template_archive_url,
+    template_detail_url,
+    template_fields_url,
+    template_fork_url,
+    template_list_url,
+    template_publish_url,
 )
 from apps.forms.tests.factories import (
     ActiveFormTemplateFactory,
@@ -56,7 +56,6 @@ from apps.forms.tests.factories import (
 )
 from apps.users.tests.factories import UserFactory
 
-
 # =============================================================================
 # FORM TEMPLATE LIST VIEW
 # =============================================================================
@@ -67,7 +66,10 @@ class TestFormTemplateListView:
     """Tests for GET/POST /api/v1/forms/{account_type}/{account_id}/templates/"""
 
     def test_list_templates_authenticated(
-        self, authenticated_client, owner_with_form_perms, business,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        business,
     ):
         """Authenticated user with membership can list templates."""
         url = template_list_url(AccountType.BUSINESS, business.id)
@@ -81,7 +83,11 @@ class TestFormTemplateListView:
         assert response.status_code == 401
 
     def test_list_returns_own_templates(
-        self, authenticated_client, owner_with_form_perms, user, business,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        user,
+        business,
     ):
         """GET returns templates owned by the business."""
         FormTemplateFactory(
@@ -104,7 +110,10 @@ class TestFormTemplateListView:
         assert response.data["count"] == 2
 
     def test_create_template(
-        self, authenticated_client, owner_with_form_perms, business,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        business,
     ):
         """POST with valid data creates a new draft form template."""
         url = template_list_url(AccountType.BUSINESS, business.id)
@@ -121,7 +130,10 @@ class TestFormTemplateListView:
         assert FormTemplate.objects.filter(name="New Form").exists()
 
     def test_create_template_missing_required_field(
-        self, authenticated_client, owner_with_form_perms, business,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        business,
     ):
         """POST without required 'name' field returns 400."""
         url = template_list_url(AccountType.BUSINESS, business.id)
@@ -144,7 +156,10 @@ class TestFormTemplateDetailView:
     """Tests for GET/PATCH/DELETE /api/v1/forms/templates/{form_id}/"""
 
     def test_get_template_detail(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """Authenticated member can retrieve form template details."""
         url = template_detail_url(draft_form.id)
@@ -154,7 +169,9 @@ class TestFormTemplateDetailView:
         assert response.data["name"] == draft_form.name
 
     def test_get_public_template_no_membership(
-        self, api_client, another_user,
+        self,
+        api_client,
+        another_user,
     ):
         """Any authenticated user can view a public template without membership."""
         public_form = PublicFormTemplateFactory()
@@ -165,7 +182,10 @@ class TestFormTemplateDetailView:
         assert response.data["id"] == str(public_form.id)
 
     def test_update_template(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """PATCH updates form template name."""
         url = template_detail_url(draft_form.id)
@@ -177,7 +197,10 @@ class TestFormTemplateDetailView:
         assert draft_form.name == "Updated Form Name"
 
     def test_delete_template(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """DELETE soft-deletes the form template."""
         url = template_detail_url(draft_form.id)
@@ -197,7 +220,10 @@ class TestFormTemplatePublishView:
     """Tests for POST /api/v1/forms/templates/{form_id}/publish/"""
 
     def test_publish_template(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """Publishing a draft form transitions it to ACTIVE."""
         url = template_publish_url(draft_form.id)
@@ -208,7 +234,10 @@ class TestFormTemplatePublishView:
         assert draft_form.status == FormStatus.ACTIVE
 
     def test_publish_non_draft_fails(
-        self, authenticated_client, owner_with_form_perms, active_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        active_form,
     ):
         """Publishing an already-active form returns 400 (BusinessRuleViolation)."""
         url = template_publish_url(active_form.id)
@@ -226,7 +255,10 @@ class TestFormTemplateArchiveView:
     """Tests for POST /api/v1/forms/templates/{form_id}/archive/"""
 
     def test_archive_template(
-        self, authenticated_client, owner_with_form_perms, active_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        active_form,
     ):
         """Archiving an active form transitions it to ARCHIVED."""
         url = template_archive_url(active_form.id)
@@ -237,7 +269,10 @@ class TestFormTemplateArchiveView:
         assert active_form.status == FormStatus.ARCHIVED
 
     def test_archive_non_active_fails(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """Archiving a draft form returns 400 (BusinessRuleViolation)."""
         url = template_archive_url(draft_form.id)
@@ -255,7 +290,10 @@ class TestFormTemplateForkView:
     """Tests for POST /api/v1/forms/templates/{form_id}/fork/"""
 
     def test_fork_public_template(
-        self, authenticated_client, owner_with_form_perms, business,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        business,
     ):
         """Forking a public template creates a new draft copy."""
         public_form = PublicFormTemplateFactory()
@@ -270,7 +308,10 @@ class TestFormTemplateForkView:
         assert str(response.data["forked_from"]) == str(public_form.id)
 
     def test_fork_non_public_fails(
-        self, authenticated_client, owner_with_form_perms, business,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        business,
     ):
         """Forking a non-public template returns 403 (PermissionDenied)."""
         private_form = ActiveFormTemplateFactory(is_template_public=False)
@@ -315,7 +356,10 @@ class TestFormFieldAddView:
     """Tests for POST /api/v1/forms/templates/{form_id}/fields/"""
 
     def test_add_field(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """Adding a valid field to a draft form returns 201."""
         url = template_fields_url(draft_form.id)
@@ -329,11 +373,15 @@ class TestFormFieldAddView:
         assert response.status_code == 201
         assert response.data["field_key"] == "full_name"
         assert FormField.objects.filter(
-            form_template=draft_form, field_key="full_name",
+            form_template=draft_form,
+            field_key="full_name",
         ).exists()
 
     def test_add_field_duplicate_key_fails(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """Adding a field with duplicate key returns 409 (ConflictError)."""
         FormFieldFactory(form_template=draft_form, field_key="email_field")
@@ -358,7 +406,11 @@ class TestFormResponseListView:
     """Tests for GET/POST /api/v1/forms/templates/{form_id}/responses/"""
 
     def test_list_responses(
-        self, authenticated_client, owner_with_form_perms, active_form, user,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        active_form,
+        user,
     ):
         """Listing responses for a form the user owns returns 200."""
         FormResponseFactory(
@@ -372,7 +424,10 @@ class TestFormResponseListView:
         assert response.data["count"] == 1
 
     def test_create_response(
-        self, authenticated_client, owner_with_form_perms, active_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        active_form,
     ):
         """Creating a response on an active form returns 201."""
         url = response_list_url(active_form.id)
@@ -395,7 +450,10 @@ class TestFormResponseDetailView:
     """Tests for GET/PATCH /api/v1/forms/responses/{response_id}/"""
 
     def test_get_own_response(
-        self, authenticated_client, owner_with_form_perms, draft_response,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_response,
     ):
         """Submitter can GET their own response."""
         url = response_detail_url(draft_response.id)
@@ -404,7 +462,10 @@ class TestFormResponseDetailView:
         assert response.data["id"] == str(draft_response.id)
 
     def test_update_response(
-        self, authenticated_client, owner_with_form_perms, draft_response,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_response,
     ):
         """Submitter can PATCH their own draft response with new data."""
         url = response_detail_url(draft_response.id)
@@ -424,7 +485,10 @@ class TestFormResponseSubmitView:
     """Tests for POST /api/v1/forms/responses/{response_id}/submit/"""
 
     def test_submit_response(
-        self, authenticated_client, owner_with_form_perms, draft_response,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_response,
     ):
         """Submitting a draft response transitions to SUBMITTED."""
         url = response_submit_url(draft_response.id)
@@ -446,7 +510,10 @@ class TestFormResponseProcessView:
     """Tests for POST /api/v1/forms/responses/{response_id}/process/"""
 
     def test_process_response(
-        self, authenticated_client, owner_with_form_perms, submitted_response,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        submitted_response,
     ):
         """Processing a submitted response transitions to PROCESSED with notes."""
         url = response_process_url(submitted_response.id)
@@ -470,7 +537,10 @@ class TestFormResponseVoidView:
     """Tests for POST /api/v1/forms/responses/{response_id}/void/"""
 
     def test_void_own_response(
-        self, authenticated_client, owner_with_form_perms, draft_response,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_response,
     ):
         """Submitter can void their own draft response."""
         url = response_void_url(draft_response.id)
@@ -514,7 +584,9 @@ class TestMyResponsesView:
     """Tests for GET /api/v1/forms/me/responses/"""
 
     def test_list_my_responses(
-        self, authenticated_client, user,
+        self,
+        authenticated_client,
+        user,
     ):
         """Authenticated user sees only their own responses."""
         active_tmpl = ActiveFormTemplateFactory()
@@ -559,7 +631,10 @@ class TestSystemFormResponseCreation:
         )
 
     def test_create_response_for_system_form(
-        self, authenticated_client, user, system_form,
+        self,
+        authenticated_client,
+        user,
+        system_form,
     ):
         """Any authenticated user can create a response on a system form."""
         url = response_list_url(system_form.id)
@@ -569,7 +644,10 @@ class TestSystemFormResponseCreation:
         assert str(resp.data["submitted_by"]) == str(user.id)
 
     def test_submit_response_for_system_form(
-        self, authenticated_client, user, system_form,
+        self,
+        authenticated_client,
+        user,
+        system_form,
     ):
         """Any authenticated user can submit their system form response."""
         draft = FormResponseFactory(
@@ -584,7 +662,9 @@ class TestSystemFormResponseCreation:
         assert resp.data["status"] == ResponseStatus.SUBMITTED
 
     def test_account_form_still_requires_membership(
-        self, authenticated_client, user,
+        self,
+        authenticated_client,
+        user,
     ):
         """Non-system forms still enforce the membership check."""
         from apps.rbac.tests.factories import BusinessAccountFactory
@@ -611,11 +691,16 @@ class TestFormFieldDetailView:
     """Tests for GET/PATCH/DELETE /api/v1/forms/templates/{template_id}/fields/{field_id}/"""
 
     def test_get_field_detail(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """Authenticated member can retrieve a single field."""
         field = FormFieldFactory(
-            form_template=draft_form, field_key="name_field", order=0,
+            form_template=draft_form,
+            field_key="name_field",
+            order=0,
         )
         url = field_detail_url(draft_form.id, field.id)
         response = authenticated_client.get(url)
@@ -623,12 +708,17 @@ class TestFormFieldDetailView:
         assert response.data["field_key"] == "name_field"
 
     def test_patch_field_updates_label(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """PATCH updates the field label successfully."""
         field = FormFieldFactory(
-            form_template=draft_form, field_key="email_field",
-            label="Old Label", order=0,
+            form_template=draft_form,
+            field_key="email_field",
+            label="Old Label",
+            order=0,
         )
         url = field_detail_url(draft_form.id, field.id)
         payload = {"label": "New Label"}
@@ -639,12 +729,18 @@ class TestFormFieldDetailView:
         assert field.label == "New Label"
 
     def test_patch_field_updates_multiple_properties(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """PATCH can update multiple properties at once."""
         field = FormFieldFactory(
-            form_template=draft_form, field_key="multi_field",
-            label="Old", placeholder="old placeholder", order=0,
+            form_template=draft_form,
+            field_key="multi_field",
+            label="Old",
+            placeholder="old placeholder",
+            order=0,
         )
         url = field_detail_url(draft_form.id, field.id)
         payload = {
@@ -659,11 +755,16 @@ class TestFormFieldDetailView:
         assert response.data["is_required"] is True
 
     def test_patch_field_non_draft_returns_400(
-        self, authenticated_client, owner_with_form_perms, active_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        active_form,
     ):
         """PATCH on a non-draft form field returns 400."""
         field = FormFieldFactory(
-            form_template=active_form, field_key="locked_field", order=0,
+            form_template=active_form,
+            field_key="locked_field",
+            order=0,
         )
         url = field_detail_url(active_form.id, field.id)
         payload = {"label": "Attempt Update"}
@@ -671,11 +772,16 @@ class TestFormFieldDetailView:
         assert response.status_code == 400
 
     def test_delete_field_removes_it(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """DELETE removes the field from the form."""
         field = FormFieldFactory(
-            form_template=draft_form, field_key="to_delete", order=0,
+            form_template=draft_form,
+            field_key="to_delete",
+            order=0,
         )
         url = field_detail_url(draft_form.id, field.id)
         response = authenticated_client.delete(url)
@@ -683,17 +789,26 @@ class TestFormFieldDetailView:
         assert not FormField.objects.filter(id=field.id).exists()
 
     def test_delete_field_reorders_remaining(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """DELETE reorders remaining fields to close the gap."""
         f0 = FormFieldFactory(
-            form_template=draft_form, field_key="field_0", order=0,
+            form_template=draft_form,
+            field_key="field_0",
+            order=0,
         )
         f1 = FormFieldFactory(
-            form_template=draft_form, field_key="field_1", order=1,
+            form_template=draft_form,
+            field_key="field_1",
+            order=1,
         )
         f2 = FormFieldFactory(
-            form_template=draft_form, field_key="field_2", order=2,
+            form_template=draft_form,
+            field_key="field_2",
+            order=2,
         )
         url = field_detail_url(draft_form.id, f1.id)
         response = authenticated_client.delete(url)
@@ -704,22 +819,31 @@ class TestFormFieldDetailView:
         assert f2.order == 1  # was 2, now shifted down
 
     def test_delete_field_non_draft_returns_400(
-        self, authenticated_client, owner_with_form_perms, active_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        active_form,
     ):
         """DELETE on a non-draft form field returns 400."""
         field = FormFieldFactory(
-            form_template=active_form, field_key="locked_del", order=0,
+            form_template=active_form,
+            field_key="locked_del",
+            order=0,
         )
         url = field_detail_url(active_form.id, field.id)
         response = authenticated_client.delete(url)
         assert response.status_code == 400
 
     def test_field_unauthenticated_returns_401(
-        self, api_client, draft_form,
+        self,
+        api_client,
+        draft_form,
     ):
         """Unauthenticated request to field endpoint returns 401."""
         field = FormFieldFactory(
-            form_template=draft_form, field_key="auth_test", order=0,
+            form_template=draft_form,
+            field_key="auth_test",
+            order=0,
         )
         url = field_detail_url(draft_form.id, field.id)
         response = api_client.get(url)
@@ -740,17 +864,26 @@ class TestFormFieldReorderView:
     """Tests for POST /api/v1/forms/templates/{template_id}/fields/reorder/"""
 
     def test_reorder_fields(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """Reorder successfully updates field orders."""
         f0 = FormFieldFactory(
-            form_template=draft_form, field_key="reorder_a", order=0,
+            form_template=draft_form,
+            field_key="reorder_a",
+            order=0,
         )
         f1 = FormFieldFactory(
-            form_template=draft_form, field_key="reorder_b", order=1,
+            form_template=draft_form,
+            field_key="reorder_b",
+            order=1,
         )
         f2 = FormFieldFactory(
-            form_template=draft_form, field_key="reorder_c", order=2,
+            form_template=draft_form,
+            field_key="reorder_c",
+            order=2,
         )
         url = field_reorder_url(draft_form.id)
         payload = {
@@ -770,11 +903,16 @@ class TestFormFieldReorderView:
         assert f1.order == 2
 
     def test_reorder_non_draft_returns_400(
-        self, authenticated_client, owner_with_form_perms, active_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        active_form,
     ):
         """Reorder on a non-draft form returns 400."""
         field = FormFieldFactory(
-            form_template=active_form, field_key="reorder_locked", order=0,
+            form_template=active_form,
+            field_key="reorder_locked",
+            order=0,
         )
         url = field_reorder_url(active_form.id)
         payload = {
@@ -784,7 +922,9 @@ class TestFormFieldReorderView:
         assert response.status_code == 400
 
     def test_reorder_unauthenticated_returns_401(
-        self, api_client, draft_form,
+        self,
+        api_client,
+        draft_form,
     ):
         """Unauthenticated request to reorder returns 401."""
         url = field_reorder_url(draft_form.id)
@@ -793,10 +933,14 @@ class TestFormFieldReorderView:
         assert response.status_code == 401
 
     def test_reorder_invalid_field_id_returns_400(
-        self, authenticated_client, owner_with_form_perms, draft_form,
+        self,
+        authenticated_client,
+        owner_with_form_perms,
+        draft_form,
     ):
         """Reorder with a field_id not belonging to the template returns 400."""
         import uuid
+
         fake_id = uuid.uuid4()
         url = field_reorder_url(draft_form.id)
         payload = {
@@ -821,7 +965,10 @@ class TestPlatformFormViews:
     """
 
     def test_create_form_template_as_platform_member(
-        self, authenticated_client, platform_owner_with_form_perms, platform,
+        self,
+        authenticated_client,
+        platform_owner_with_form_perms,
+        platform,
     ):
         """POST to platform templates URL creates a form template."""
         url = template_list_url(AccountType.PLATFORM, platform.id)
@@ -837,7 +984,11 @@ class TestPlatformFormViews:
         assert response.data["status"] == FormStatus.DRAFT
 
     def test_list_form_templates_platform_context(
-        self, authenticated_client, platform_owner_with_form_perms, platform, user,
+        self,
+        authenticated_client,
+        platform_owner_with_form_perms,
+        platform,
+        user,
     ):
         """GET returns templates owned by the platform."""
         FormTemplateFactory(
@@ -860,7 +1011,10 @@ class TestPlatformFormViews:
         assert response.data["count"] == 2
 
     def test_non_platform_member_cannot_create(
-        self, api_client, platform, another_user,
+        self,
+        api_client,
+        platform,
+        another_user,
     ):
         """User without platform membership cannot create templates."""
         api_client.force_authenticate(user=another_user)
@@ -875,7 +1029,11 @@ class TestPlatformFormViews:
         assert response.status_code == 403
 
     def test_platform_form_detail_includes_permissions(
-        self, authenticated_client, platform_owner_with_form_perms, platform, user,
+        self,
+        authenticated_client,
+        platform_owner_with_form_perms,
+        platform,
+        user,
     ):
         """GET form detail for a platform-owned form includes _permissions."""
         form = ActiveFormTemplateFactory(

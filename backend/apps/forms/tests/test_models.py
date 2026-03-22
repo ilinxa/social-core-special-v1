@@ -5,42 +5,41 @@ Comprehensive model-level tests for FormTemplate, FormField, FormResponse,
 and typed Index Tables.
 """
 
-import uuid
 import datetime
+import uuid
 
 import pytest
 from django.db import IntegrityError
 
 from apps.core.constants import (
-    FormStatus,
-    ResponseStatus,
     FieldType,
-    OwnerType,
     FormScope,
+    FormStatus,
+    OwnerType,
+    ResponseStatus,
 )
 from apps.forms.models import (
-    FormTemplate,
-    FormField,
-    FormResponse,
-    TextFieldIndex,
-    IntegerFieldIndex,
-    DecimalFieldIndex,
     BooleanFieldIndex,
     DateFieldIndex,
     DateTimeFieldIndex,
+    DecimalFieldIndex,
+    FormField,
+    FormResponse,
+    FormTemplate,
+    IntegerFieldIndex,
+    TextFieldIndex,
 )
 from apps.forms.tests.factories import (
-    FormTemplateFactory,
     ActiveFormTemplateFactory,
     ArchivedFormTemplateFactory,
-    SystemFormTemplateFactory,
-    PublicFormTemplateFactory,
     FormFieldFactory,
     FormResponseFactory,
+    FormTemplateFactory,
+    PublicFormTemplateFactory,
     SubmittedFormResponseFactory,
+    SystemFormTemplateFactory,
 )
 from apps.users.tests.factories import UserFactory
-
 
 # =============================================================================
 # FORM TEMPLATE TESTS
@@ -141,9 +140,11 @@ class TestFormTemplate:
         form_old = FormTemplateFactory(created_by=user)
         form_new = FormTemplateFactory(created_by=user)
 
-        forms = list(FormTemplate.objects.filter(
-            id__in=[form_old.id, form_new.id],
-        ))
+        forms = list(
+            FormTemplate.objects.filter(
+                id__in=[form_old.id, form_new.id],
+            )
+        )
         assert forms[0].id == form_new.id
         assert forms[1].id == form_old.id
 

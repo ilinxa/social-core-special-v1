@@ -13,7 +13,6 @@ from rest_framework.views import APIView
 
 from apps.core.views import PermissionInjectMixin
 
-
 # =============================================================================
 # TEST POLICY + VIEW (minimal fakes)
 # =============================================================================

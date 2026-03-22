@@ -15,16 +15,20 @@ interface FormTextareaProps extends React.ComponentProps<typeof Textarea> {
 }
 
 export const FormTextarea = forwardRef<HTMLTextAreaElement, FormTextareaProps>(
-  ({ label, error, description, id, className, ...props }, ref) => {
+  ({ label, error, description, id, className, required, ...props }, ref) => {
     const fieldId = id ?? props.name;
 
     return (
       <div className={cn("space-y-2", className)}>
-        <Label htmlFor={fieldId}>{label}</Label>
+        <Label htmlFor={fieldId}>
+          {label}
+          {required && <span className="ml-1 text-destructive">*</span>}
+        </Label>
         <Textarea
           ref={ref}
           id={fieldId}
           aria-invalid={!!error}
+          aria-required={required || undefined}
           aria-describedby={error ? `${fieldId}-error` : undefined}
           {...props}
         />

@@ -89,7 +89,7 @@ export function AvatarUpload({ avatarUrl, hasAvatar, fallbackText }: AvatarUploa
         </Avatar>
 
         {/* Hover overlay */}
-        <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           {isUploading ? (
             <Loader2 className="h-6 w-6 animate-spin text-white" />
           ) : (

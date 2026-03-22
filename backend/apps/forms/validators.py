@@ -10,7 +10,6 @@ from typing import Any, Dict, List
 
 from apps.core.constants import FieldType
 
-
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 URL_REGEX = re.compile(r"^https?://.+\..+")
 PHONE_REGEX = re.compile(r"^[+]?[\d\s().\-]{7,20}$")

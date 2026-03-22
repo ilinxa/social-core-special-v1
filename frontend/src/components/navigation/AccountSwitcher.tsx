@@ -7,6 +7,7 @@ import { Building2, Check, ChevronsUpDown, Globe, Plus, User } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { BusinessCreationRequestButton } from "@/features/business/components/BusinessCreationRequestButton";
 import { CreateBusinessDialog } from "@/features/business/components/CreateBusinessDialog";
 import { useBusinessMemberships, usePlatformMembership, useMembershipStore } from "@/stores/membership-store";
 import { useUser } from "@/stores/auth-store";
@@ -109,20 +110,24 @@ export function AccountSwitcher() {
             );
           })}
 
-          {user?.can_create_business && (
-            <>
-              <Separator className="my-1" />
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  setCreateOpen(true);
-                }}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <Plus className="h-4 w-4 shrink-0" />
-                <span className="flex-1 text-left">Create Business</span>
-              </button>
-            </>
+          {user && (
+            user.can_create_business ? (
+              <>
+                <Separator className="my-1" />
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    setCreateOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Plus className="h-4 w-4 shrink-0" />
+                  <span className="flex-1 text-left">Create Business</span>
+                </button>
+              </>
+            ) : (
+              <BusinessCreationRequestButton />
+            )
           )}
         </div>
       </PopoverContent>

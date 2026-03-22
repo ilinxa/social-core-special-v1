@@ -11,16 +11,21 @@ Tests organized by actor type, simulating real user scenarios:
 - Global Moderator: Cross-business with platform_only scope
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 from django.core.cache import cache
 
-from apps.core.constants import AccountType, PermissionScope, MembershipStatus
-from apps.core.exceptions import PermissionDenied, BusinessRuleViolation, ConflictError, ValidationError
+from apps.core.constants import AccountType, MembershipStatus, PermissionScope
+from apps.core.exceptions import (
+    BusinessRuleViolation,
+    ConflictError,
+    PermissionDenied,
+    ValidationError,
+)
 from apps.core.observability.audit.models import AuditLog
-from apps.rbac.models import Permission, Role, RolePermission, Membership
+from apps.rbac.models import Membership, Permission, Role, RolePermission
 from apps.rbac.services import RBACService
-
 
 # =============================================================================
 # BUSINESS OWNER SCENARIOS
@@ -256,7 +261,11 @@ class TestBusinessAdminScenarios:
         assert "authority" in str(exc_info.value.message).lower()
 
     def test_admin_can_assign_lower_role_to_member(
-        self, business_with_members, admin_role, manager_role, can_change_member_role_permission
+        self,
+        business_with_members,
+        admin_role,
+        manager_role,
+        can_change_member_role_permission,
     ):
         """Admin can assign a lower-level role to a member."""
         admin_user = business_with_members["member1_membership"]
@@ -360,7 +369,12 @@ class TestPlatformAdminCrossBusinessScenarios:
     """Tests from Platform Admin perspective - cross-business with global scope."""
 
     def test_platform_admin_with_global_can_suspend_business_member(
-        self, business_with_members, platform, platform_admin_role, can_suspend_member_permission, another_user
+        self,
+        business_with_members,
+        platform,
+        platform_admin_role,
+        can_suspend_member_permission,
+        another_user,
     ):
         """Platform admin with global scope can suspend members in any business."""
         target = business_with_members["member1_membership"]
@@ -393,7 +407,12 @@ class TestPlatformAdminCrossBusinessScenarios:
         assert result.status == MembershipStatus.SUSPENDED
 
     def test_platform_admin_with_platform_only_cannot_suspend_business_member(
-        self, business_with_members, platform, platform_admin_role, can_suspend_member_permission, another_user
+        self,
+        business_with_members,
+        platform,
+        platform_admin_role,
+        can_suspend_member_permission,
+        another_user,
     ):
         """Platform admin with platform_only scope CANNOT suspend members in businesses."""
         target = business_with_members["member1_membership"]
@@ -425,7 +444,12 @@ class TestPlatformAdminCrossBusinessScenarios:
             )
 
     def test_platform_admin_with_global_can_ban_business_owner(
-        self, business_with_members, platform, platform_admin_role, can_ban_member_permission, another_user
+        self,
+        business_with_members,
+        platform,
+        platform_admin_role,
+        can_ban_member_permission,
+        another_user,
     ):
         """Platform admin with global scope CAN ban a business owner."""
         owner = business_with_members["owner_membership"]
@@ -466,8 +490,13 @@ class TestPlatformAdminInternalActions:
     """
 
     def test_platform_admin_can_suspend_global_mod(
-        self, platform, platform_admin_role, global_moderator_role,
-        can_suspend_member_permission, user, another_user
+        self,
+        platform,
+        platform_admin_role,
+        global_moderator_role,
+        can_suspend_member_permission,
+        user,
+        another_user,
     ):
         """Platform Admin (level 2) CAN suspend Global Mod (level 5) (§2.1.2)."""
         # Create platform admin membership
@@ -506,8 +535,12 @@ class TestPlatformAdminInternalActions:
         assert result.status == MembershipStatus.SUSPENDED
 
     def test_platform_admin_cannot_suspend_platform_owner(
-        self, platform, platform_admin_role, platform_owner_membership,
-        can_suspend_member_permission, another_user
+        self,
+        platform,
+        platform_admin_role,
+        platform_owner_membership,
+        can_suspend_member_permission,
+        another_user,
     ):
         """Platform Admin CANNOT suspend Platform Owner (§2.1.7) - Owner is invincible."""
         platform_admin = Membership.objects.create(
@@ -537,7 +570,12 @@ class TestPlatformAdminInternalActions:
         assert "account owner" in str(exc_info.value.message).lower()
 
     def test_platform_admin_cannot_suspend_equal_level_admin(
-        self, platform, platform_admin_role, can_suspend_member_permission, user, another_user
+        self,
+        platform,
+        platform_admin_role,
+        can_suspend_member_permission,
+        user,
+        another_user,
     ):
         """Platform Admin (L2) CANNOT suspend another Admin (L2) (§2.1.10) - equal level."""
         # Create first platform admin
@@ -577,8 +615,13 @@ class TestPlatformAdminInternalActions:
         assert "authority" in str(exc_info.value.message).lower()
 
     def test_platform_admin_cannot_assign_equal_authority_role(
-        self, platform, platform_admin_role, can_change_member_role_permission,
-        global_moderator_role, user, another_user
+        self,
+        platform,
+        platform_admin_role,
+        can_change_member_role_permission,
+        global_moderator_role,
+        user,
+        another_user,
     ):
         """Platform Admin (L2) CANNOT promote Global Mod to L2 role (§2.1.5) - equal authority."""
         # Create platform admin
@@ -636,7 +679,12 @@ class TestPlatformOwnerScenarios:
     """Tests from Platform Owner perspective - ultimate authority."""
 
     def test_platform_owner_cannot_be_suspended_by_anyone(
-        self, platform_owner_membership, platform_admin_role, platform, can_suspend_member_permission, another_user
+        self,
+        platform_owner_membership,
+        platform_admin_role,
+        platform,
+        can_suspend_member_permission,
+        another_user,
     ):
         """Platform owner is completely invincible - no one can suspend them."""
         # Create a platform admin
@@ -667,7 +715,10 @@ class TestPlatformOwnerScenarios:
         assert "account owner" in str(exc_info.value.message).lower()
 
     def test_platform_owner_can_suspend_platform_admin(
-        self, platform_owner_membership, platform_admin_membership, can_suspend_member_permission
+        self,
+        platform_owner_membership,
+        platform_admin_membership,
+        can_suspend_member_permission,
     ):
         """Platform owner can suspend platform admins."""
         RolePermission.objects.create(
@@ -677,7 +728,9 @@ class TestPlatformOwnerScenarios:
         )
 
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         result = RBACService.update_membership_status(
             membership_id=platform_admin_membership.id,
@@ -697,7 +750,10 @@ class TestPlatformOwnerCrossAccount:
     """
 
     def test_platform_owner_can_suspend_business_owner(
-        self, platform_owner_membership, business_with_members, can_suspend_member_permission
+        self,
+        platform_owner_membership,
+        business_with_members,
+        can_suspend_member_permission,
     ):
         """Platform Owner CAN suspend a Business Owner (§1.2.2)."""
         target = business_with_members["owner_membership"]
@@ -709,7 +765,9 @@ class TestPlatformOwnerCrossAccount:
         )
 
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         result = RBACService.update_membership_status(
             membership_id=target.id,
@@ -720,7 +778,11 @@ class TestPlatformOwnerCrossAccount:
         assert result.status == MembershipStatus.SUSPENDED
 
     def test_platform_owner_can_suspend_business_admin(
-        self, platform_owner_membership, business_with_members, admin_role, can_suspend_member_permission
+        self,
+        platform_owner_membership,
+        business_with_members,
+        admin_role,
+        can_suspend_member_permission,
     ):
         """Platform Owner CAN suspend a Business Admin (§1.2.4)."""
         target = business_with_members["member1_membership"]
@@ -734,7 +796,9 @@ class TestPlatformOwnerCrossAccount:
         )
 
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         result = RBACService.update_membership_status(
             membership_id=target.id,
@@ -745,7 +809,10 @@ class TestPlatformOwnerCrossAccount:
         assert result.status == MembershipStatus.SUSPENDED
 
     def test_platform_owner_can_ban_business_member(
-        self, platform_owner_membership, business_with_members, can_ban_member_permission
+        self,
+        platform_owner_membership,
+        business_with_members,
+        can_ban_member_permission,
     ):
         """Platform Owner CAN ban any business member (§1.2.5)."""
         target = business_with_members["member1_membership"]
@@ -757,7 +824,9 @@ class TestPlatformOwnerCrossAccount:
         )
 
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         result = RBACService.update_membership_status(
             membership_id=target.id,
@@ -778,7 +847,9 @@ class TestPlatformOwnerCrossAccount:
         )
 
         cache.clear()
-        actor_context = RBACService.build_actor_context(membership=platform_owner_membership)
+        actor_context = RBACService.build_actor_context(
+            membership=platform_owner_membership
+        )
 
         with pytest.raises(PermissionDenied) as exc_info:
             RBACService.update_membership_status(
@@ -801,7 +872,11 @@ class TestCrossAccountEdgeCases:
     """Edge cases for cross-account operations."""
 
     def test_business_owner_cannot_act_on_other_business(
-        self, business_with_members, another_business, can_suspend_member_permission, third_user
+        self,
+        business_with_members,
+        another_business,
+        can_suspend_member_permission,
+        third_user,
     ):
         """Business owner has no authority in other businesses."""
         owner = business_with_members["owner_membership"]
@@ -886,7 +961,11 @@ class TestCrossAccountEdgeCases:
         assert member_context.role_level == 10
 
     def test_business_owner_cannot_remove_from_other_business(
-        self, business_with_members, another_business, can_remove_member_permission, third_user
+        self,
+        business_with_members,
+        another_business,
+        can_remove_member_permission,
+        third_user,
     ):
         """Business Owner A cannot remove a member from Business B (§4.2.3)."""
         owner = business_with_members["owner_membership"]
@@ -923,7 +1002,11 @@ class TestCrossAccountEdgeCases:
             )
 
     def test_business_owner_cannot_change_role_in_other_business(
-        self, business_with_members, another_business, can_change_member_role_permission, third_user
+        self,
+        business_with_members,
+        another_business,
+        can_change_member_role_permission,
+        third_user,
     ):
         """Business Owner A cannot change role of member in Business B (§4.2.4)."""
         owner = business_with_members["owner_membership"]
@@ -966,8 +1049,13 @@ class TestCrossAccountEdgeCases:
             )
 
     def test_business_admin_cannot_change_role_in_other_business(
-        self, business_with_members, another_business, admin_role,
-        can_change_member_role_permission, third_user, user
+        self,
+        business_with_members,
+        another_business,
+        admin_role,
+        can_change_member_role_permission,
+        third_user,
+        user,
     ):
         """Business Admin A cannot change role of member in Business B (§5.4.2)."""
         # Set up admin in business A
@@ -1043,11 +1131,18 @@ class TestPlatformOnlyScopeLimitations:
         cache.clear()
         actor_context = RBACService.build_actor_context(membership=moderator)
 
-        assert ("can_suspend_member", "platform_only") in actor_context.permissions_snapshot
+        assert (
+            "can_suspend_member",
+            "platform_only",
+        ) in actor_context.permissions_snapshot
 
     def test_platform_only_scope_blocks_cross_business_actions(
-        self, business_with_members, platform, global_moderator_role,
-        can_suspend_member_permission, third_user
+        self,
+        business_with_members,
+        platform,
+        global_moderator_role,
+        can_suspend_member_permission,
+        third_user,
     ):
         """Platform staff with platform_only scope CANNOT act on business members."""
         target = business_with_members["member1_membership"]
@@ -1087,8 +1182,12 @@ class TestGlobalModeratorCrossAccount:
     """
 
     def test_global_mod_can_suspend_business_owner(
-        self, business_with_members, platform, global_moderator_role,
-        can_suspend_member_permission, third_user
+        self,
+        business_with_members,
+        platform,
+        global_moderator_role,
+        can_suspend_member_permission,
+        third_user,
     ):
         """Global Mod (global_only) CAN suspend a Business Owner (§3.2.1)."""
         owner = business_with_members["owner_membership"]
@@ -1120,8 +1219,13 @@ class TestGlobalModeratorCrossAccount:
         assert result.status == MembershipStatus.SUSPENDED
 
     def test_global_mod_can_suspend_business_admin(
-        self, business_with_members, platform, global_moderator_role, admin_role,
-        can_suspend_member_permission, third_user
+        self,
+        business_with_members,
+        platform,
+        global_moderator_role,
+        admin_role,
+        can_suspend_member_permission,
+        third_user,
     ):
         """Global Mod (global_only) CAN suspend a Business Admin (§3.2.2)."""
         target = business_with_members["member1_membership"]
@@ -1154,8 +1258,12 @@ class TestGlobalModeratorCrossAccount:
         assert result.status == MembershipStatus.SUSPENDED
 
     def test_global_mod_can_suspend_business_base_member(
-        self, business_with_members, platform, global_moderator_role,
-        can_suspend_member_permission, third_user
+        self,
+        business_with_members,
+        platform,
+        global_moderator_role,
+        can_suspend_member_permission,
+        third_user,
     ):
         """Global Mod (global_only) CAN suspend a Business Base Member (§3.2.3)."""
         target = business_with_members["member1_membership"]
@@ -1186,8 +1294,12 @@ class TestGlobalModeratorCrossAccount:
         assert result.status == MembershipStatus.SUSPENDED
 
     def test_global_mod_can_remove_business_member(
-        self, business_with_members, platform, global_moderator_role,
-        can_remove_member_permission, third_user
+        self,
+        business_with_members,
+        platform,
+        global_moderator_role,
+        can_remove_member_permission,
+        third_user,
     ):
         """Global Mod (global_only) CAN remove a Business member (§3.2.4)."""
         target = business_with_members["member1_membership"]
@@ -1218,8 +1330,12 @@ class TestGlobalModeratorCrossAccount:
         assert result.status == MembershipStatus.REMOVED
 
     def test_global_mod_can_ban_business_member(
-        self, business_with_members, platform, global_moderator_role,
-        can_ban_member_permission, third_user
+        self,
+        business_with_members,
+        platform,
+        global_moderator_role,
+        can_ban_member_permission,
+        third_user,
     ):
         """Global Mod (global_only) CAN ban a Business member (§3.2.5)."""
         target = business_with_members["member1_membership"]
@@ -1250,8 +1366,12 @@ class TestGlobalModeratorCrossAccount:
         assert result.status == MembershipStatus.BANNED
 
     def test_global_mod_cannot_create_business_roles(
-        self, business, platform, global_moderator_role,
-        can_create_role_permission, third_user
+        self,
+        business,
+        platform,
+        global_moderator_role,
+        can_create_role_permission,
+        third_user,
     ):
         """Global Mod CANNOT create roles in a Business (§3.2.8) - can_create_role has no global scope."""
         moderator = Membership.objects.create(
@@ -1282,8 +1402,12 @@ class TestGlobalModeratorCrossAccount:
             )
 
     def test_global_mod_cannot_act_on_platform_owner(
-        self, platform, platform_owner_membership, global_moderator_role,
-        can_suspend_member_permission, third_user
+        self,
+        platform,
+        platform_owner_membership,
+        global_moderator_role,
+        can_suspend_member_permission,
+        third_user,
     ):
         """Global Mod CANNOT suspend Platform Owner (§3.1.1) - Platform Owner is invincible."""
         moderator = Membership.objects.create(
@@ -1313,8 +1437,13 @@ class TestGlobalModeratorCrossAccount:
         assert "account owner" in str(exc_info.value.message).lower()
 
     def test_global_mod_cannot_act_on_platform_admin(
-        self, platform, platform_admin_role, global_moderator_role,
-        can_suspend_member_permission, third_user, another_user
+        self,
+        platform,
+        platform_admin_role,
+        global_moderator_role,
+        can_suspend_member_permission,
+        third_user,
+        another_user,
     ):
         """Global Mod (level 5) CANNOT suspend Platform Admin (level 2) - dominance rule."""
         # Create platform admin membership
@@ -1519,7 +1648,11 @@ class TestPermissionAssignmentScenarios:
     """Tests for permission assignment to roles."""
 
     def test_owner_can_add_business_permission_to_role(
-        self, business, owner_membership, can_edit_role_permission, can_view_members_permission
+        self,
+        business,
+        owner_membership,
+        can_edit_role_permission,
+        can_view_members_permission,
     ):
         """Owner can add business-scoped permissions to custom roles."""
         custom_role = Role.objects.create(
@@ -1695,7 +1828,11 @@ class TestAuditTrailVerification:
             assert call_kwargs["actor"].id == owner.user.id
 
     def test_change_member_role_logs_audit(
-        self, business_with_members, admin_role, manager_role, can_change_member_role_permission
+        self,
+        business_with_members,
+        admin_role,
+        manager_role,
+        can_change_member_role_permission,
     ):
         """Changing a member's role logs an audit trail."""
         admin_user = business_with_members["member1_membership"]
@@ -1814,7 +1951,11 @@ class TestAuditTrailVerification:
             assert call_kwargs["action"] == AuditLog.Action.ROLE_UPDATED
 
     def test_add_permission_to_role_logs_audit(
-        self, business, owner_membership, can_edit_role_permission, can_view_members_permission
+        self,
+        business,
+        owner_membership,
+        can_edit_role_permission,
+        can_view_members_permission,
     ):
         """Adding permission to role logs an audit trail."""
         custom_role = Role.objects.create(
@@ -1846,7 +1987,11 @@ class TestAuditTrailVerification:
             assert call_kwargs["action"] == AuditLog.Action.ROLE_PERMISSION_ADDED
 
     def test_remove_permission_from_role_logs_audit(
-        self, business, owner_membership, can_edit_role_permission, can_view_members_permission
+        self,
+        business,
+        owner_membership,
+        can_edit_role_permission,
+        can_view_members_permission,
     ):
         """Removing permission from role logs an audit trail."""
         custom_role = Role.objects.create(

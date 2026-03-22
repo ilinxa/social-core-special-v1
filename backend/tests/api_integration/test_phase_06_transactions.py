@@ -12,10 +12,10 @@ import uuid
 
 import pytest
 
-
 # =============================================================================
 # T01–T07: TRANSACTION CREATION & LISTING
 # =============================================================================
+
 
 class TestTransactionCreation:
     """Test transaction listing, invitation, and request creation."""
@@ -42,13 +42,16 @@ class TestTransactionCreation:
         role_id = db_helper.get_base_member_role_id("business", biz_id)
         assert role_id, "No base member role found for business"
 
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "business_membership_invitation",
-            "target_user_id": bob_id,
-            "context_type": "business",
-            "context_id": biz_id,
-            "payload": {"role_id": role_id},
-        })
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "business_membership_invitation",
+                "target_user_id": bob_id,
+                "context_type": "business",
+                "context_id": biz_id,
+                "payload": {"role_id": role_id},
+            },
+        )
         assert r.status_code == 201, f"Create invitation failed: {r.text}"
         data = r.json()
         assert data["transaction_type"] == "business_membership_invitation"
@@ -68,13 +71,16 @@ class TestTransactionCreation:
         role_id = db_helper.get_base_member_role_id("business", biz_id)
         assert role_id, "No base member role found"
 
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "business_membership_invitation",
-            "target_user_id": carol_id,
-            "context_type": "business",
-            "context_id": biz_id,
-            "payload": {"role_id": role_id},
-        })
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "business_membership_invitation",
+                "target_user_id": carol_id,
+                "context_type": "business",
+                "context_id": biz_id,
+                "payload": {"role_id": role_id},
+            },
+        )
         assert r.status_code == 201
         state.transactions["carol_invite"] = {
             "id": r.json()["id"],
@@ -87,11 +93,14 @@ class TestTransactionCreation:
         api.set_token(state.get_token("nobody"))
         biz_id = state.businesses["bob_llc"]["id"]
 
-        r = api.post("transactions/request/", json={
-            "transaction_type": "business_membership_request",
-            "target_account_id": biz_id,
-            "target_account_type": "business",
-        })
+        r = api.post(
+            "transactions/request/",
+            json={
+                "transaction_type": "business_membership_request",
+                "target_account_id": biz_id,
+                "target_account_type": "business",
+            },
+        )
         # May succeed or fail depending on transaction config
         if r.status_code == 201:
             state.transactions["nobody_request"] = {
@@ -117,13 +126,16 @@ class TestTransactionCreation:
         biz_id = state.businesses["alice_corp"]["id"]
         role_id = db_helper.get_base_member_role_id("business", biz_id)
 
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "business_membership_invitation",
-            "target_user_id": bob_id,
-            "context_type": "business",
-            "context_id": biz_id,
-            "payload": {"role_id": role_id},
-        })
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "business_membership_invitation",
+                "target_user_id": bob_id,
+                "context_type": "business",
+                "context_id": biz_id,
+                "payload": {"role_id": role_id},
+            },
+        )
         # Should be rejected as duplicate
         assert r.status_code in (400, 409)
 
@@ -145,6 +157,7 @@ class TestTransactionCreation:
 # =============================================================================
 # T08–T13: TRANSACTION LIFECYCLE
 # =============================================================================
+
 
 class TestTransactionLifecycle:
     """Test accept, deny, cancel, dismiss, and double-action prevention."""
@@ -182,9 +195,12 @@ class TestTransactionLifecycle:
 
         api.set_token(state.get_token("carol"))
         tid = state.transactions["carol_invite"]["id"]
-        r = api.post(f"transactions/{tid}/deny/", json={
-            "reason": "Not interested right now",
-        })
+        r = api.post(
+            f"transactions/{tid}/deny/",
+            json={
+                "reason": "Not interested right now",
+            },
+        )
         assert r.status_code == 200
         data = r.json()
         assert data["status"] in ("denied", "rejected", "resolved")
@@ -197,13 +213,16 @@ class TestTransactionLifecycle:
         biz_id = state.businesses["alice_corp"]["id"]
         role_id = db_helper.get_base_member_role_id("business", biz_id)
 
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "business_membership_invitation",
-            "target_user_id": carol_id,
-            "context_type": "business",
-            "context_id": biz_id,
-            "payload": {"role_id": role_id},
-        })
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "business_membership_invitation",
+                "target_user_id": carol_id,
+                "context_type": "business",
+                "context_id": biz_id,
+                "payload": {"role_id": role_id},
+            },
+        )
         if r.status_code != 201:
             pytest.skip("Could not create invitation to cancel")
 
@@ -241,6 +260,7 @@ class TestTransactionLifecycle:
 # =============================================================================
 # T14–T18: FORM-LINKED TRANSACTIONS
 # =============================================================================
+
 
 class TestTransactionForms:
     """Test transactions linked to forms."""
@@ -282,12 +302,15 @@ class TestTransactionForms:
         )
         assert form_response_id, "Failed to create system form response"
 
-        r = api.post("transactions/request/", json={
-            "transaction_type": "business_verification_request",
-            "target_account_id": biz_id,
-            "target_account_type": "business",
-            "form_response_id": form_response_id,
-        })
+        r = api.post(
+            "transactions/request/",
+            json={
+                "transaction_type": "business_verification_request",
+                "target_account_id": biz_id,
+                "target_account_type": "business",
+                "form_response_id": form_response_id,
+            },
+        )
         assert r.status_code == 201, f"Create verification request failed: {r.text}"
         state.transactions["verification"] = {
             "id": r.json()["id"],
@@ -307,10 +330,13 @@ class TestTransactionForms:
 
         api.set_token(state.get_token("alice"))
         tid = state.transactions["verification"]["id"]
-        r = api.post(f"transactions/{tid}/request-info/", json={
-            "message": "Please provide business license and tax certificate",
-            "requested_fields": ["business_license", "tax_certificate"],
-        })
+        r = api.post(
+            f"transactions/{tid}/request-info/",
+            json={
+                "message": "Please provide business license and tax certificate",
+                "requested_fields": ["business_license", "tax_certificate"],
+            },
+        )
         # 200 = success, 400 = invalid state, 403 = insufficient permissions
         assert r.status_code in (200, 400, 403)
 
@@ -331,17 +357,20 @@ class TestTransactionForms:
 
         api.set_token(state.get_token("alice"))
         tid = state.transactions["verification"]["id"]
-        r = api.patch(f"transactions/{tid}/form-response/", json={
-            "data": {
-                "legal_name": "Alice Corp LLC (Updated)",
-                "registration_number": "REG-2026-001",
-                "tax_id": "TAX-123456",
-                "country": "US",
-                "legal_address": "123 Business Ave, Suite 200, New York, NY 10001",
-                "business_license": "BL-2026-NYC-001",
-                "tax_certificate": "TC-2026-US-001",
+        r = api.patch(
+            f"transactions/{tid}/form-response/",
+            json={
+                "data": {
+                    "legal_name": "Alice Corp LLC (Updated)",
+                    "registration_number": "REG-2026-001",
+                    "tax_id": "TAX-123456",
+                    "country": "US",
+                    "legal_address": "123 Business Ave, Suite 200, New York, NY 10001",
+                    "business_license": "BL-2026-NYC-001",
+                    "tax_certificate": "TC-2026-US-001",
+                },
             },
-        })
+        )
         # 200 on success, 400 if no form linked, 404 if not found
         assert r.status_code in (200, 400, 404)
 
@@ -349,6 +378,7 @@ class TestTransactionForms:
 # =============================================================================
 # T19: AUTO-APPROVAL
 # =============================================================================
+
 
 class TestTransactionAutoApproval:
     """Test auto-approval transaction types."""
@@ -358,11 +388,14 @@ class TestTransactionAutoApproval:
         api.set_token(state.get_token("carol"))
         biz_id = state.businesses["alice_corp"]["id"]
 
-        r = api.post("transactions/request/", json={
-            "transaction_type": "business_follow_request",
-            "target_account_id": biz_id,
-            "target_account_type": "business",
-        })
+        r = api.post(
+            "transactions/request/",
+            json={
+                "transaction_type": "business_follow_request",
+                "target_account_id": biz_id,
+                "target_account_type": "business",
+            },
+        )
         if r.status_code == 201:
             data = r.json()
             # Auto-approval means status should be resolved immediately
@@ -375,6 +408,7 @@ class TestTransactionAutoApproval:
 # =============================================================================
 # PT01–PT07: PLATFORM TRANSACTION LIFECYCLE
 # =============================================================================
+
 
 class TestPlatformTransactions:
     """Test platform-scoped transaction creation, lifecycle, and listing.
@@ -393,13 +427,16 @@ class TestPlatformTransactions:
         role_id = db_helper.get_base_member_role_id("platform", platform_id)
         assert role_id, "No base member role found for platform"
 
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "platform_membership_invitation",
-            "target_user_id": carol_id,
-            "context_type": "platform",
-            "context_id": platform_id,
-            "payload": {"role_id": role_id},
-        })
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "platform_membership_invitation",
+                "target_user_id": carol_id,
+                "context_type": "platform",
+                "context_id": platform_id,
+                "payload": {"role_id": role_id},
+            },
+        )
         assert r.status_code == 201, f"Create platform invitation failed: {r.text}"
         data = r.json()
         assert data["transaction_type"] == "platform_membership_invitation"
@@ -434,16 +471,20 @@ class TestPlatformTransactions:
         platform_id = state.platform.get("id")
         role_id = db_helper.get_base_member_role_id("platform", platform_id)
 
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "platform_membership_invitation",
-            "target_user_id": carol_id,
-            "context_type": "platform",
-            "context_id": platform_id,
-            "payload": {"role_id": role_id},
-        })
-        assert r.status_code in (400, 409), (
-            f"Expected duplicate rejection, got {r.status_code}: {r.text}"
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "platform_membership_invitation",
+                "target_user_id": carol_id,
+                "context_type": "platform",
+                "context_id": platform_id,
+                "payload": {"role_id": role_id},
+            },
         )
+        assert r.status_code in (
+            400,
+            409,
+        ), f"Expected duplicate rejection, got {r.status_code}: {r.text}"
 
     def test_pt04_deny_platform_invitation(self, api, state):
         """POST /transactions/<id>/deny/ — Carol denies platform invitation."""
@@ -452,9 +493,12 @@ class TestPlatformTransactions:
 
         api.set_token(state.get_token("carol"))
         tid = state.transactions["plat_carol_invite"]["id"]
-        r = api.post(f"transactions/{tid}/deny/", json={
-            "reason": "Not interested in platform membership",
-        })
+        r = api.post(
+            f"transactions/{tid}/deny/",
+            json={
+                "reason": "Not interested in platform membership",
+            },
+        )
         assert r.status_code == 200, f"Deny failed: {r.text}"
         data = r.json()
         assert data["status"] == "denied"
@@ -468,15 +512,19 @@ class TestPlatformTransactions:
         # Enable open member requests
         db_helper.execute(
             "UPDATE platform_account SET open_member_request = TRUE WHERE id = %s::uuid",
-            (platform_id,), fetch=False,
+            (platform_id,),
+            fetch=False,
         )
 
         api.set_token(state.get_token("carol"))
-        r = api.post("transactions/request/", json={
-            "transaction_type": "platform_membership_request",
-            "target_account_type": "platform",
-            "target_account_id": platform_id,
-        })
+        r = api.post(
+            "transactions/request/",
+            json={
+                "transaction_type": "platform_membership_request",
+                "target_account_type": "platform",
+                "target_account_id": platform_id,
+            },
+        )
         assert r.status_code == 201, f"Create platform request failed: {r.text}"
         data = r.json()
         assert data["transaction_type"] == "platform_membership_request"
@@ -512,6 +560,6 @@ class TestPlatformTransactions:
         results = data if isinstance(data, list) else data.get("results", [])
         # Should include the platform invitation and request we created
         platform_types = {t["transaction_type"] for t in results}
-        assert "platform_membership_invitation" in platform_types or len(results) >= 1, (
-            f"Expected platform transactions, got types: {platform_types}"
-        )
+        assert (
+            "platform_membership_invitation" in platform_types or len(results) >= 1
+        ), f"Expected platform transactions, got types: {platform_types}"

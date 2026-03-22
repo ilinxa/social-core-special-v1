@@ -10,12 +10,11 @@ Contexts:
 
 from uuid import UUID
 
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.core.constants import AccountType, MembershipStatus
 from apps.core.exceptions import NotFound, PermissionDenied
@@ -23,35 +22,28 @@ from apps.core.pagination import StandardPagination
 from apps.core.views import PermissionInjectMixin
 from apps.organization.business.models import BusinessAccount
 from apps.organization.platform.models import PlatformAccount
-
-from apps.rbac.models import Permission
 from apps.rbac.policies import MembershipPolicy, RolePolicy
-from apps.rbac.selectors import (
-    PermissionSelector,
-    RoleSelector,
-    MembershipSelector,
-)
-from apps.rbac.services import RBACService
+from apps.rbac.selectors import MembershipSelector, PermissionSelector, RoleSelector
 from apps.rbac.serializers import (
-    PermissionOutputSerializer,
-    RoleOutputSerializer,
-    RoleDetailOutputSerializer,
-    MembershipOutputSerializer,
+    MemberActionReasonInputSerializer,
     MembershipListOutputSerializer,
+    MembershipOutputSerializer,
+    MembershipRoleChangeInputSerializer,
     MyMembershipOutputSerializer,
+    PermissionOutputSerializer,
     RoleCreateInputSerializer,
-    RoleUpdateInputSerializer,
+    RoleDetailOutputSerializer,
+    RoleOutputSerializer,
     RolePermissionAddInputSerializer,
     RolePermissionRemoveInputSerializer,
-    MembershipRoleChangeInputSerializer,
-    MembershipStatusChangeInputSerializer,
-    MemberActionReasonInputSerializer,
+    RoleUpdateInputSerializer,
 )
-
+from apps.rbac.services import RBACService
 
 # =============================================================================
 # MIXINS
 # =============================================================================
+
 
 class AccountContextMixin:
     """
@@ -138,6 +130,7 @@ class PlatformContextMixin(AccountContextMixin):
 # PERMISSION VIEWS
 # =============================================================================
 
+
 class PermissionListView(APIView):
     """List all available permissions."""
 
@@ -159,6 +152,7 @@ class PermissionListView(APIView):
 # =============================================================================
 # ROLE VIEWS - BUSINESS CONTEXT
 # =============================================================================
+
 
 class BusinessRoleListView(BusinessContextMixin, APIView):
     """List and create roles for a business."""
@@ -256,7 +250,8 @@ class BusinessRoleDetailView(BusinessContextMixin, PermissionInjectMixin, APIVie
         role = RoleSelector.get_role_by_id(role_id=role_id)
         self._role = role
         self._actor_context = RBACService.build_actor_context(
-            membership=membership, request=request,
+            membership=membership,
+            request=request,
         )
         self._inject_permissions = True
         serializer = RoleDetailOutputSerializer(role)
@@ -323,7 +318,7 @@ class BusinessRolePermissionView(BusinessContextMixin, APIView):
         input_serializer = RolePermissionAddInputSerializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
 
-        role_permission = RBACService.add_permission_to_role(
+        RBACService.add_permission_to_role(
             role_id=role_id,
             permission_id=input_serializer.validated_data["permission_id"],
             scope=input_serializer.validated_data["scope"],
@@ -363,6 +358,7 @@ class BusinessRolePermissionView(BusinessContextMixin, APIView):
 # =============================================================================
 # MEMBERSHIP VIEWS - BUSINESS CONTEXT
 # =============================================================================
+
 
 class BusinessMemberListView(BusinessContextMixin, APIView):
     """List members for a business."""
@@ -455,7 +451,8 @@ class BusinessMemberDetailView(BusinessContextMixin, PermissionInjectMixin, APIV
         )
         self._target_membership = membership
         self._actor_context = RBACService.build_actor_context(
-            membership=actor_membership, request=request,
+            membership=actor_membership,
+            request=request,
         )
         self._inject_permissions = True
         serializer = MembershipOutputSerializer(membership)
@@ -649,6 +646,7 @@ class BusinessMemberLeaveView(BusinessContextMixin, APIView):
 # ROLE VIEWS - PLATFORM CONTEXT
 # =============================================================================
 
+
 class PlatformRoleListView(PlatformContextMixin, APIView):
     """List and create roles for the platform."""
 
@@ -743,7 +741,8 @@ class PlatformRoleDetailView(PlatformContextMixin, PermissionInjectMixin, APIVie
         role = RoleSelector.get_role_by_id(role_id=role_id)
         self._role = role
         self._actor_context = RBACService.build_actor_context(
-            membership=membership, request=request,
+            membership=membership,
+            request=request,
         )
         self._inject_permissions = True
         serializer = RoleDetailOutputSerializer(role)
@@ -851,6 +850,7 @@ class PlatformRolePermissionView(PlatformContextMixin, APIView):
 # MEMBERSHIP VIEWS - PLATFORM CONTEXT
 # =============================================================================
 
+
 class PlatformMemberListView(PlatformContextMixin, APIView):
     """List platform members."""
 
@@ -941,7 +941,8 @@ class PlatformMemberDetailView(PlatformContextMixin, PermissionInjectMixin, APIV
         )
         self._target_membership = membership
         self._actor_context = RBACService.build_actor_context(
-            membership=actor_membership, request=request,
+            membership=actor_membership,
+            request=request,
         )
         self._inject_permissions = True
         serializer = MembershipOutputSerializer(membership)
@@ -1135,6 +1136,7 @@ class PlatformMemberLeaveView(PlatformContextMixin, APIView):
 # USER CONTEXT VIEWS
 # =============================================================================
 
+
 class MyMembershipsListView(APIView):
     """List current user's memberships."""
 
@@ -1152,8 +1154,38 @@ class MyMembershipsListView(APIView):
             user=request.user,
             include_pending_approval=True,
         )
-        serializer = MyMembershipOutputSerializer(memberships, many=True)
+        membership_list = list(memberships)
+        account_data = self._batch_load_accounts(membership_list)
+        serializer = MyMembershipOutputSerializer(
+            membership_list,
+            many=True,
+            context={"account_data": account_data},
+        )
         return Response(serializer.data)
+
+    @staticmethod
+    def _batch_load_accounts(memberships):
+        """Batch-load BusinessAccount/PlatformAccount for memberships."""
+        from apps.core.constants import AccountType
+        from apps.organization.business.models import BusinessAccount
+        from apps.organization.platform.models import PlatformAccount
+
+        biz_ids = set()
+        plat_ids = set()
+        for m in memberships:
+            if m.account_type == AccountType.BUSINESS:
+                biz_ids.add(m.account_id)
+            elif m.account_type == AccountType.PLATFORM:
+                plat_ids.add(m.account_id)
+
+        accounts = {}
+        if biz_ids:
+            for a in BusinessAccount.objects.filter(id__in=biz_ids):
+                accounts[a.id] = a
+        if plat_ids:
+            for a in PlatformAccount.objects.filter(id__in=plat_ids):
+                accounts[a.id] = a
+        return accounts
 
 
 class MyMembershipDetailView(APIView):

@@ -3,8 +3,12 @@ import factory
 from factory.django import DjangoModelFactory
 
 from apps.network.models import (
-    Follow, FolloweeType, FollowStatus,
-    Connection, ConnectionType, ConnectionStatus,
+    Connection,
+    ConnectionStatus,
+    ConnectionType,
+    Follow,
+    FolloweeType,
+    FollowStatus,
 )
 from apps.users.tests.factories import UserFactory
 
@@ -21,6 +25,7 @@ class FollowFactory(DjangoModelFactory):
 
 class UserConnectionFactory(DjangoModelFactory):
     """Factory for user↔user connections."""
+
     class Meta:
         model = Connection
 
@@ -28,11 +33,14 @@ class UserConnectionFactory(DjangoModelFactory):
     user_a = factory.SubFactory(UserFactory)
     user_b = factory.SubFactory(UserFactory)
     status = ConnectionStatus.ACTIVE
-    connected_at = factory.LazyFunction(lambda: __import__("django.utils.timezone", fromlist=["now"]).now())
+    connected_at = factory.LazyFunction(
+        lambda: __import__("django.utils.timezone", fromlist=["now"]).now()
+    )
 
 
 class AccountConnectionFactory(DjangoModelFactory):
     """Factory for account↔account connections."""
+
     class Meta:
         model = Connection
 
@@ -42,4 +50,6 @@ class AccountConnectionFactory(DjangoModelFactory):
     account_b_type = "business"
     account_b_id = factory.LazyFunction(lambda: factory.Faker._get_faker().uuid4())
     status = ConnectionStatus.ACTIVE
-    connected_at = factory.LazyFunction(lambda: __import__("django.utils.timezone", fromlist=["now"]).now())
+    connected_at = factory.LazyFunction(
+        lambda: __import__("django.utils.timezone", fromlist=["now"]).now()
+    )

@@ -1,0 +1,50 @@
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+known_first_party = ["apps", "backend_core"]
+line_length = 88
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "backend_core.settings.local"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --strict-markers -ra --showlocals"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks integration tests that test cross-boundary behavior",
+    "celery: marks tests that exercise Celery tasks",
+    "requires_postgres: marks tests that require PostgreSQL (skipped on SQLite)",
+]
+norecursedirs = [
+    ".git", ".tox", ".env", "venv", "dist", "build",
+    "migrations", "__pycache__", "node_modules", "staticfiles",
+]
+minversion = "7.0"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["apps"]
+omit = ["*/migrations/*", "*/tests/*", "*/admin.py", "*/apps.py", "*/management/*"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+precision = 1
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "if TYPE_CHECKING",
+    "raise NotImplementedError",
+    "pass",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"

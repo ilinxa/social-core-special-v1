@@ -41,8 +41,8 @@ def configure_logging() -> None:
 
     # Import custom processors
     from apps.core.observability.logging.processors import (
-        sanitize_sensitive_data,
         add_service_name,
+        sanitize_sensitive_data,
     )
 
     # Common processors (run for all logs)
@@ -64,10 +64,12 @@ def configure_logging() -> None:
         shared_processors.append(structlog.dev.ConsoleRenderer(colors=True))
     else:
         # Production: JSON output
-        shared_processors.extend([
-            structlog.processors.format_exc_info,
-            structlog.processors.JSONRenderer(),
-        ])
+        shared_processors.extend(
+            [
+                structlog.processors.format_exc_info,
+                structlog.processors.JSONRenderer(),
+            ]
+        )
 
     # Configure structlog
     structlog.configure(

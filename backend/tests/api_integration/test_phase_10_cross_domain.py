@@ -35,6 +35,7 @@ def _register_and_verify(api, db_helper, email, password="TestPass123!"):
 # WORKFLOW 1: USER LIFECYCLE
 # =============================================================================
 
+
 class TestWorkflowUserLifecycle:
     """Register → verify → login → profile → password change → deactivate → blocked."""
 
@@ -58,17 +59,23 @@ class TestWorkflowUserLifecycle:
 
         # 4. Update profile
         api.set_token(token)
-        r = api.patch("users/me/profile/", json={
-            "display_name": "Lifecycle User",
-            "bio": "Testing full lifecycle",
-        })
+        r = api.patch(
+            "users/me/profile/",
+            json={
+                "display_name": "Lifecycle User",
+                "bio": "Testing full lifecycle",
+            },
+        )
         assert r.status_code == 200
 
         # 5. Change password
-        r = api.post("auth/password/change/", json={
-            "current_password": "TestPass123!",
-            "new_password": "NewLifecyclePass1!",
-        })
+        r = api.post(
+            "auth/password/change/",
+            json={
+                "current_password": "TestPass123!",
+                "new_password": "NewLifecyclePass1!",
+            },
+        )
         assert r.status_code == 200
 
         # 6. Re-login with new password
@@ -83,16 +90,20 @@ class TestWorkflowUserLifecycle:
 
         # 8. Login blocked
         api.clear_token()
-        r = api.post("auth/login/", json={
-            "email": email,
-            "password": "NewLifecyclePass1!",
-        })
+        r = api.post(
+            "auth/login/",
+            json={
+                "email": email,
+                "password": "NewLifecyclePass1!",
+            },
+        )
         assert r.status_code in (401, 429)
 
 
 # =============================================================================
 # WORKFLOW 2: BUSINESS + RBAC
 # =============================================================================
+
 
 class TestWorkflowBusinessRBAC:
     """Create business → roles → invite → accept → permission test → slug change."""
@@ -106,11 +117,14 @@ class TestWorkflowBusinessRBAC:
 
         # 1. Create business
         api.set_token(owner["access_token"])
-        r = api.post("business/", json={
-            "legal_name": f"WF2 Corp {suffix}",
-            "country": "US",
-            "slug": f"wf2-corp-{suffix}",
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": f"WF2 Corp {suffix}",
+                "country": "US",
+                "slug": f"wf2-corp-{suffix}",
+            },
+        )
         assert r.status_code == 201
         biz = r.json()
         slug = biz["slug"]
@@ -118,22 +132,28 @@ class TestWorkflowBusinessRBAC:
         db_helper.set_business_max_members(biz["id"], 10)
 
         # 2. Create custom role
-        r = api.post(f"business/{slug}/roles/", json={
-            "name": "Viewer",
-            "level": 8,
-        })
+        r = api.post(
+            f"business/{slug}/roles/",
+            json={
+                "name": "Viewer",
+                "level": 8,
+            },
+        )
         assert r.status_code == 201
         viewer_role_id = r.json()["id"]
 
         # 3. Invite member (role_id required for business_membership_invitation)
         base_role_id = db_helper.get_base_member_role_id("business", biz["id"])
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "business_membership_invitation",
-            "target_user_id": member["id"],
-            "context_type": "business",
-            "context_id": biz["id"],
-            "payload": {"role_id": base_role_id},
-        })
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "business_membership_invitation",
+                "target_user_id": member["id"],
+                "context_type": "business",
+                "context_id": biz["id"],
+                "payload": {"role_id": base_role_id},
+            },
+        )
         assert r.status_code == 201
         invite_id = r.json()["id"]
 
@@ -146,20 +166,24 @@ class TestWorkflowBusinessRBAC:
         api.set_token(owner["access_token"])
         r = api.get(f"business/{slug}/members/")
         assert r.status_code == 200
-        members = r.json() if isinstance(r.json(), list) else r.json().get("results", [])
+        members = (
+            r.json() if isinstance(r.json(), list) else r.json().get("results", [])
+        )
         member_emails = [m.get("user", {}).get("email") for m in members]
         assert member["email"] in member_emails
 
         # 6. Change member role
         member_membership = [
-            m for m in members
-            if m.get("user", {}).get("email") == member["email"]
+            m for m in members if m.get("user", {}).get("email") == member["email"]
         ]
         if member_membership:
             mid = member_membership[0]["id"]
-            r = api.patch(f"business/{slug}/members/{mid}/role/", json={
-                "role_id": viewer_role_id,
-            })
+            r = api.patch(
+                f"business/{slug}/members/{mid}/role/",
+                json={
+                    "role_id": viewer_role_id,
+                },
+            )
             assert r.status_code == 200
 
         # 7. Non-member access denied
@@ -183,6 +207,7 @@ class TestWorkflowBusinessRBAC:
 # WORKFLOW 3: TRANSACTION + FORMS
 # =============================================================================
 
+
 class TestWorkflowTransactionForms:
     """Form template → response → submit → verification request → approve."""
 
@@ -194,33 +219,42 @@ class TestWorkflowTransactionForms:
 
         # 1. Create business for context
         api.set_token(user["access_token"])
-        r = api.post("business/", json={
-            "legal_name": f"WF3 Corp {suffix}",
-            "country": "US",
-            "slug": f"wf3-corp-{suffix}",
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": f"WF3 Corp {suffix}",
+                "country": "US",
+                "slug": f"wf3-corp-{suffix}",
+            },
+        )
         assert r.status_code == 201
         biz = r.json()
 
         # 2. Create form template
-        r = api.post(f"forms/business/{biz['id']}/templates/", json={
-            "name": f"Verification Form {suffix}",
-            "slug": f"verification-form-{suffix}",
-            "owner_type": "business",
-            "owner_id": biz["id"],
-            "scope": "business",
-        })
+        r = api.post(
+            f"forms/business/{biz['id']}/templates/",
+            json={
+                "name": f"Verification Form {suffix}",
+                "slug": f"verification-form-{suffix}",
+                "owner_type": "business",
+                "owner_id": biz["id"],
+                "scope": "business",
+            },
+        )
         assert r.status_code == 201
         template_id = r.json()["id"]
 
         # 3. Add fields
-        r = api.post(f"forms/templates/{template_id}/fields/", json={
-            "field_key": "company_name",
-            "field_type": "text",
-            "label": "Company Name",
-            "order": 0,
-            "is_required": True,
-        })
+        r = api.post(
+            f"forms/templates/{template_id}/fields/",
+            json={
+                "field_key": "company_name",
+                "field_type": "text",
+                "label": "Company Name",
+                "order": 0,
+                "is_required": True,
+            },
+        )
         assert r.status_code in (200, 201)
 
         # 4. Publish template
@@ -228,9 +262,12 @@ class TestWorkflowTransactionForms:
         assert r.status_code == 200
 
         # 5. Create form response
-        r = api.post(f"forms/templates/{template_id}/responses/", json={
-            "data": {"company_name": f"WF3 Corp {suffix}"},
-        })
+        r = api.post(
+            f"forms/templates/{template_id}/responses/",
+            json={
+                "data": {"company_name": f"WF3 Corp {suffix}"},
+            },
+        )
         if r.status_code in (200, 201):
             response_id = r.json()["id"]
 
@@ -247,6 +284,7 @@ class TestWorkflowTransactionForms:
 # WORKFLOW 4: CMS PUBLISH
 # =============================================================================
 
+
 class TestWorkflowCMSPublish:
     """Site → templates → page → edit → publish → API key → public verify → unpublish."""
 
@@ -261,37 +299,46 @@ class TestWorkflowCMSPublish:
         api.set_token(state.get_token("alice"))
 
         # 1. Create site
-        r = api.post("cms/admin/sites/", json={
-            "name": f"WF4 Site {suffix}",
-            "slug": f"wf4-site-{suffix}",
-        })
+        r = api.post(
+            "cms/admin/sites/",
+            json={
+                "name": f"WF4 Site {suffix}",
+                "slug": f"wf4-site-{suffix}",
+            },
+        )
         assert r.status_code == 201, f"Create site failed: {r.text}"
         site = r.json()
         site_slug = site["slug"]
 
         # 2. Create block template (use correct schema format)
-        r = api.post("cms/admin/templates/blocks/", json={
-            "name": f"wf4_text_{suffix}",
-            "display_name": "WF4 Text",
-            "slug": f"wf4-text-{suffix}",
-            "block_type": "text",
-            "schema": {
-                "fields": [
-                    {"key": "heading", "type": "text", "label": "Heading"},
-                ],
+        r = api.post(
+            "cms/admin/templates/blocks/",
+            json={
+                "name": f"wf4_text_{suffix}",
+                "display_name": "WF4 Text",
+                "slug": f"wf4-text-{suffix}",
+                "block_type": "text",
+                "schema": {
+                    "fields": [
+                        {"key": "heading", "type": "text", "label": "Heading"},
+                    ],
+                },
             },
-        })
+        )
         assert r.status_code == 201, f"Create block template failed: {r.text}"
 
         # 3. Create page
-        r = api.post("cms/admin/pages/", json={
-            "site_id": site["id"],
-            "title": f"WF4 Page {suffix}",
-            "slug": f"wf4-page-{suffix}",
-            "path": "/wf4",
-            "page_type": "content",
-            "order": 0,
-        })
+        r = api.post(
+            "cms/admin/pages/",
+            json={
+                "site_id": site["id"],
+                "title": f"WF4 Page {suffix}",
+                "slug": f"wf4-page-{suffix}",
+                "path": "/wf4",
+                "page_type": "content",
+                "order": 0,
+            },
+        )
         assert r.status_code == 201
         page_slug = r.json()["slug"]
 
@@ -301,10 +348,13 @@ class TestWorkflowCMSPublish:
         publish_ok = r.status_code == 200
 
         # 5. Create API key
-        r = api.post("cms/admin/api-keys/", json={
-            "site_id": site["id"],
-            "name": f"WF4 Key {suffix}",
-        })
+        r = api.post(
+            "cms/admin/api-keys/",
+            json={
+                "site_id": site["id"],
+                "name": f"WF4 Key {suffix}",
+            },
+        )
         assert r.status_code == 201
         key_data = r.json()
         raw_key = key_data.get("raw_key") or key_data.get("key")
@@ -336,6 +386,7 @@ class TestWorkflowCMSPublish:
 # WORKFLOW 5: PERMISSION BOUNDARIES
 # =============================================================================
 
+
 class TestWorkflowPermissionBoundaries:
     """Non-member access across domains → expired token → deactivated user."""
 
@@ -361,12 +412,13 @@ class TestWorkflowPermissionBoundaries:
             r = api.patch(f"business/{slug}/", json={"legal_name": "Hacked"})
             assert r.status_code == 403
 
-        # 3. No token — all endpoints return 401
+        # 3. No token — authenticated endpoints return 401
         api.clear_token()
         r = api.get("users/me/")
         assert r.status_code == 401
 
-        r = api.get("platform/account/")
+        # platform/account/ is AllowAny (public), use platform/settings/ instead
+        r = api.patch("platform/settings/", json={"settings": {}})
         assert r.status_code == 401
 
         # 4. Malformed token
@@ -390,6 +442,7 @@ class TestWorkflowPermissionBoundaries:
 # WORKFLOW 6: OWNERSHIP TRANSFER
 # =============================================================================
 
+
 class TestWorkflowOwnershipTransfer:
     """Create transfer → accept → verify roles swapped → old owner leaves."""
 
@@ -402,11 +455,14 @@ class TestWorkflowOwnershipTransfer:
 
         # 1. Create business
         api.set_token(owner["access_token"])
-        r = api.post("business/", json={
-            "legal_name": f"WF6 Transfer Corp {suffix}",
-            "country": "US",
-            "slug": f"wf6-transfer-{suffix}",
-        })
+        r = api.post(
+            "business/",
+            json={
+                "legal_name": f"WF6 Transfer Corp {suffix}",
+                "country": "US",
+                "slug": f"wf6-transfer-{suffix}",
+            },
+        )
         assert r.status_code == 201
         biz = r.json()
         slug = biz["slug"]
@@ -415,13 +471,16 @@ class TestWorkflowOwnershipTransfer:
 
         # 2. Invite new_owner as member first (role_id required)
         base_role_id = db_helper.get_base_member_role_id("business", biz["id"])
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "business_membership_invitation",
-            "target_user_id": new_owner["id"],
-            "context_type": "business",
-            "context_id": biz["id"],
-            "payload": {"role_id": base_role_id},
-        })
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "business_membership_invitation",
+                "target_user_id": new_owner["id"],
+                "context_type": "business",
+                "context_id": biz["id"],
+                "payload": {"role_id": base_role_id},
+            },
+        )
         if r.status_code != 201:
             pytest.skip(f"Could not invite new owner: {r.text}")
         invite_id = r.json()["id"]
@@ -433,12 +492,15 @@ class TestWorkflowOwnershipTransfer:
 
         # 4. Create ownership transfer
         api.set_token(owner["access_token"])
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "business_ownership_transfer",
-            "target_user_id": new_owner["id"],
-            "context_type": "business",
-            "context_id": biz["id"],
-        })
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "business_ownership_transfer",
+                "target_user_id": new_owner["id"],
+                "context_type": "business",
+                "context_id": biz["id"],
+            },
+        )
         if r.status_code != 201:
             pytest.skip(f"Ownership transfer not supported: {r.text}")
         transfer_id = r.json()["id"]
@@ -459,6 +521,7 @@ class TestWorkflowOwnershipTransfer:
 # WORKFLOW 7: PLATFORM ADMIN
 # =============================================================================
 
+
 class TestWorkflowPlatformAdmin:
     """Invite → accept → role → permissions → suspend → blocked."""
 
@@ -475,13 +538,16 @@ class TestWorkflowPlatformAdmin:
 
         # 1. Invite admin_user to platform (role_id required)
         base_role_id = db_helper.get_base_member_role_id("platform", platform_id)
-        r = api.post("transactions/invitation/", json={
-            "transaction_type": "platform_membership_invitation",
-            "target_user_id": admin_user["id"],
-            "context_type": "platform",
-            "context_id": platform_id,
-            "payload": {"role_id": base_role_id},
-        })
+        r = api.post(
+            "transactions/invitation/",
+            json={
+                "transaction_type": "platform_membership_invitation",
+                "target_user_id": admin_user["id"],
+                "context_type": "platform",
+                "context_id": platform_id,
+                "payload": {"role_id": base_role_id},
+            },
+        )
         if r.status_code != 201:
             pytest.skip(f"Platform invitation failed: {r.text}")
         invite_id = r.json()["id"]
@@ -495,10 +561,11 @@ class TestWorkflowPlatformAdmin:
         api.set_token(state.get_token("alice"))
         r = api.get("platform/members/")
         assert r.status_code == 200
-        members = r.json() if isinstance(r.json(), list) else r.json().get("results", [])
+        members = (
+            r.json() if isinstance(r.json(), list) else r.json().get("results", [])
+        )
         admin_membership = [
-            m for m in members
-            if m.get("user", {}).get("email") == admin_user["email"]
+            m for m in members if m.get("user", {}).get("email") == admin_user["email"]
         ]
 
         if admin_membership:

@@ -24,10 +24,10 @@ Usage:
 
 from rest_framework import serializers
 
-
 # =============================================================================
 # BASE INPUT SERIALIZER
 # =============================================================================
+
 
 class BaseInputSerializer(serializers.Serializer):
     """
@@ -83,6 +83,7 @@ class BaseInputSerializer(serializers.Serializer):
 # BASE OUTPUT SERIALIZER
 # =============================================================================
 
+
 class BaseOutputSerializer(serializers.ModelSerializer):
     """
     Base class for output/response serializers.
@@ -114,6 +115,7 @@ class BaseOutputSerializer(serializers.ModelSerializer):
 # =============================================================================
 # COMMON SERIALIZER FIELDS
 # =============================================================================
+
 
 class TimestampFieldsMixin(serializers.Serializer):
     """
@@ -172,6 +174,7 @@ class UserStampFieldsMixin(TimestampFieldsMixin):
 # COMMON RESPONSE SERIALIZERS
 # =============================================================================
 
+
 class EmptySerializer(serializers.Serializer):
     """
     Empty serializer for endpoints with no request/response body.
@@ -181,6 +184,7 @@ class EmptySerializer(serializers.Serializer):
         - Actions that return only status code
         - OpenAPI schema when no body is expected
     """
+
     pass
 
 
@@ -227,6 +231,7 @@ class UUIDSerializer(serializers.Serializer):
 # PAGINATION SERIALIZERS
 # =============================================================================
 
+
 class PaginatedResponseSerializer(serializers.Serializer):
     """
     Standard paginated response wrapper.
@@ -246,13 +251,9 @@ class PaginatedResponseSerializer(serializers.Serializer):
 
     count = serializers.IntegerField(help_text="Total number of items")
     next = serializers.URLField(
-        allow_null=True,
-        help_text="URL for next page (null if last page)"
+        allow_null=True, help_text="URL for next page (null if last page)"
     )
     previous = serializers.URLField(
-        allow_null=True,
-        help_text="URL for previous page (null if first page)"
+        allow_null=True, help_text="URL for previous page (null if first page)"
     )
-    results = serializers.ListField(
-        help_text="List of items for current page"
-    )
+    results = serializers.ListField(help_text="List of items for current page")

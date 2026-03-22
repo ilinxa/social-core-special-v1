@@ -18,44 +18,54 @@ Security:
 """
 
 import uuid
-from typing import Optional
 
 from django.conf import settings
-from django.utils import timezone
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.auth.services import AuthService, DeviceInfo, PasswordService, VerificationService
-from apps.auth.services.oauth_service import OAuthService, OAuthStateManager
-from apps.auth.backends import GoogleOAuthBackend, AppleOAuthBackend
-from apps.auth.models import DeviceSession
 from apps.auth import serializers
-from apps.auth.throttles import LoginRateThrottle, PasswordResetRateThrottle, RefreshRateThrottle, VerificationRateThrottle
-from apps.core.exceptions import TokenInvalid, TokenExpired
-from apps.users.services import UserService
-from apps.users.selectors import UserSelector
-from apps.core.utils.request import get_client_ip, parse_user_agent
+from apps.auth.backends import AppleOAuthBackend, GoogleOAuthBackend
+from apps.auth.models import DeviceSession
+from apps.auth.services import (
+    AuthService,
+    DeviceInfo,
+    PasswordService,
+    VerificationService,
+)
+from apps.auth.services.oauth_service import OAuthService, OAuthStateManager
+from apps.auth.throttles import (
+    LoginRateThrottle,
+    PasswordResetRateThrottle,
+    RefreshRateThrottle,
+    VerificationRateThrottle,
+)
+from apps.core.exceptions import TokenExpired, TokenInvalid
 from apps.core.observability import get_logger
+from apps.core.utils.request import get_client_ip, parse_user_agent
+from apps.users.selectors import UserSelector
+from apps.users.services import UserService
 
 logger = get_logger(__name__)
 
 
-def _build_device_info(data: dict, request, fallback_device_id: str = 'unknown') -> DeviceInfo:
+def _build_device_info(
+    data: dict, request, fallback_device_id: str = "unknown"
+) -> DeviceInfo:
     """Build DeviceInfo from request data, parsing User-Agent for device name when not provided."""
-    user_agent = request.META.get('HTTP_USER_AGENT', '')
-    device_name = data.get('device_name', '')
+    user_agent = request.META.get("HTTP_USER_AGENT", "")
+    device_name = data.get("device_name", "")
 
     # If client didn't provide a device_name, parse it from User-Agent
     if not device_name and user_agent:
         parsed = parse_user_agent(user_agent)
-        device_name = parsed['device_name']
+        device_name = parsed["device_name"]
 
     return DeviceInfo(
-        device_id=data.get('device_id') or fallback_device_id,
-        device_type=data.get('device_type', 'unknown'),
+        device_id=data.get("device_id") or fallback_device_id,
+        device_type=data.get("device_type", "unknown"),
         device_name=device_name,
         user_agent=user_agent,
         ip_address=get_client_ip(request),
@@ -66,12 +76,14 @@ def _build_device_info(data: dict, request, fallback_device_id: str = 'unknown')
 # REGISTRATION
 # =============================================================================
 
+
 class RegisterView(APIView):
     """
     Register a new user.
 
     POST /api/v1/auth/register/
     """
+
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -96,9 +108,11 @@ class RegisterView(APIView):
         responses={
             201: OpenApiResponse(
                 response=serializers.AuthResponseSerializer,
-                description="User created successfully. Verification email sent."
+                description="User created successfully. Verification email sent.",
             ),
-            400: OpenApiResponse(description="Validation error (invalid email, weak password, etc.)"),
+            400: OpenApiResponse(
+                description="Validation error (invalid email, weak password, etc.)"
+            ),
             409: OpenApiResponse(description="Email already registered"),
         },
     )
@@ -109,20 +123,22 @@ class RegisterView(APIView):
 
         # Create user
         user = UserService.create_user(
-            email=data['email'],
-            password=data['password'],
-            username=data.get('username'),
-            referred_by_id=data.get('referred_by') if data.get('referred_by') else None,
+            email=data["email"],
+            password=data["password"],
+            username=data.get("username"),
+            referred_by_id=data.get("referred_by") if data.get("referred_by") else None,
             request=request,
         )
 
         # Build device info
-        device_info = _build_device_info(data, request, fallback_device_id=f"reg_{user.id}")
+        device_info = _build_device_info(
+            data, request, fallback_device_id=f"reg_{user.id}"
+        )
 
         # Create session and tokens
         _, tokens, session = AuthService.login(
-            email=data['email'],
-            password=data['password'],
+            email=data["email"],
+            password=data["password"],
             device_info=device_info,
             request=request,
         )
@@ -132,45 +148,45 @@ class RegisterView(APIView):
 
         # Build response
         response_data = {
-            'user': user,
-            'tokens': {
-                'access_token': tokens.access_token,
-                'access_expires_in': tokens.access_expires_in,
-                'refresh_expires_in': tokens.refresh_expires_in,
-                'token_type': 'Bearer',
+            "user": user,
+            "tokens": {
+                "access_token": tokens.access_token,
+                "access_expires_in": tokens.access_expires_in,
+                "refresh_expires_in": tokens.refresh_expires_in,
+                "token_type": "Bearer",
             },
-            'is_new_user': True
+            "is_new_user": True,
         }
 
         # Add refresh token based on client type
-        client_type = request.META.get('HTTP_X_CLIENT_TYPE', 'web')
+        client_type = request.META.get("HTTP_X_CLIENT_TYPE", "web")
         response = Response(
             serializers.AuthResponseSerializer(response_data).data,
-            status=status.HTTP_201_CREATED
+            status=status.HTTP_201_CREATED,
         )
 
-        if client_type == 'web':
+        if client_type == "web":
             # Set refresh token in HttpOnly cookie
             response.set_cookie(
-                key='refresh_token',
+                key="refresh_token",
                 value=tokens.refresh_token,
                 max_age=tokens.refresh_expires_in,
                 httponly=True,
                 secure=not settings.DEBUG,
                 samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
-                path='/api/'
+                path="/api/",
             )
         else:
             # Include refresh token in body for mobile
-            response.data['tokens']['refresh_token'] = tokens.refresh_token
+            response.data["tokens"]["refresh_token"] = tokens.refresh_token
 
         return response
-
 
 
 # =============================================================================
 # LOGIN
 # =============================================================================
+
 
 class LoginView(APIView):
     """
@@ -178,6 +194,7 @@ class LoginView(APIView):
 
     POST /api/v1/auth/login/
     """
+
     permission_classes = [AllowAny]
     throttle_classes = [LoginRateThrottle]
 
@@ -203,12 +220,14 @@ class LoginView(APIView):
         responses={
             200: OpenApiResponse(
                 response=serializers.AuthResponseSerializer,
-                description="Login successful"
+                description="Login successful",
             ),
             400: OpenApiResponse(description="Validation error"),
             401: OpenApiResponse(description="Invalid credentials"),
             403: OpenApiResponse(description="Account inactive or not verified"),
-            429: OpenApiResponse(description="Too many login attempts. Try again later."),
+            429: OpenApiResponse(
+                description="Too many login attempts. Try again later."
+            ),
         },
     )
     def post(self, request):
@@ -221,50 +240,50 @@ class LoginView(APIView):
 
         # Authenticate
         user, tokens, session = AuthService.login(
-            email=data['email'],
-            password=data['password'],
+            email=data["email"],
+            password=data["password"],
             device_info=device_info,
             request=request,
         )
 
         # Build response
         response_data = {
-            'user': user,
-            'tokens': {
-                'access_token': tokens.access_token,
-                'access_expires_in': tokens.access_expires_in,
-                'refresh_expires_in': tokens.refresh_expires_in,
-                'token_type': 'Bearer',
-            }
+            "user": user,
+            "tokens": {
+                "access_token": tokens.access_token,
+                "access_expires_in": tokens.access_expires_in,
+                "refresh_expires_in": tokens.refresh_expires_in,
+                "token_type": "Bearer",
+            },
         }
 
         # Handle refresh token based on client type
-        client_type = request.META.get('HTTP_X_CLIENT_TYPE', 'web')
+        client_type = request.META.get("HTTP_X_CLIENT_TYPE", "web")
         response = Response(
             serializers.AuthResponseSerializer(response_data).data,
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
-        if client_type == 'web':
+        if client_type == "web":
             response.set_cookie(
-                key='refresh_token',
+                key="refresh_token",
                 value=tokens.refresh_token,
                 max_age=tokens.refresh_expires_in,
                 httponly=True,
                 secure=not settings.DEBUG,
                 samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
-                path='/api/'
+                path="/api/",
             )
         else:
-            response.data['tokens']['refresh_token'] = tokens.refresh_token
+            response.data["tokens"]["refresh_token"] = tokens.refresh_token
 
         return response
-
 
 
 # =============================================================================
 # TOKEN MANAGEMENT
 # =============================================================================
+
 
 class RefreshView(APIView):
     """
@@ -272,6 +291,7 @@ class RefreshView(APIView):
 
     POST /api/v1/auth/refresh/
     """
+
     permission_classes = [AllowAny]
     throttle_classes = [RefreshRateThrottle]
 
@@ -298,7 +318,7 @@ class RefreshView(APIView):
         responses={
             200: OpenApiResponse(
                 response=serializers.TokenResponseSerializer,
-                description="New tokens issued"
+                description="New tokens issued",
             ),
             400: OpenApiResponse(description="Refresh token required"),
             401: OpenApiResponse(description="Invalid or expired refresh token"),
@@ -310,11 +330,13 @@ class RefreshView(APIView):
         data = serializer.validated_data
 
         # Get refresh token from body or cookie
-        refresh_token = data.get('refresh_token') or request.COOKIES.get('refresh_token')
+        refresh_token = data.get("refresh_token") or request.COOKIES.get(
+            "refresh_token"
+        )
         if not refresh_token:
             return Response(
-                {'message': 'Refresh token required', 'code': 'missing_token'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": "Refresh token required", "code": "missing_token"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Build device info
@@ -329,30 +351,29 @@ class RefreshView(APIView):
 
         # Build response
         response_data = {
-            'access_token': tokens.access_token,
-            'access_expires_in': tokens.access_expires_in,
-            'refresh_expires_in': tokens.refresh_expires_in,
-            'token_type': 'Bearer',
+            "access_token": tokens.access_token,
+            "access_expires_in": tokens.access_expires_in,
+            "refresh_expires_in": tokens.refresh_expires_in,
+            "token_type": "Bearer",
         }
 
-        client_type = request.META.get('HTTP_X_CLIENT_TYPE', 'web')
+        client_type = request.META.get("HTTP_X_CLIENT_TYPE", "web")
         response = Response(response_data)
 
-        if client_type == 'web':
+        if client_type == "web":
             response.set_cookie(
-                key='refresh_token',
+                key="refresh_token",
                 value=tokens.refresh_token,
                 max_age=tokens.refresh_expires_in,
                 httponly=True,
                 secure=not settings.DEBUG,
                 samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
-                path='/api/'
+                path="/api/",
             )
         else:
-            response.data['refresh_token'] = tokens.refresh_token
+            response.data["refresh_token"] = tokens.refresh_token
 
         return response
-
 
 
 class LogoutView(APIView):
@@ -361,6 +382,7 @@ class LogoutView(APIView):
 
     POST /api/v1/auth/logout/
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -380,7 +402,7 @@ class LogoutView(APIView):
         responses={
             200: OpenApiResponse(
                 response=serializers.MessageSerializer,
-                description="Logged out successfully"
+                description="Logged out successfully",
             ),
             401: OpenApiResponse(description="Not authenticated"),
         },
@@ -391,7 +413,9 @@ class LogoutView(APIView):
         data = serializer.validated_data
 
         # Get refresh token from body or cookie
-        refresh_token = data.get('refresh_token') or request.COOKIES.get('refresh_token')
+        refresh_token = data.get("refresh_token") or request.COOKIES.get(
+            "refresh_token"
+        )
         if refresh_token:
             AuthService.logout(
                 refresh_token=refresh_token,
@@ -399,10 +423,10 @@ class LogoutView(APIView):
                 request=request,
             )
 
-        response = Response({'message': 'Logged out successfully'})
+        response = Response({"message": "Logged out successfully"})
 
         # Clear cookie
-        response.delete_cookie('refresh_token', path='/api/')
+        response.delete_cookie("refresh_token", path="/api/")
 
         return response
 
@@ -413,6 +437,7 @@ class LogoutAllView(APIView):
 
     POST /api/v1/auth/logout-all/
     """
+
     permission_classes = [IsAuthenticated]
     serializer_class = None  # No request body needed
 
@@ -432,7 +457,7 @@ class LogoutAllView(APIView):
         responses={
             200: OpenApiResponse(
                 response=serializers.LogoutAllResponseSerializer,
-                description="All sessions logged out"
+                description="All sessions logged out",
             ),
             401: OpenApiResponse(description="Not authenticated"),
         },
@@ -440,16 +465,18 @@ class LogoutAllView(APIView):
     def post(self, request):
         count = AuthService.logout_all(
             user=request.user,
-            reason='logout_all',
+            reason="logout_all",
             request=request,
         )
 
-        response = Response({
-            'message': f'Logged out from {count} session(s)',
-            'sessions_revoked': count
-        })
+        response = Response(
+            {
+                "message": f"Logged out from {count} session(s)",
+                "sessions_revoked": count,
+            }
+        )
 
-        response.delete_cookie('refresh_token', path='/api/')
+        response.delete_cookie("refresh_token", path="/api/")
 
         return response
 
@@ -458,12 +485,14 @@ class LogoutAllView(APIView):
 # EMAIL VERIFICATION
 # =============================================================================
 
+
 class VerifyEmailCodeView(APIView):
     """
     Verify email with 6-digit code.
 
     POST /api/v1/auth/verify-email/
     """
+
     permission_classes = [AllowAny]
     throttle_classes = [VerificationRateThrottle]
 
@@ -499,31 +528,32 @@ class VerifyEmailCodeView(APIView):
 
         try:
             user = VerificationService.verify_by_code(
-                email=data['email'],
-                code=data['code'],
+                email=data["email"],
+                code=data["code"],
                 request=request,
             )
         except TokenInvalid:
             return Response(
-                {'error': {
-                    'message': 'Invalid verification code. Please check the code and try again.',
-                    'code': 'invalid_code',
-                }},
+                {
+                    "error": {
+                        "message": "Invalid verification code. Please check the code and try again.",
+                        "code": "invalid_code",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except TokenExpired:
             return Response(
-                {'error': {
-                    'message': 'Verification code has expired. Please request a new code.',
-                    'code': 'code_expired',
-                }},
+                {
+                    "error": {
+                        "message": "Verification code has expired. Please request a new code.",
+                        "code": "code_expired",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        return Response({
-            'message': 'Email verified successfully',
-            'user_id': user.id
-        })
+        return Response({"message": "Email verified successfully", "user_id": user.id})
 
 
 class VerifyEmailLinkView(APIView):
@@ -532,6 +562,7 @@ class VerifyEmailLinkView(APIView):
 
     GET /api/v1/auth/verify-email/<uuid:token>/
     """
+
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -555,7 +586,7 @@ class VerifyEmailLinkView(APIView):
                 name="token",
                 type=str,
                 location=OpenApiParameter.PATH,
-                description="UUID verification token from email link"
+                description="UUID verification token from email link",
             )
         ],
         responses={
@@ -570,22 +601,20 @@ class VerifyEmailLinkView(APIView):
             token_uuid = uuid.UUID(str(token))
         except ValueError:
             return Response(
-                {'message': 'Invalid verification link', 'code': 'invalid_token'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": "Invalid verification link", "code": "invalid_token"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         user = VerificationService.verify_by_token(token_uuid, request=request)
 
         # Optionally redirect to frontend
-        frontend_url = getattr(settings, 'FRONTEND_URL', None)
+        frontend_url = getattr(settings, "FRONTEND_URL", None)
         if frontend_url:
             from django.shortcuts import redirect
+
             return redirect(f"{frontend_url}/verify-success")
 
-        return Response({
-            'message': 'Email verified successfully',
-            'user_id': user.id
-        })
+        return Response({"message": "Email verified successfully", "user_id": user.id})
 
 
 class ResendVerificationView(APIView):
@@ -594,6 +623,7 @@ class ResendVerificationView(APIView):
 
     POST /api/v1/auth/resend-verification/
     """
+
     permission_classes = [AllowAny]
     throttle_classes = [PasswordResetRateThrottle]  # Reuse throttle
 
@@ -613,7 +643,7 @@ class ResendVerificationView(APIView):
         responses={
             200: OpenApiResponse(
                 response=serializers.MessageSerializer,
-                description="Verification email sent (if applicable)"
+                description="Verification email sent (if applicable)",
             ),
             429: OpenApiResponse(description="Too many requests. Try again later."),
         },
@@ -623,20 +653,23 @@ class ResendVerificationView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        user = UserSelector.get_by_email_or_none(email=data['email'])
+        user = UserSelector.get_by_email_or_none(email=data["email"])
 
         # Always return success (don't reveal if user exists)
         if user and not user.is_verified:
             VerificationService.resend_verification(user, request=request)
 
-        return Response({
-            'message': 'If an account exists with this email, a verification link has been sent'
-        })
+        return Response(
+            {
+                "message": "If an account exists with this email, a verification link has been sent"
+            }
+        )
 
 
 # =============================================================================
 # PASSWORD MANAGEMENT
 # =============================================================================
+
 
 class PasswordResetRequestView(APIView):
     """
@@ -644,6 +677,7 @@ class PasswordResetRequestView(APIView):
 
     POST /api/v1/auth/password/reset/
     """
+
     permission_classes = [AllowAny]
     throttle_classes = [PasswordResetRateThrottle]
 
@@ -667,7 +701,7 @@ class PasswordResetRequestView(APIView):
         responses={
             200: OpenApiResponse(
                 response=serializers.MessageSerializer,
-                description="Reset email sent (if email exists)"
+                description="Reset email sent (if email exists)",
             ),
             429: OpenApiResponse(description="Too many requests. Try again later."),
         },
@@ -678,16 +712,17 @@ class PasswordResetRequestView(APIView):
         data = serializer.validated_data
 
         PasswordService.request_reset(
-            email=data['email'],
+            email=data["email"],
             ip_address=get_client_ip(request),
             request=request,
         )
 
         # Always return success (don't reveal if user exists)
-        return Response({
-            'message': 'If an account exists with this email, a password reset link has been sent'
-        })
-
+        return Response(
+            {
+                "message": "If an account exists with this email, a password reset link has been sent"
+            }
+        )
 
 
 class PasswordResetConfirmView(APIView):
@@ -696,6 +731,7 @@ class PasswordResetConfirmView(APIView):
 
     POST /api/v1/auth/password/reset/confirm/
     """
+
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -719,9 +755,11 @@ class PasswordResetConfirmView(APIView):
         responses={
             200: OpenApiResponse(
                 response=serializers.MessageSerializer,
-                description="Password reset successful"
+                description="Password reset successful",
             ),
-            400: OpenApiResponse(description="Invalid token or password doesn't meet requirements"),
+            400: OpenApiResponse(
+                description="Invalid token or password doesn't meet requirements"
+            ),
             404: OpenApiResponse(description="Token not found or expired"),
         },
     )
@@ -731,15 +769,13 @@ class PasswordResetConfirmView(APIView):
         data = serializer.validated_data
 
         PasswordService.confirm_reset(
-            token_uuid=data['token'],
-            new_password=data['new_password'],
+            token_uuid=data["token"],
+            new_password=data["new_password"],
             logout_all_sessions=True,
             request=request,
         )
 
-        return Response({
-            'message': 'Password has been reset successfully'
-        })
+        return Response({"message": "Password has been reset successfully"})
 
 
 class PasswordChangeView(APIView):
@@ -748,6 +784,7 @@ class PasswordChangeView(APIView):
 
     POST /api/v1/auth/password/change/
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -768,9 +805,11 @@ class PasswordChangeView(APIView):
         responses={
             200: OpenApiResponse(
                 response=serializers.MessageSerializer,
-                description="Password changed successfully"
+                description="Password changed successfully",
             ),
-            400: OpenApiResponse(description="Current password incorrect or new password invalid"),
+            400: OpenApiResponse(
+                description="Current password incorrect or new password invalid"
+            ),
             401: OpenApiResponse(description="Not authenticated"),
         },
     )
@@ -781,20 +820,19 @@ class PasswordChangeView(APIView):
 
         PasswordService.change_password(
             user=request.user,
-            current_password=data['current_password'],
-            new_password=data['new_password'],
+            current_password=data["current_password"],
+            new_password=data["new_password"],
             logout_other_sessions=True,
             request=request,
         )
 
-        return Response({
-            'message': 'Password changed successfully'
-        })
+        return Response({"message": "Password changed successfully"})
 
 
 # =============================================================================
 # SESSION MANAGEMENT
 # =============================================================================
+
 
 class SessionListView(APIView):
     """
@@ -802,6 +840,7 @@ class SessionListView(APIView):
 
     GET /api/v1/auth/sessions/
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -821,21 +860,18 @@ class SessionListView(APIView):
         responses={
             200: OpenApiResponse(
                 response=serializers.DeviceSessionSerializer(many=True),
-                description="List of active sessions"
+                description="List of active sessions",
             ),
             401: OpenApiResponse(description="Not authenticated"),
         },
     )
     def get(self, request):
         sessions = DeviceSession.objects.filter(
-            user=request.user,
-            is_active=True
-        ).order_by('-last_activity')
+            user=request.user, is_active=True
+        ).order_by("-last_activity")
 
         serializer = serializers.DeviceSessionSerializer(
-            sessions,
-            many=True,
-            context={'request': request}
+            sessions, many=True, context={"request": request}
         )
 
         return Response(serializer.data)
@@ -847,6 +883,7 @@ class SessionRevokeView(APIView):
 
     DELETE /api/v1/auth/sessions/<uuid:pk>/
     """
+
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -863,13 +900,13 @@ class SessionRevokeView(APIView):
                 name="pk",
                 type=str,
                 location=OpenApiParameter.PATH,
-                description="Session UUID to revoke"
+                description="Session UUID to revoke",
             )
         ],
         responses={
             200: OpenApiResponse(
                 response=serializers.MessageSerializer,
-                description="Session revoked successfully"
+                description="Session revoked successfully",
             ),
             401: OpenApiResponse(description="Not authenticated"),
             404: OpenApiResponse(description="Session not found"),
@@ -884,18 +921,17 @@ class SessionRevokeView(APIView):
 
         if not revoked:
             return Response(
-                {'message': 'Session not found', 'code': 'not_found'},
-                status=status.HTTP_404_NOT_FOUND
+                {"message": "Session not found", "code": "not_found"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        return Response({
-            'message': 'Session revoked successfully'
-        })
+        return Response({"message": "Session revoked successfully"})
 
 
 # =============================================================================
 # OAUTH - GOOGLE
 # =============================================================================
+
 
 class GoogleOAuthView(APIView):
     """
@@ -903,6 +939,7 @@ class GoogleOAuthView(APIView):
 
     GET /api/v1/auth/oauth/google/
     """
+
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -928,20 +965,20 @@ class GoogleOAuthView(APIView):
                 type=str,
                 location=OpenApiParameter.QUERY,
                 description="URL to redirect to after OAuth completes",
-                required=False
+                required=False,
             ),
             OpenApiParameter(
                 name="device_id",
                 type=str,
                 location=OpenApiParameter.QUERY,
                 description="Device identifier for session tracking",
-                required=False
+                required=False,
             ),
         ],
         responses={
             200: OpenApiResponse(
                 response=serializers.OAuthInitResponseSerializer,
-                description="Google authorization URL"
+                description="Google authorization URL",
             ),
         },
     )
@@ -952,21 +989,19 @@ class GoogleOAuthView(APIView):
 
         # Create OAuth state
         state_params = OAuthStateManager.create_state(
-            provider='google',
-            redirect_to=data.get('redirect_to'),
+            provider="google",
+            redirect_to=data.get("redirect_to"),
             device_info={
-                'device_id': data.get('device_id'),
-                'device_type': data.get('device_type'),
-                'device_name': data.get('device_name'),
-            }
+                "device_id": data.get("device_id"),
+                "device_type": data.get("device_type"),
+                "device_name": data.get("device_name"),
+            },
         )
 
         # Get authorization URL
         auth_url = GoogleOAuthBackend.get_authorization_url(state_params)
 
-        return Response({
-            'authorization_url': auth_url
-        })
+        return Response({"authorization_url": auth_url})
 
 
 class GoogleOAuthCallbackView(APIView):
@@ -975,6 +1010,7 @@ class GoogleOAuthCallbackView(APIView):
 
     GET /api/v1/auth/oauth/google/callback/
     """
+
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -1003,82 +1039,81 @@ class GoogleOAuthCallbackView(APIView):
                 type=str,
                 location=OpenApiParameter.QUERY,
                 description="Authorization code from Google",
-                required=True
+                required=True,
             ),
             OpenApiParameter(
                 name="state",
                 type=str,
                 location=OpenApiParameter.QUERY,
                 description="State parameter for CSRF verification",
-                required=True
+                required=True,
             ),
         ],
         responses={
             200: OpenApiResponse(
                 response=serializers.AuthResponseSerializer,
-                description="Authentication successful (JSON response)"
+                description="Authentication successful (JSON response)",
             ),
             302: OpenApiResponse(description="Redirect to frontend with tokens"),
             400: OpenApiResponse(description="Invalid state or code"),
         },
     )
     def get(self, request):
-        code = request.query_params.get('code')
-        state = request.query_params.get('state')
+        code = request.query_params.get("code")
+        state = request.query_params.get("state")
 
         if not code or not state:
             return Response(
-                {'message': 'Missing code or state', 'code': 'invalid_request'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": "Missing code or state", "code": "invalid_request"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Validate and consume state
         state_data = OAuthStateManager.validate_and_consume_state(state)
 
-        if state_data['provider'] != 'google':
+        if state_data["provider"] != "google":
             return Response(
-                {'message': 'Invalid state provider', 'code': 'invalid_state'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": "Invalid state provider", "code": "invalid_state"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Exchange code for tokens
         tokens = GoogleOAuthBackend.exchange_code(
-            code=code,
-            code_verifier=state_data['code_verifier']
+            code=code, code_verifier=state_data["code_verifier"]
         )
 
         # Verify ID token and get user info
         try:
-            user_info = GoogleOAuthBackend.verify_id_token(tokens['id_token'])
+            user_info = GoogleOAuthBackend.verify_id_token(tokens["id_token"])
         except Exception:
             # Fallback to access token
-            user_info = GoogleOAuthBackend.get_user_info(tokens['access_token'])
+            user_info = GoogleOAuthBackend.get_user_info(tokens["access_token"])
 
         # Build device info from state
-        device_data = state_data.get('device_info', {})
+        device_data = state_data.get("device_info", {})
         device_info = _build_device_info(
-            device_data, request,
-            fallback_device_id=f"google_{user_info['sub'][:8]}"
+            device_data, request, fallback_device_id=f"google_{user_info['sub'][:8]}"
         )
 
         # Authenticate or create user
-        user, auth_tokens, session, is_new_user = OAuthService.authenticate_or_create_user(
-            provider='google',
-            provider_uid=user_info['sub'],
-            email=user_info['email'],
-            email_verified=user_info.get('email_verified', False),
-            provider_data=user_info,
-            device_info=device_info,
-            request=request,
+        user, auth_tokens, session, is_new_user = (
+            OAuthService.authenticate_or_create_user(
+                provider="google",
+                provider_uid=user_info["sub"],
+                email=user_info["email"],
+                email_verified=user_info.get("email_verified", False),
+                provider_data=user_info,
+                device_info=device_info,
+                request=request,
+            )
         )
 
         # Redirect to frontend with tokens
-        redirect_to = state_data.get('redirect_to')
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
-
+        redirect_to = state_data.get("redirect_to")
         if redirect_to:
             # Include tokens in URL fragment (not query params for security)
             from django.shortcuts import redirect
+
             return redirect(
                 f"{redirect_to}#access_token={auth_tokens.access_token}"
                 f"&expires_in={auth_tokens.access_expires_in}"
@@ -1087,23 +1122,23 @@ class GoogleOAuthCallbackView(APIView):
 
         # Return JSON response
         response_data = {
-            'user': user,
-            'tokens': {
-                'access_token': auth_tokens.access_token,
-                'access_expires_in': auth_tokens.access_expires_in,
-                'refresh_expires_in': auth_tokens.refresh_expires_in,
-                'token_type': 'Bearer',
+            "user": user,
+            "tokens": {
+                "access_token": auth_tokens.access_token,
+                "access_expires_in": auth_tokens.access_expires_in,
+                "refresh_expires_in": auth_tokens.refresh_expires_in,
+                "token_type": "Bearer",
             },
-            'is_new_user': is_new_user
+            "is_new_user": is_new_user,
         }
 
         return Response(serializers.AuthResponseSerializer(response_data).data)
 
 
-
 # =============================================================================
 # OAUTH - APPLE
 # =============================================================================
+
 
 class AppleOAuthView(APIView):
     """
@@ -1111,6 +1146,7 @@ class AppleOAuthView(APIView):
 
     GET /api/v1/auth/oauth/apple/
     """
+
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -1139,20 +1175,20 @@ class AppleOAuthView(APIView):
                 type=str,
                 location=OpenApiParameter.QUERY,
                 description="URL to redirect to after OAuth completes",
-                required=False
+                required=False,
             ),
             OpenApiParameter(
                 name="device_id",
                 type=str,
                 location=OpenApiParameter.QUERY,
                 description="Device identifier for session tracking",
-                required=False
+                required=False,
             ),
         ],
         responses={
             200: OpenApiResponse(
                 response=serializers.OAuthInitResponseSerializer,
-                description="Apple authorization URL"
+                description="Apple authorization URL",
             ),
         },
     )
@@ -1163,21 +1199,19 @@ class AppleOAuthView(APIView):
 
         # Create OAuth state
         state_params = OAuthStateManager.create_state(
-            provider='apple',
-            redirect_to=data.get('redirect_to'),
+            provider="apple",
+            redirect_to=data.get("redirect_to"),
             device_info={
-                'device_id': data.get('device_id'),
-                'device_type': data.get('device_type'),
-                'device_name': data.get('device_name'),
-            }
+                "device_id": data.get("device_id"),
+                "device_type": data.get("device_type"),
+                "device_name": data.get("device_name"),
+            },
         )
 
         # Get authorization URL
         auth_url = AppleOAuthBackend.get_authorization_url(state_params)
 
-        return Response({
-            'authorization_url': auth_url
-        })
+        return Response({"authorization_url": auth_url})
 
 
 class AppleOAuthCallbackView(APIView):
@@ -1187,6 +1221,7 @@ class AppleOAuthCallbackView(APIView):
     POST /api/v1/auth/oauth/apple/callback/
     (Apple uses form_post, not GET)
     """
+
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -1214,50 +1249,47 @@ class AppleOAuthCallbackView(APIView):
         responses={
             200: OpenApiResponse(
                 response=serializers.AuthResponseSerializer,
-                description="Authentication successful (JSON response)"
+                description="Authentication successful (JSON response)",
             ),
             302: OpenApiResponse(description="Redirect to frontend with tokens"),
             400: OpenApiResponse(description="Invalid state, nonce, or code"),
         },
     )
     def post(self, request):
-        code = request.data.get('code')
-        state = request.data.get('state')
-        id_token = request.data.get('id_token')
-        user_data = request.data.get('user')  # Only on first authorization
+        code = request.data.get("code")
+        state = request.data.get("state")
+        id_token = request.data.get("id_token")
+        user_data = request.data.get("user")  # Only on first authorization
 
         if not code or not state:
             return Response(
-                {'message': 'Missing code or state', 'code': 'invalid_request'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": "Missing code or state", "code": "invalid_request"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Validate and consume state
         state_data = OAuthStateManager.validate_and_consume_state(state)
 
-        if state_data['provider'] != 'apple':
+        if state_data["provider"] != "apple":
             return Response(
-                {'message': 'Invalid state provider', 'code': 'invalid_state'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": "Invalid state provider", "code": "invalid_state"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # If we have id_token directly, verify it
         if id_token:
             user_info = AppleOAuthBackend.verify_id_token(
-                id_token,
-                expected_nonce=state_data['nonce']
+                id_token, expected_nonce=state_data["nonce"]
             )
         else:
             # Exchange code for tokens
             tokens = AppleOAuthBackend.exchange_code(
-                code=code,
-                code_verifier=state_data['code_verifier']
+                code=code, code_verifier=state_data["code_verifier"]
             )
 
             # Verify ID token
             user_info = AppleOAuthBackend.verify_id_token(
-                tokens['id_token'],
-                expected_nonce=state_data['nonce']
+                tokens["id_token"], expected_nonce=state_data["nonce"]
             )
 
         # Parse user data (only on first sign-in)
@@ -1267,28 +1299,30 @@ class AppleOAuthCallbackView(APIView):
         provider_data = {**user_info, **extra_data}
 
         # Build device info
-        device_data = state_data.get('device_info', {})
+        device_data = state_data.get("device_info", {})
         device_info = _build_device_info(
-            device_data, request,
-            fallback_device_id=f"apple_{user_info['sub'][:8]}"
+            device_data, request, fallback_device_id=f"apple_{user_info['sub'][:8]}"
         )
 
         # Authenticate or create user
-        user, auth_tokens, session, is_new_user = OAuthService.authenticate_or_create_user(
-            provider='apple',
-            provider_uid=user_info['sub'],
-            email=user_info.get('email', ''),
-            email_verified=user_info.get('email_verified', False),
-            provider_data=provider_data,
-            device_info=device_info,
-            request=request,
+        user, auth_tokens, session, is_new_user = (
+            OAuthService.authenticate_or_create_user(
+                provider="apple",
+                provider_uid=user_info["sub"],
+                email=user_info.get("email", ""),
+                email_verified=user_info.get("email_verified", False),
+                provider_data=provider_data,
+                device_info=device_info,
+                request=request,
+            )
         )
 
         # Redirect to frontend
-        redirect_to = state_data.get('redirect_to')
+        redirect_to = state_data.get("redirect_to")
 
         if redirect_to:
             from django.shortcuts import redirect
+
             return redirect(
                 f"{redirect_to}#access_token={auth_tokens.access_token}"
                 f"&expires_in={auth_tokens.access_expires_in}"
@@ -1297,15 +1331,14 @@ class AppleOAuthCallbackView(APIView):
 
         # Return JSON response
         response_data = {
-            'user': user,
-            'tokens': {
-                'access_token': auth_tokens.access_token,
-                'access_expires_in': auth_tokens.access_expires_in,
-                'refresh_expires_in': auth_tokens.refresh_expires_in,
-                'token_type': 'Bearer',
+            "user": user,
+            "tokens": {
+                "access_token": auth_tokens.access_token,
+                "access_expires_in": auth_tokens.access_expires_in,
+                "refresh_expires_in": auth_tokens.refresh_expires_in,
+                "token_type": "Bearer",
             },
-            'is_new_user': is_new_user
+            "is_new_user": is_new_user,
         }
 
         return Response(serializers.AuthResponseSerializer(response_data).data)
-
