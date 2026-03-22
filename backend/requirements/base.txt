@@ -64,7 +64,7 @@ Pillow==12.1.0
 # AUTHENTICATION
 # ============================================
 # JSON Web Token implementation for Python
-PyJWT==2.10.1
+PyJWT==2.12.1
 
 # Argon2 password hashing (recommended by OWASP)
 argon2-cffi==25.1.0
