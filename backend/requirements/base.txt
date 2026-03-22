@@ -52,7 +52,7 @@ django-cors-headers==4.9.0
 gunicorn==23.0.0
 
 # ASGI server (used as Gunicorn worker class)
-uvicorn[standard]==0.40.0
+uvicorn[standard]==0.42.0
 
 # ============================================
 # IMAGE PROCESSING
