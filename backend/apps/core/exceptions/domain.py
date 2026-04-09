@@ -170,6 +170,39 @@ class PermissionDenied(DomainException):
 
 
 # =============================================================================
+# FEATURE GATE EXCEPTIONS
+# =============================================================================
+
+
+class FeatureDisabled(DomainException):
+    """
+    Raised when a feature is disabled by deployment configuration.
+
+    Maps to HTTP 403 in the exception handler.
+    Distinct from PermissionDenied — this means the feature itself is OFF
+    in this deployment, not that the user lacks permission.
+
+    Attributes:
+        feature: The feature path that is disabled (e.g., "business.network.enabled")
+
+    Example:
+        raise FeatureDisabled(
+            feature="business.network.enabled"
+        )
+    """
+
+    default_message = "This feature is not available"
+    default_code = "feature_disabled"
+
+    def __init__(self, message: str | None = None, feature: str | None = None):
+        details = {}
+        if feature:
+            details["feature"] = feature
+
+        super().__init__(message=message, code=self.default_code, details=details)
+
+
+# =============================================================================
 # VALIDATION EXCEPTIONS
 # =============================================================================
 
@@ -336,10 +369,20 @@ class BusinessRuleViolation(DomainException):
     default_message = "Business rule violation"
     default_code = "business_rule_violation"
 
-    def __init__(self, message: str | None = None, rule: str | None = None):
+    def __init__(
+        self,
+        message: str | None = None,
+        rule: str | None = None,
+        limit: int | None = None,
+        current: int | None = None,
+    ):
         details = {}
         if rule:
             details["rule"] = rule
+        if limit is not None:
+            details["limit"] = limit
+        if current is not None:
+            details["current"] = current
 
         super().__init__(message=message, code=self.default_code, details=details)
 

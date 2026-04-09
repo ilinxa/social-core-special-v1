@@ -9,3 +9,7 @@ class FormsConfig(AppConfig):
     def ready(self):
         """Import signals when app is ready."""
         import apps.forms.signals  # noqa: F401
+        from apps.core.feature_config import feature_config
+
+        if feature_config.is_system_enabled("forms"):
+            import apps.forms.admin  # noqa: F401

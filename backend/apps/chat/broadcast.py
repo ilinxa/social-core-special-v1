@@ -15,9 +15,11 @@ from apps.chat.ws_serializers import (
     serialize_message,
     serialize_message_deleted,
     serialize_message_edited,
-    serialize_reaction_update as _serialize_reaction_update,
-    serialize_seen_update,
 )
+from apps.chat.ws_serializers import (
+    serialize_reaction_update as _serialize_reaction_update,
+)
+from apps.chat.ws_serializers import serialize_seen_update
 from apps.core.observability import get_logger
 
 logger = get_logger(__name__)
@@ -107,13 +109,17 @@ def broadcast_message_deleted_by_ids(conversation_id, message_id) -> None:
     )
 
 
-def broadcast_seen_update(conversation_id, participant_id, last_seen_message_id) -> None:
+def broadcast_seen_update(
+    conversation_id, participant_id, last_seen_message_id
+) -> None:
     """Broadcast a seen watermark update to the conversation group."""
     layer = _get_layer()
     if not layer:
         return
 
-    payload = serialize_seen_update(conversation_id, participant_id, last_seen_message_id)
+    payload = serialize_seen_update(
+        conversation_id, participant_id, last_seen_message_id
+    )
     async_to_sync(layer.group_send)(
         f"conversation_{conversation_id}",
         {"type": "chat.seen.update", "payload": payload},

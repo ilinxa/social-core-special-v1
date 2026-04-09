@@ -1106,9 +1106,8 @@ class TestApprovedBusinessCreatorsListView:
 
     @pytest.fixture
     def platform(self, db):
-        from apps.organization.tests.factories import PlatformAccountFactory
-
         from apps.organization.platform.models import PlatformAccount
+        from apps.organization.tests.factories import PlatformAccountFactory
 
         try:
             return PlatformAccount.objects.get()
@@ -1169,7 +1168,9 @@ class TestApprovedBusinessCreatorsListView:
         return perm
 
     @pytest.fixture
-    def platform_owner_membership(self, db, user, platform, platform_owner_role, approve_perm):
+    def platform_owner_membership(
+        self, db, user, platform, platform_owner_role, approve_perm
+    ):
         from apps.core.constants import MembershipStatus
         from apps.rbac.models import Membership, RolePermission
 
@@ -1189,7 +1190,9 @@ class TestApprovedBusinessCreatorsListView:
         return membership
 
     @pytest.fixture
-    def platform_base_membership(self, db, another_user, platform, platform_base_member_role):
+    def platform_base_membership(
+        self, db, another_user, platform, platform_base_member_role
+    ):
         from apps.core.constants import MembershipStatus
         from apps.rbac.models import Membership
 
@@ -1336,8 +1339,13 @@ class TestApprovedBusinessCreatorsListView:
 
         result = response.data["results"][0]
         expected_fields = [
-            "id", "email", "username", "display_name",
-            "avatar_url", "can_create_business", "date_joined",
+            "id",
+            "email",
+            "username",
+            "display_name",
+            "avatar_url",
+            "can_create_business",
+            "date_joined",
         ]
         for field in expected_fields:
             assert field in result, f"Missing field: {field}"

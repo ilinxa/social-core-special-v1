@@ -22,7 +22,6 @@ import uuid
 from dataclasses import dataclass
 from typing import Tuple
 
-from django.conf import settings
 from django.db import transaction
 from django.http import HttpRequest
 from django.utils import timezone
@@ -38,6 +37,7 @@ from apps.core.exceptions import (
 )
 
 # Observability
+from apps.core.feature_config import feature_config
 from apps.core.observability import get_logger
 from apps.core.observability.audit import AuditLog, AuditService
 from apps.core.utils.jwt import decode_token, encode_token
@@ -87,7 +87,6 @@ class AuthService:
     """
 
     @staticmethod
-    @transaction.atomic
     def login(
         *,
         email: str,
@@ -98,6 +97,11 @@ class AuthService:
     ) -> Tuple["User", TokenPair, DeviceSession]:
         """
         Authenticate user and create session.
+
+        Pre-auth checks (lockout, password, active, verified) run outside
+        @transaction.atomic so that side-effects like lockout counter
+        increments and audit logs persist even when an exception is raised.
+        Session creation and token generation run inside an atomic block.
 
         Args:
             email: User's email address
@@ -158,9 +162,13 @@ class AuthService:
             from datetime import timedelta
 
             user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
-            max_attempts = getattr(settings, "AUTH_MAX_FAILED_ATTEMPTS", 10)
+            max_attempts = feature_config.get_value(
+                "auth.lockout.max_failed_attempts", 10
+            )
             if user.failed_login_attempts >= max_attempts:
-                lockout_duration = getattr(settings, "AUTH_LOCKOUT_DURATION", 900)
+                lockout_duration = feature_config.get_value(
+                    "auth.lockout.duration", 900
+                )
                 user.locked_until = timezone.now() + timedelta(seconds=lockout_duration)
                 logger.warning(
                     "auth.login.account_locked",
@@ -210,67 +218,71 @@ class AuthService:
             )
             raise AccountNotVerified()
 
-        # Reset lockout counter on successful login
-        if user.failed_login_attempts > 0 or user.locked_until:
-            user.failed_login_attempts = 0
-            user.locked_until = None
-            user.save(update_fields=["failed_login_attempts", "locked_until"])
+        # --- Successful authentication: atomic block for session + tokens ---
+        with transaction.atomic():
+            # Reset lockout counter on successful login
+            if user.failed_login_attempts > 0 or user.locked_until:
+                user.failed_login_attempts = 0
+                user.locked_until = None
+                user.save(update_fields=["failed_login_attempts", "locked_until"])
 
-        # Create or update device session
-        session, is_new_device = AuthService._get_or_create_session(user, device_info)
+            # Create or update device session
+            session, is_new_device = AuthService._get_or_create_session(
+                user, device_info
+            )
 
-        # Enforce session limit
-        AuthService._enforce_session_limit(user, session)
+            # Enforce session limit
+            AuthService._enforce_session_limit(user, session)
 
-        # Create tokens
-        tokens = AuthService._create_token_pair(user, session, device_info)
+            # Create tokens
+            tokens = AuthService._create_token_pair(user, session, device_info)
 
-        # Update last login
-        from apps.users.services import UserService
+            # Update last login
+            from apps.users.services import UserService
 
-        UserService.update_last_login(user=user)
+            UserService.update_last_login(user=user)
 
-        logger.info(
-            "auth.login.success",
-            user_id=str(user.id),
-            device_type=device_info.device_type,
-            is_new_device=is_new_device,
-            ip_address=device_info.ip_address,
-        )
+            logger.info(
+                "auth.login.success",
+                user_id=str(user.id),
+                device_type=device_info.device_type,
+                is_new_device=is_new_device,
+                ip_address=device_info.ip_address,
+            )
 
-        # Audit: Successful login
-        AuditService.log(
-            action=AuditLog.Action.LOGIN_SUCCESS,
-            actor=user,
-            resource=session,
-            request=request,
-            details={
-                "device_type": device_info.device_type,
-                "device_name": device_info.device_name,
-                "is_new_device": is_new_device,
-            },
-        )
-
-        # Audit: Session created (if new device)
-        if is_new_device:
+            # Audit: Successful login
             AuditService.log(
-                action=AuditLog.Action.SESSION_CREATED,
+                action=AuditLog.Action.LOGIN_SUCCESS,
                 actor=user,
                 resource=session,
                 request=request,
                 details={
                     "device_type": device_info.device_type,
                     "device_name": device_info.device_name,
-                    "device_id": device_info.device_id,
+                    "is_new_device": is_new_device,
                 },
             )
 
-        # Send new device notification (deferred until transaction commits)
-        if is_new_device:
-            _user, _di = user, device_info
-            transaction.on_commit(
-                lambda: AuthService._send_new_login_notification(_user, _di)
-            )
+            # Audit: Session created (if new device)
+            if is_new_device:
+                AuditService.log(
+                    action=AuditLog.Action.SESSION_CREATED,
+                    actor=user,
+                    resource=session,
+                    request=request,
+                    details={
+                        "device_type": device_info.device_type,
+                        "device_name": device_info.device_name,
+                        "device_id": device_info.device_id,
+                    },
+                )
+
+            # Send new device notification (deferred until transaction commits)
+            if is_new_device:
+                _user, _di = user, device_info
+                transaction.on_commit(
+                    lambda: AuthService._send_new_login_notification(_user, _di)
+                )
 
         return user, tokens, session
 
@@ -416,9 +428,12 @@ class AuthService:
                 db_token.user, new_token.jti
             )
 
-        jwt_auth = getattr(settings, "JWT_AUTH", {})
-        access_lifetime = jwt_auth.get("ACCESS_TOKEN_LIFETIME", 900)
-        refresh_lifetime = jwt_auth.get("REFRESH_TOKEN_LIFETIME", 604800)
+        access_lifetime = feature_config.get_value(
+            "auth.sessions.access_token_lifetime", 900
+        )
+        refresh_lifetime = feature_config.get_value(
+            "auth.sessions.refresh_token_lifetime", 604800
+        )
 
         logger.info(
             "auth.refresh.success",
@@ -637,8 +652,9 @@ class AuthService:
     @staticmethod
     def _create_access_token(user, jti: uuid.UUID) -> str:
         """Generate JWT access token."""
-        jwt_auth = getattr(settings, "JWT_AUTH", {})
-        expires_in = jwt_auth.get("ACCESS_TOKEN_LIFETIME", 900)
+        expires_in = feature_config.get_value(
+            "auth.sessions.access_token_lifetime", 900
+        )
 
         return encode_token(
             payload={
@@ -675,9 +691,12 @@ class AuthService:
         # Create access token
         access_token = AuthService._create_access_token(user, refresh_token.jti)
 
-        jwt_auth = getattr(settings, "JWT_AUTH", {})
-        access_lifetime = jwt_auth.get("ACCESS_TOKEN_LIFETIME", 900)
-        refresh_lifetime = jwt_auth.get("REFRESH_TOKEN_LIFETIME", 604800)
+        access_lifetime = feature_config.get_value(
+            "auth.sessions.access_token_lifetime", 900
+        )
+        refresh_lifetime = feature_config.get_value(
+            "auth.sessions.refresh_token_lifetime", 604800
+        )
 
         return TokenPair(
             access_token=access_token,
@@ -710,7 +729,7 @@ class AuthService:
         Enforce max sessions per user.
         Removes oldest sessions if limit exceeded.
         """
-        max_sessions = getattr(settings, "AUTH_MAX_SESSIONS_PER_USER", 5)
+        max_sessions = feature_config.get_value("auth.sessions.max_per_user", 5)
 
         active_sessions = (
             DeviceSession.objects.filter(user=user, is_active=True)

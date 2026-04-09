@@ -277,3 +277,51 @@ class AllowAny(BasePermission):
 
     def has_permission(self, request, view):
         return True
+
+
+# =============================================================================
+# FEATURE GATE PERMISSIONS
+# =============================================================================
+
+
+def FeatureRequired(feature_path):
+    """
+    DRF permission class factory for feature gates.
+
+    Returns a permission CLASS (not instance) that checks if a feature is enabled
+    in the deployment configuration. Returns 403 with ``feature_disabled`` code
+    when the feature is off.
+
+    Why a factory: DRF requires ``permission_classes`` to contain classes, not
+    instances. DRF instantiates them via ``[perm() for perm in permission_classes]``.
+    This factory returns a new class each time with the feature path baked in.
+
+    Why raise instead of return False: ``return False`` triggers DRF's generic
+    ``PermissionDenied`` (code ``permission_denied``). By raising ``FeatureDisabled``
+    directly, we get the distinct ``feature_disabled`` code and include
+    ``details.feature`` in the response — critical for the frontend to distinguish
+    "feature disabled" from "you lack permission."
+
+    Usage::
+
+        class NetworkListView(APIView):
+            permission_classes = [IsAuthenticated, FeatureRequired("business.network.enabled")]
+    """
+    from apps.core.exceptions import FeatureDisabled
+
+    class _FeatureRequiredPermission(BasePermission):
+        _feature_path = feature_path
+        message = "This feature is not available"
+        code = "feature_disabled"
+
+        def has_permission(self, request, view):
+            from apps.core.feature_config import feature_config
+
+            if not feature_config.is_feature_enabled(self._feature_path):
+                raise FeatureDisabled(feature=self._feature_path)
+            return True
+
+    # Readable class name for debugging and DRF's error messages
+    _FeatureRequiredPermission.__name__ = f"FeatureRequired_{feature_path}"
+    _FeatureRequiredPermission.__qualname__ = f"FeatureRequired_{feature_path}"
+    return _FeatureRequiredPermission

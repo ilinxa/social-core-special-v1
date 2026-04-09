@@ -69,6 +69,20 @@ class AuditLog(models.Model):
         SESSION_REVOKED = "auth.session.revoked", "Session Revoked"
         ALL_SESSIONS_REVOKED = "auth.sessions.revoked_all", "All Sessions Revoked"
 
+        # Governance Step-Up Auth
+        GOVERNANCE_AUTHENTICATED = (
+            "auth.governance.authenticated",
+            "Governance Authenticated",
+        )
+        GOVERNANCE_SESSION_EXPIRED = (
+            "auth.governance.session_expired",
+            "Governance Session Expired",
+        )
+        GOVERNANCE_SESSION_LOCKED = (
+            "auth.governance.session_locked",
+            "Governance Session Locked",
+        )
+
         # User Management
         USER_CREATED = "user.created", "User Created"
         USER_UPDATED = "user.updated", "User Updated"
@@ -275,6 +289,30 @@ class AuditLog(models.Model):
         CMS_API_KEY_CREATED = "cms.api_key.created", "CMS API Key Created"
         CMS_API_KEY_REVOKED = "cms.api_key.revoked", "CMS API Key Revoked"
         CMS_API_KEY_UPDATED = "cms.api_key.updated", "CMS API Key Updated"
+
+        # CMS - Template Activation
+        CMS_TEMPLATE_ACTIVATED = (
+            "cms.template.activated",
+            "CMS Template Activated",
+        )
+        CMS_TEMPLATE_DEACTIVATED = (
+            "cms.template.deactivated",
+            "CMS Template Deactivated",
+        )
+
+        # CMS - Business Management
+        CMS_BUSINESS_ENABLED = (
+            "cms.business.enabled",
+            "CMS Enabled for Business",
+        )
+        CMS_BUSINESS_DISABLED = (
+            "cms.business.disabled",
+            "CMS Disabled for Business",
+        )
+        CMS_DEFAULTS_PROVISIONED = (
+            "cms.defaults.provisioned",
+            "CMS Default Templates Provisioned",
+        )
 
         # Chat
         CHAT_CONVERSATION_CREATED = (

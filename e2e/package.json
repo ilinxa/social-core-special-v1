@@ -1,0 +1,30 @@
+{
+  "name": "socialmedia-adv-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "E2E test suite for the Social Media Advertising Platform",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --project=smoke-desktop",
+    "test:mobile": "playwright test --project=smoke-mobile",
+    "test:workflows": "playwright test --project=workflows",
+    "test:scenarios": "playwright test --project=scenarios",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report reports/e2e-html",
+    "codegen": "playwright codegen http://localhost:3001",
+    "coverage-matrix": "tsx scripts/generate-coverage-matrix.ts",
+    "gap-report": "tsx scripts/generate-gap-report.ts"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.52.0",
+    "pg": "^8.13.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.7.0",
+    "ts-node": "^10.9.0",
+    "tsx": "^4.19.0"
+  }
+}

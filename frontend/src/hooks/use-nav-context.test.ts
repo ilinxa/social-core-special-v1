@@ -151,7 +151,7 @@ describe("useNavContext", () => {
     });
   });
 
-  it("returns platform context for /pconsole/cms/sites", () => {
+  it("returns platform context for legacy /pconsole/cms/sites (redirect pending)", () => {
     useMembershipStore.setState({
       memberships: [
         makeMembership({ account_type: "platform", account_id: "plat-1", account_slug: "" }),
@@ -163,6 +163,107 @@ describe("useNavContext", () => {
     expect(result.current).toEqual({
       type: "platform",
       accountId: "plat-1",
+    });
+  });
+
+  // =========================================================================
+  // CMS Console (cconsole) — platform mode
+  // =========================================================================
+
+  it("returns CMS platform context for /cconsole/sites", () => {
+    useMembershipStore.setState({
+      memberships: [
+        makeMembership({ account_type: "platform", account_id: "plat-1", account_slug: "" }),
+      ],
+      isLoaded: true,
+    });
+    mockUsePathname.mockReturnValue("/cconsole/sites");
+    const { result } = renderHook(() => useNavContext());
+    expect(result.current).toEqual({
+      type: "cms",
+      mode: "platform",
+      accountId: "plat-1",
+    });
+  });
+
+  it("returns CMS platform context for /cconsole/templates", () => {
+    useMembershipStore.setState({
+      memberships: [
+        makeMembership({ account_type: "platform", account_id: "plat-1", account_slug: "" }),
+      ],
+      isLoaded: true,
+    });
+    mockUsePathname.mockReturnValue("/cconsole/templates");
+    const { result } = renderHook(() => useNavContext());
+    expect(result.current).toEqual({
+      type: "cms",
+      mode: "platform",
+      accountId: "plat-1",
+    });
+  });
+
+  it("returns CMS platform context for /cconsole (root)", () => {
+    useMembershipStore.setState({
+      memberships: [
+        makeMembership({ account_type: "platform", account_id: "plat-1", account_slug: "" }),
+      ],
+      isLoaded: true,
+    });
+    mockUsePathname.mockReturnValue("/cconsole");
+    const { result } = renderHook(() => useNavContext());
+    expect(result.current).toEqual({
+      type: "cms",
+      mode: "platform",
+      accountId: "plat-1",
+    });
+  });
+
+  // =========================================================================
+  // CMS Console (cconsole) — business mode
+  // =========================================================================
+
+  it("returns CMS business context for /cconsole/acme/sites", () => {
+    useMembershipStore.setState({
+      memberships: [makeMembership({ account_slug: "acme", account_id: "acc-1", account_name: "Acme Corp" })],
+      isLoaded: true,
+    });
+    mockUsePathname.mockReturnValue("/cconsole/acme/sites");
+    const { result } = renderHook(() => useNavContext());
+    expect(result.current).toEqual({
+      type: "cms",
+      mode: "business",
+      slug: "acme",
+      accountId: "acc-1",
+      accountName: "Acme Corp",
+    });
+  });
+
+  it("returns CMS business context for /cconsole/acme/catalog", () => {
+    useMembershipStore.setState({
+      memberships: [makeMembership({ account_slug: "acme", account_id: "acc-1", account_name: "Acme Corp" })],
+      isLoaded: true,
+    });
+    mockUsePathname.mockReturnValue("/cconsole/acme/catalog");
+    const { result } = renderHook(() => useNavContext());
+    expect(result.current).toEqual({
+      type: "cms",
+      mode: "business",
+      slug: "acme",
+      accountId: "acc-1",
+      accountName: "Acme Corp",
+    });
+  });
+
+  it("returns CMS business context with fallback when membership not found", () => {
+    useMembershipStore.setState({ memberships: [], isLoaded: true });
+    mockUsePathname.mockReturnValue("/cconsole/unknown/sites");
+    const { result } = renderHook(() => useNavContext());
+    expect(result.current).toEqual({
+      type: "cms",
+      mode: "business",
+      slug: "unknown",
+      accountId: "",
+      accountName: "unknown",
     });
   });
 

@@ -602,9 +602,9 @@ class TestBusinessProfileView:
 class TestBusinessSuspendView:
     """Tests for BusinessSuspendView endpoint."""
 
-    def test_suspend_as_staff(self, staff_client, business_with_profile):
-        """Test suspending business as staff."""
-        response = staff_client.post(
+    def test_suspend_as_governance(self, governance_client, business_with_profile):
+        """Test suspending business as Global Moderator (RBAC governance)."""
+        response = governance_client.post(
             f"/api/v1/business/{business_with_profile.slug}/suspend/",
             {"reason": "Violation of terms"},
             format="json",
@@ -630,9 +630,9 @@ class TestBusinessSuspendView:
 class TestBusinessReactivateView:
     """Tests for BusinessReactivateView endpoint."""
 
-    def test_reactivate_as_staff(self, staff_client, suspended_business):
-        """Test reactivating business as staff."""
-        response = staff_client.post(
+    def test_reactivate_as_governance(self, governance_client, suspended_business):
+        """Test reactivating business as Global Moderator (RBAC governance)."""
+        response = governance_client.post(
             f"/api/v1/business/{suspended_business.slug}/reactivate/"
         )
 

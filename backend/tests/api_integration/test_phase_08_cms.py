@@ -158,19 +158,20 @@ class TestCMSPages:
         assert data["title"] == "Home Page"
 
     def test_c11_page_detail_get_only(self, api, state):
-        """Page detail view only supports GET (no PATCH/DELETE)."""
+        """Page detail PATCH updates page metadata when site param is provided."""
         api.set_token(state.get_token("alice"))
-        # GET works
+        site_slug = state.cms["main_site"]["site_slug"]
+        # GET works without site param (fallback lookup)
         r = api.get("cms/admin/pages/home/")
         assert r.status_code == 200
-        # PATCH is not implemented on page detail
+        # PATCH requires site param and updates page metadata
         r = api.patch(
-            "cms/admin/pages/home/",
+            f"cms/admin/pages/home/?site={site_slug}",
             json={
                 "description": "Updated home page",
             },
         )
-        assert r.status_code == 405  # Method Not Allowed
+        assert r.status_code == 200
 
     def test_c12_page_structure_verified(self, api, state):
         """Verify page has expected structure from GET."""

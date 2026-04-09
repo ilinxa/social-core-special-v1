@@ -1,5 +1,4 @@
 import factory
-from django.utils import timezone
 from factory.django import DjangoModelFactory
 
 from apps.chat.constants import (

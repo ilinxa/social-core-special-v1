@@ -186,6 +186,12 @@ class PlatformAccountView(RelationshipInjectMixin, PermissionInjectMixin, APIVie
     )
     def post(self, request):
         """Configure platform (one-time setup)."""
+        from apps.core.exceptions import FeatureDisabled
+        from apps.core.feature_config import feature_config
+
+        if not feature_config.is_feature_enabled("platform.members.enabled"):
+            raise FeatureDisabled(feature="platform.members.enabled")
+
         if not PlatformPolicy.can_configure(user=request.user):
             raise PermissionDenied(
                 message="Only superusers can configure the platform",

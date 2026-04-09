@@ -405,10 +405,12 @@ class TestRegisterAllHandlers:
                 "platform_follow_request",
                 "business_connection_request",
                 "business_platform_connection_request",
+                # CMS handlers
+                "cms_activation_request",
             ]
             for t in expected_types:
                 assert t in OutcomeHandlerRegistry._handlers, f"Missing handler for {t}"
 
-            assert len(OutcomeHandlerRegistry._handlers) == 14
+            assert len(OutcomeHandlerRegistry._handlers) == 15
         finally:
             OutcomeHandlerRegistry._handlers = saved

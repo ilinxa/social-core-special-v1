@@ -277,6 +277,32 @@ class TransactionSelector:
             .first()
         )
 
+    @staticmethod
+    def list_all_transactions(
+        *,
+        status: str | None = None,
+        mode: str | None = None,
+        transaction_type: str | None = None,
+        context_type: str | None = None,
+        include_terminal: bool = True,
+    ) -> QuerySet:
+        """Global transaction listing for governance. All accounts."""
+        qs = Transaction.objects.all()
+
+        if not include_terminal:
+            qs = qs.active()
+
+        if status:
+            qs = qs.filter(status=status)
+        if mode:
+            qs = qs.filter(mode=mode)
+        if transaction_type:
+            qs = qs.filter(transaction_type=transaction_type)
+        if context_type:
+            qs = qs.filter(context_type=context_type)
+
+        return qs.order_by("-created_at")
+
 
 class TransactionLogSelector:
 

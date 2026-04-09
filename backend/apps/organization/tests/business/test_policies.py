@@ -1,17 +1,100 @@
 # apps/organization/tests/business/test_policies.py
 """
 Tests for BusinessPolicy RBAC-based authorization.
+
+Authorization is fully RBAC-based (Decision 3 — gconsole Phase 1).
+No is_staff/is_superuser bypass exists. All governance access requires
+global-scoped permissions via platform membership.
 """
 
 import pytest
 
+from apps.core.constants import AccountType
 from apps.organization.business.policies import BusinessPolicy
-from apps.organization.tests.factories import BusinessProfileFactory
+from apps.organization.tests.factories import BusinessProfileFactory, UserFactory
+from apps.rbac.selectors import RoleSelector
+from apps.rbac.services import RBACService
+
+# =============================================================================
+# FIXTURES — Governance actors (platform membership with global permissions)
+# =============================================================================
+
+
+@pytest.fixture
+def platform_with_rbac(platform_account):
+    """Ensure platform account has RBAC roles initialized."""
+    from apps.rbac.models import Role
+
+    exists = Role.objects.filter(
+        account_type=AccountType.PLATFORM,
+        account_id=platform_account.id,
+    ).exists()
+    if not exists:
+        RBACService.initialize_platform_account(platform_id=platform_account.id)
+    return platform_account
+
+
+@pytest.fixture
+def global_moderator_user(db, platform_with_rbac):
+    """
+    Create a user with Global Moderator role (level 5) on the platform.
+
+    Global Moderator has all global_only scoped permissions including:
+    can_suspend_business, can_view_businesses, can_edit_business,
+    can_edit_profile, can_approve_verification_request, etc.
+    """
+    from apps.rbac.models import Role
+
+    moderator = UserFactory(username="globmod", email="globmod@example.com")
+    mod_role = Role.objects.get(
+        account_type=AccountType.PLATFORM,
+        account_id=platform_with_rbac.id,
+        name="Global Moderator",
+    )
+    RBACService.create_membership(
+        user=moderator,
+        account_type=AccountType.PLATFORM,
+        account_id=platform_with_rbac.id,
+        role_id=mod_role.id,
+        created_by=moderator,
+    )
+    return moderator
+
+
+@pytest.fixture
+def platform_admin_user(db, platform_with_rbac):
+    """
+    Create a user with Platform Admin role (level 2).
+
+    Platform Admin has platform_only scoped permissions but NOT global_only.
+    Should NOT have governance access.
+    """
+    from apps.rbac.models import Role
+
+    admin = UserFactory(username="platadmin", email="platadmin@example.com")
+    admin_role = Role.objects.get(
+        account_type=AccountType.PLATFORM,
+        account_id=platform_with_rbac.id,
+        name="Platform Admin",
+    )
+    RBACService.create_membership(
+        user=admin,
+        account_type=AccountType.PLATFORM,
+        account_id=platform_with_rbac.id,
+        role_id=admin_role.id,
+        created_by=admin,
+    )
+    return admin
+
+
+# =============================================================================
+# TESTS
+# =============================================================================
 
 
 @pytest.mark.django_db
 class TestBusinessPolicyCanCreate:
-    """Tests for can_create policy — requires platform approval flag."""
+    """Tests for can_create policy — requires can_create_business flag or global perm."""
 
     def test_user_with_flag_can_create(self, user):
         user.can_create_business = True
@@ -21,11 +104,13 @@ class TestBusinessPolicyCanCreate:
     def test_user_without_flag_cannot_create(self, user):
         assert BusinessPolicy.can_create(user=user) is False
 
-    def test_staff_can_create_without_flag(self, staff_user):
-        assert BusinessPolicy.can_create(user=staff_user) is True
+    def test_global_moderator_can_create_without_flag(self, global_moderator_user):
+        """Governance actor with can_approve_business_creation can create."""
+        assert BusinessPolicy.can_create(user=global_moderator_user) is True
 
-    def test_superuser_can_create_without_flag(self, superuser):
-        assert BusinessPolicy.can_create(user=superuser) is True
+    def test_platform_admin_cannot_create_without_flag(self, platform_admin_user):
+        """Platform admin (platform_only scope) cannot bypass the flag."""
+        assert BusinessPolicy.can_create(user=platform_admin_user) is False
 
     def test_anonymous_user_cannot_create(self):
         from django.contrib.auth.models import AnonymousUser
@@ -70,22 +155,28 @@ class TestBusinessPolicyCanUpdate:
             is False
         )
 
-    def test_staff_can_update(self, staff_user, business_with_profile):
+    def test_global_moderator_can_update(
+        self, global_moderator_user, business_with_profile
+    ):
+        """Governance actor with global can_edit_business can update any business."""
         assert (
             BusinessPolicy.can_update(
-                user=staff_user,
+                user=global_moderator_user,
                 business=business_with_profile,
             )
             is True
         )
 
-    def test_superuser_can_update(self, superuser, business_with_profile):
+    def test_platform_admin_cannot_update(
+        self, platform_admin_user, business_with_profile
+    ):
+        """Platform admin without global scope cannot update businesses."""
         assert (
             BusinessPolicy.can_update(
-                user=superuser,
+                user=platform_admin_user,
                 business=business_with_profile,
             )
-            is True
+            is False
         )
 
 
@@ -122,11 +213,13 @@ class TestBusinessPolicyCanUpdateSlug:
             is False
         )
 
-    def test_staff_cannot_update_slug(self, staff_user, business_with_profile):
-        """Staff cannot change slug — business identity decision."""
+    def test_global_moderator_cannot_update_slug(
+        self, global_moderator_user, business_with_profile
+    ):
+        """Governance actors cannot change slugs — business identity decision."""
         assert (
             BusinessPolicy.can_update_slug(
-                user=staff_user,
+                user=global_moderator_user,
                 business=business_with_profile,
             )
             is False
@@ -135,7 +228,7 @@ class TestBusinessPolicyCanUpdateSlug:
 
 @pytest.mark.django_db
 class TestBusinessPolicyCanDelete:
-    """Tests for can_delete policy (owner or superuser)."""
+    """Tests for can_delete policy (owner only)."""
 
     def test_owner_can_delete(self, user, business_with_profile):
         assert (
@@ -164,20 +257,13 @@ class TestBusinessPolicyCanDelete:
             is False
         )
 
-    def test_superuser_can_delete(self, superuser, business_with_profile):
+    def test_global_moderator_cannot_delete(
+        self, global_moderator_user, business_with_profile
+    ):
+        """Governance actors cannot soft-delete — owner only. Force-delete via /admin."""
         assert (
             BusinessPolicy.can_delete(
-                user=superuser,
-                business=business_with_profile,
-            )
-            is True
-        )
-
-    def test_staff_cannot_delete(self, staff_user, business_with_profile):
-        """Regular staff cannot delete businesses."""
-        assert (
-            BusinessPolicy.can_delete(
-                user=staff_user,
+                user=global_moderator_user,
                 business=business_with_profile,
             )
             is False
@@ -186,7 +272,7 @@ class TestBusinessPolicyCanDelete:
 
 @pytest.mark.django_db
 class TestBusinessPolicyCanArchive:
-    """Tests for can_archive policy (owner only)."""
+    """Tests for can_archive policy (owner OR governance)."""
 
     def test_owner_can_archive(self, user, business_with_profile):
         assert (
@@ -213,6 +299,18 @@ class TestBusinessPolicyCanArchive:
                 business=business_with_profile,
             )
             is False
+        )
+
+    def test_global_moderator_can_archive(
+        self, global_moderator_user, business_with_profile
+    ):
+        """Governance actor with can_suspend_business can archive."""
+        assert (
+            BusinessPolicy.can_archive(
+                user=global_moderator_user,
+                business=business_with_profile,
+            )
+            is True
         )
 
 
@@ -243,10 +341,13 @@ class TestBusinessPolicyCanUpdateProfile:
             is False
         )
 
-    def test_staff_can_update_profile(self, staff_user, business_with_profile):
+    def test_global_moderator_can_update_profile(
+        self, global_moderator_user, business_with_profile
+    ):
+        """Governance actor with global can_edit_profile can update any profile."""
         assert (
             BusinessPolicy.can_update_profile(
-                user=staff_user,
+                user=global_moderator_user,
                 business=business_with_profile,
             )
             is True
@@ -314,19 +415,19 @@ class TestBusinessPolicyCanViewProfile:
             is False
         )
 
-    def test_private_profile_viewable_by_staff(
+    def test_private_profile_viewable_by_global_moderator(
         self,
-        staff_user,
+        global_moderator_user,
         business_with_profile,
     ):
-        """Staff can always view private profiles."""
+        """Governance actors with can_view_businesses can view private profiles."""
         profile = business_with_profile.profile
         profile.is_public = False
         profile.save(update_fields=["is_public"])
 
         assert (
             BusinessPolicy.can_view_profile(
-                user=staff_user,
+                user=global_moderator_user,
                 business=business_with_profile,
                 profile=profile,
             )
@@ -380,29 +481,33 @@ class TestBusinessPolicyGetViewerPermissions:
         assert perms["can_change_slug"] is False
         assert perms["can_archive"] is False
 
-    def test_staff_gets_view_and_edit(self, staff_user, business_with_profile):
-        """Staff gets view, edit, edit_profile (but not owner-only actions)."""
+    def test_global_moderator_gets_governance_permissions(
+        self, global_moderator_user, business_with_profile
+    ):
+        """Global Moderator gets view, edit, edit_profile, archive but not owner-only."""
         perms = BusinessPolicy.get_viewer_permissions(
-            user=staff_user,
+            user=global_moderator_user,
             business=business_with_profile,
         )
 
         assert perms["can_view"] is True
         assert perms["can_edit"] is True
         assert perms["can_edit_profile"] is True
-        assert perms["can_delete"] is False  # superuser or owner only
+        assert perms["can_delete"] is False  # owner only
         assert perms["can_change_slug"] is False  # owner only
-        assert perms["can_archive"] is False  # owner only
+        assert perms["can_archive"] is True  # governance can archive
 
 
 @pytest.mark.django_db
-class TestBusinessPolicyStaffOnly:
-    """Tests for staff-only policies (suspend, reactivate, verify)."""
+class TestBusinessPolicyGovernanceOnly:
+    """Tests for governance-only policies (suspend, reactivate, verify)."""
 
-    def test_staff_can_suspend(self, staff_user, business_with_profile):
+    def test_global_moderator_can_suspend(
+        self, global_moderator_user, business_with_profile
+    ):
         assert (
             BusinessPolicy.can_suspend(
-                user=staff_user,
+                user=global_moderator_user,
                 business=business_with_profile,
             )
             is True
@@ -417,20 +522,45 @@ class TestBusinessPolicyStaffOnly:
             is False
         )
 
-    def test_staff_can_reactivate(self, staff_user, business_with_profile):
+    def test_platform_admin_cannot_suspend(
+        self, platform_admin_user, business_with_profile
+    ):
+        """Platform admin (platform_only scope) cannot suspend businesses."""
+        assert (
+            BusinessPolicy.can_suspend(
+                user=platform_admin_user,
+                business=business_with_profile,
+            )
+            is False
+        )
+
+    def test_global_moderator_can_reactivate(
+        self, global_moderator_user, business_with_profile
+    ):
         assert (
             BusinessPolicy.can_reactivate(
-                user=staff_user,
+                user=global_moderator_user,
                 business=business_with_profile,
             )
             is True
         )
 
-    def test_staff_can_verify(self, staff_user, business_with_profile):
+    def test_global_moderator_can_verify(
+        self, global_moderator_user, business_with_profile
+    ):
         assert (
             BusinessPolicy.can_verify(
-                user=staff_user,
+                user=global_moderator_user,
                 business=business_with_profile,
             )
             is True
+        )
+
+    def test_non_member_cannot_suspend(self, non_member_user, business_with_profile):
+        assert (
+            BusinessPolicy.can_suspend(
+                user=non_member_user,
+                business=business_with_profile,
+            )
+            is False
         )

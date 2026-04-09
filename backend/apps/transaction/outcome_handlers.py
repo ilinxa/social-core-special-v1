@@ -285,14 +285,11 @@ class PermissionOutcomeHandler:
 
 
 def register_all_handlers():
-    from apps.network.outcome_handlers import (
-        ConnectionOutcomeHandler as NetworkConnectionHandler,
-    )
-    from apps.network.outcome_handlers import (
-        FollowOutcomeHandler as NetworkFollowHandler,
-    )
+    from apps.core.feature_config import feature_config
 
     r = OutcomeHandlerRegistry.register
+
+    # 8 always-on handlers (membership, verification, ownership, permission)
     r(
         "platform_membership_invitation",
         MembershipOutcomeHandler.handle_invitation_accepted,
@@ -310,13 +307,31 @@ def register_all_handlers():
         "business_creation_permission_request",
         PermissionOutcomeHandler.handle_business_creation_approved,
     )
-    # Network handlers
-    r("business_follow_request", NetworkFollowHandler.handle_accepted)
-    r("business_follow_approval_request", NetworkFollowHandler.handle_accepted)
-    r("platform_follow_request", NetworkFollowHandler.handle_accepted)
-    r("user_connection_request", NetworkConnectionHandler.handle_user_accepted)
-    r("business_connection_request", NetworkConnectionHandler.handle_account_accepted)
-    r(
-        "business_platform_connection_request",
-        NetworkConnectionHandler.handle_account_accepted,
-    )
+
+    # CMS handler — only if CMS system enabled
+    if feature_config.is_system_enabled("cms"):
+        from apps.cms.outcome_handlers import CMSActivationOutcomeHandler
+
+        r("cms_activation_request", CMSActivationOutcomeHandler.handle_approved)
+
+    # 6 network handlers — only if network system enabled
+    if feature_config.is_system_enabled("network"):
+        from apps.network.outcome_handlers import (
+            ConnectionOutcomeHandler as NetworkConnectionHandler,
+        )
+        from apps.network.outcome_handlers import (
+            FollowOutcomeHandler as NetworkFollowHandler,
+        )
+
+        r("business_follow_request", NetworkFollowHandler.handle_accepted)
+        r("business_follow_approval_request", NetworkFollowHandler.handle_accepted)
+        r("platform_follow_request", NetworkFollowHandler.handle_accepted)
+        r("user_connection_request", NetworkConnectionHandler.handle_user_accepted)
+        r(
+            "business_connection_request",
+            NetworkConnectionHandler.handle_account_accepted,
+        )
+        r(
+            "business_platform_connection_request",
+            NetworkConnectionHandler.handle_account_accepted,
+        )

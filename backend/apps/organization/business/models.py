@@ -118,6 +118,13 @@ class BusinessAccount(AuditModel):
         help_text="Whether users can send membership requests to this business.",
     )
 
+    # CMS access
+    cms_enabled = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Whether this business has CMS access enabled.",
+    )
+
     # Settings
     settings = models.JSONField(default=dict, blank=True)
 

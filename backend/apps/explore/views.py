@@ -14,8 +14,10 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.exceptions import FeatureDisabled
+from apps.core.feature_config import feature_config
 from apps.core.pagination import StandardPagination
-from apps.core.permissions import AllowAny, IsAuthenticated
+from apps.core.permissions import AllowAny, FeatureRequired, IsAuthenticated
 from apps.core.utils.city_data import get_cities_for_country
 from apps.explore.selectors import ExploreSelector
 from apps.explore.serializers import (
@@ -130,6 +132,9 @@ class ExploreCombinedView(APIView):
     )
     def get(self, request):
         query = request.query_params.get("q", "")
+        min_len = feature_config.get_value("explore.min_search_length", 2)
+        if query and len(query.strip()) < min_len:
+            query = ""
         is_auth = request.user and request.user.is_authenticated
 
         # Businesses (always visible; authenticated users discover private too)
@@ -140,8 +145,12 @@ class ExploreCombinedView(APIView):
         biz_results = biz_qs[: self.SECTION_LIMIT]
         biz_count = biz_qs.count()
 
-        # Users (only for authenticated users)
-        if request.user and request.user.is_authenticated:
+        # Users (only for authenticated users + search_users sub-feature enabled)
+        if (
+            request.user
+            and request.user.is_authenticated
+            and feature_config.is_feature_enabled("user.explore.search_users")
+        ):
             user_qs = ExploreSelector.search_users(query=query)
             user_results = user_qs[: self.SECTION_LIMIT]
             user_count = user_qs.count()
@@ -278,6 +287,11 @@ class ExploreBusinessSearchView(APIView):
         },
     )
     def get(self, request):
+        # Sub-feature gate — only for authenticated users (anonymous search stays public)
+        if request.user and request.user.is_authenticated:
+            if not feature_config.is_feature_enabled("user.explore.search_businesses"):
+                raise FeatureDisabled(feature="user.explore.search_businesses")
+
         params = _extract_business_params(request)
         is_auth = request.user and request.user.is_authenticated
         qs = ExploreSelector.search_businesses(
@@ -301,7 +315,7 @@ class ExploreUserSearchView(APIView):
     User search with 5 filters + pagination. Requires authentication.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("user.explore.can_explore")]
     pagination_class = StandardPagination
 
     @extend_schema(
@@ -365,6 +379,10 @@ class ExploreUserSearchView(APIView):
         },
     )
     def get(self, request):
+        # Sub-feature gate — search users specifically
+        if not feature_config.is_feature_enabled("user.explore.search_users"):
+            raise FeatureDisabled(feature="user.explore.search_users")
+
         params = _extract_user_params(request)
         qs = ExploreSelector.search_users(**params)
 

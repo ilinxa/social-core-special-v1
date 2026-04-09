@@ -103,4 +103,20 @@ urlpatterns = [
         views.AdminApiKeyDetailView.as_view(),
         name="admin-api-key-detail",
     ),
+    # Business CMS Management (platform admin)
+    path(
+        "businesses/",
+        views.AdminBusinessCMSListView.as_view(),
+        name="admin-business-cms-list",
+    ),
+    path(
+        "businesses/<uuid:uuid>/",
+        views.AdminBusinessCMSToggleView.as_view(),
+        name="admin-business-cms-toggle",
+    ),
+    path(
+        "businesses/<uuid:uuid>/activations/",
+        views.AdminBusinessCMSActivationsView.as_view(),
+        name="admin-business-cms-activations",
+    ),
 ]

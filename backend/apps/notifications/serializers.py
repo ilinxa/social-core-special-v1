@@ -66,7 +66,10 @@ class NotificationLogSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "notification_type",
+            "scope_type",
+            "scope_id",
             "channels",
+            "context",
             "status",
             "channel_results",
             "created_at",

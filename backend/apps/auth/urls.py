@@ -93,4 +93,20 @@ urlpatterns = [
         views.AppleOAuthCallbackView.as_view(),
         name="oauth-apple-callback",
     ),
+    # Governance step-up auth
+    path(
+        "governance/authenticate/",
+        views.GovernancePasswordAuthView.as_view(),
+        name="governance-auth",
+    ),
+    path(
+        "governance/otp/send/",
+        views.GovernanceOTPSendView.as_view(),
+        name="governance-otp-send",
+    ),
+    path(
+        "governance/otp/verify/",
+        views.GovernanceOTPVerifyView.as_view(),
+        name="governance-otp-verify",
+    ),
 ]

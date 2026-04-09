@@ -12,7 +12,7 @@ import type { LucideIcon } from "lucide-react";
 // NAVIGATION CONTEXT
 // =============================================================================
 
-export type NavContextType = "personal" | "business" | "platform";
+export type NavContextType = "personal" | "business" | "platform" | "governance" | "cms";
 
 export interface PersonalNavContext {
   type: "personal";
@@ -30,7 +30,32 @@ export interface PlatformNavContext {
   accountId: string;
 }
 
-export type NavContext = PersonalNavContext | BusinessNavContext | PlatformNavContext;
+export interface GovernanceNavContext {
+  type: "governance";
+}
+
+export interface CmsPlatformNavContext {
+  type: "cms";
+  mode: "platform";
+  accountId: string;
+}
+
+export interface CmsBusinessNavContext {
+  type: "cms";
+  mode: "business";
+  slug: string;
+  accountId: string;
+  accountName: string;
+}
+
+export type CmsNavContext = CmsPlatformNavContext | CmsBusinessNavContext;
+
+export type NavContext =
+  | PersonalNavContext
+  | BusinessNavContext
+  | PlatformNavContext
+  | GovernanceNavContext
+  | CmsNavContext;
 
 // =============================================================================
 // NAVIGATION CONFIG
@@ -66,4 +91,7 @@ export interface NavContextConfig {
   personal: NavSection[];
   business: NavSection[];
   platform: NavSection[];
+  governance: NavSection[];
+  cms_platform: NavSection[];
+  cms_business: NavSection[];
 }

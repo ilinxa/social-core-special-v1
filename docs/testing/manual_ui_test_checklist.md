@@ -908,11 +908,11 @@
 
 ## 3.10 CMS (Placeholder Pages)
 
-- [ ] **P-79** | State: _Platform member with CMS permissions_ | Action: Navigate to `/pconsole/cms/sites` | Expected: Page loads (placeholder or empty state). "Sites" section exists.
+- [ ] **P-79** | State: _Platform member with CMS permissions_ | Action: Navigate to `/cconsole/sites` | Expected: Page loads (placeholder or empty state). "Sites" section exists.
 
-- [ ] **P-80** | State: _On CMS templates page_ | Action: Navigate to `/pconsole/cms/templates` | Expected: Page loads (placeholder or empty state).
+- [ ] **P-80** | State: _On CMS templates page_ | Action: Navigate to `/cconsole/templates` | Expected: Page loads (placeholder or empty state).
 
-- [ ] **P-81** | State: _On API keys page_ | Action: Navigate to `/pconsole/cms/api-keys` | Expected: Page loads (placeholder or empty state).
+- [ ] **P-81** | State: _On API keys page_ | Action: Navigate to `/cconsole/api-keys` | Expected: Page loads (placeholder or empty state).
 
 - [ ] **P-82** | State: _On media page_ | Action: Navigate to `/pconsole/media` | Expected: Page loads (placeholder or empty state).
 

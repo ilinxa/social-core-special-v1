@@ -2,10 +2,13 @@
 Pytest configuration and shared fixtures.
 
 This file is automatically loaded by pytest. Fixtures defined here
-are available to all tests in the project.
+are available to all tests in the tests/ directory (integration tests).
 
 Note: User and authentication fixtures are defined in each app's own
 conftest.py to avoid shadowing and ensure correct factory usage.
+
+Note: Feature gate fixtures live in the root backend/conftest.py so they
+are visible to ALL tests (both apps/ and tests/ directories).
 """
 
 import pytest

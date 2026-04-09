@@ -233,6 +233,7 @@ export async function submitRequiredFormApi(
 export type RequestFormCheckResult = {
   form_required: boolean;
   form_mapping_id?: string;
+  form_template_id?: string;
   form_template?: FormTemplateForTransaction | null;
 };
 
@@ -249,14 +250,26 @@ export async function checkRequestFormApi(params: {
   return response.data;
 }
 
-/** Submit a form response before creating a request (pre-transaction form submission). */
+/** Submit a form response before creating a request (pre-transaction form submission).
+ *  Accepts either a mapping ID string (dynamic mapping path) or an object with
+ *  form_template_id + account context (static config path). */
 export async function submitRequestFormResponseApi(
-  formMappingId: string,
+  paramsOrMappingId:
+    | string
+    | {
+        form_template_id: string;
+        account_type: string;
+        account_id: string;
+      },
   data: Record<string, unknown>,
 ): Promise<{ form_response_id: string }> {
+  const body =
+    typeof paramsOrMappingId === "string"
+      ? { form_mapping_id: paramsOrMappingId, data }
+      : { ...paramsOrMappingId, data };
   const response = await apiClient.post<{ form_response_id: string }>(
     "/transactions/form-mappings/check/",
-    { form_mapping_id: formMappingId, data },
+    body,
   );
   return response.data;
 }

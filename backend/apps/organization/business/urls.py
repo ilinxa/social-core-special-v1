@@ -28,6 +28,7 @@ URL patterns:
 
 from django.urls import path
 
+from apps.core.observability.audit.views import BusinessAuditListView
 from apps.organization.business.views import (
     BusinessArchiveView,
     BusinessByIdView,
@@ -64,6 +65,12 @@ urlpatterns = [
         "<slug:slug>/reactivate/", BusinessReactivateView.as_view(), name="reactivate"
     ),
     path("<slug:slug>/archive/", BusinessArchiveView.as_view(), name="archive"),
+    # Audit
+    path(
+        "<slug:slug>/audit/",
+        BusinessAuditListView.as_view(),
+        name="audit",
+    ),
     # RBAC - Roles
     path(
         "<slug:business_slug>/roles/",

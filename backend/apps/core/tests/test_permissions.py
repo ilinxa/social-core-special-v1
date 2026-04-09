@@ -819,3 +819,164 @@ class TestPermissionInheritance:
     def test_is_owner_or_read_only_uses_parent_owner_field(self):
         """IsOwnerOrReadOnly inherits owner_field from IsOwner."""
         assert IsOwnerOrReadOnly().owner_field == "user"
+
+
+# =============================================================================
+# GovernanceTokenRequired
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestGovernanceTokenRequired:
+    """Tests for GovernanceTokenRequired permission.
+
+    Validates governance-scoped JWT + global permission check.
+    """
+
+    permission_class = None  # instantiated in setup
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, db):
+        from apps.core.permissions.governance import GovernanceTokenRequired
+
+        self.permission = GovernanceTokenRequired()
+
+    @pytest.fixture
+    def platform_account(self):
+        """Get or create the platform singleton."""
+        from apps.organization.platform.models import PlatformAccount
+        from apps.organization.tests.factories import PlatformAccountFactory
+
+        platform = PlatformAccount.objects.first()
+        if platform:
+            return platform
+        return PlatformAccountFactory()
+
+    @pytest.fixture
+    def platform_with_rbac(self, platform_account):
+        """Platform account with RBAC roles initialized."""
+        from apps.rbac.models import Role
+        from apps.rbac.services import RBACService
+
+        exists = Role.objects.filter(
+            account_type="platform",
+            account_id=platform_account.id,
+        ).exists()
+        if not exists:
+            RBACService.initialize_platform_account(platform_id=platform_account.id)
+        return platform_account
+
+    @pytest.fixture
+    def global_moderator_user(self, platform_with_rbac):
+        """User with Global Moderator role (has global-scoped permissions)."""
+        from apps.organization.tests.factories import UserFactory
+        from apps.rbac.models import Role
+        from apps.rbac.services import RBACService
+
+        user = UserFactory(username="gov_perm_mod", email="gov_perm_mod@example.com")
+        mod_role = Role.objects.get(
+            account_type="platform",
+            account_id=platform_with_rbac.id,
+            name="Global Moderator",
+        )
+        RBACService.create_membership(
+            user=user,
+            account_type="platform",
+            account_id=platform_with_rbac.id,
+            role_id=mod_role.id,
+            created_by=user,
+        )
+        return user
+
+    @pytest.fixture
+    def platform_admin_user(self, platform_with_rbac):
+        """User with Platform Admin role (no global-scoped permissions)."""
+        from apps.organization.tests.factories import UserFactory
+        from apps.rbac.models import Role
+        from apps.rbac.services import RBACService
+
+        user = UserFactory(
+            username="plat_admin_perm", email="plat_admin_perm@example.com"
+        )
+        admin_role = Role.objects.get(
+            account_type="platform",
+            account_id=platform_with_rbac.id,
+            name="Platform Admin",
+        )
+        RBACService.create_membership(
+            user=user,
+            account_type="platform",
+            account_id=platform_with_rbac.id,
+            role_id=admin_role.id,
+            created_by=user,
+        )
+        return user
+
+    def _make_gov_request(self, user=None, auth=None, method="get"):
+        """Create a DRF request with user and auth payload."""
+        method_fn = getattr(factory, method.lower())
+        request = method_fn("/test/")
+        request.user = user if user is not None else AnonymousUser()
+        request.auth = auth
+        return request
+
+    def test_valid_governance_token_with_global_perms(self, global_moderator_user):
+        """User with governance token + global permissions is allowed."""
+        request = self._make_gov_request(
+            user=global_moderator_user,
+            auth={"token_scope": "governance"},
+        )
+        assert self.permission.has_permission(request, None) is True
+
+    def test_missing_token_scope(self, global_moderator_user):
+        """Token payload without token_scope is denied."""
+        request = self._make_gov_request(
+            user=global_moderator_user,
+            auth={"some_key": "some_value"},
+        )
+        assert self.permission.has_permission(request, None) is False
+
+    def test_wrong_token_scope(self, global_moderator_user):
+        """Token with non-governance scope is denied."""
+        request = self._make_gov_request(
+            user=global_moderator_user,
+            auth={"token_scope": "standard"},
+        )
+        assert self.permission.has_permission(request, None) is False
+
+    def test_no_auth_payload(self, global_moderator_user):
+        """Request with no auth payload (None) is denied."""
+        request = self._make_gov_request(
+            user=global_moderator_user,
+            auth=None,
+        )
+        assert self.permission.has_permission(request, None) is False
+
+    def test_valid_scope_no_platform_membership(self):
+        """User with governance token but no platform membership is denied."""
+        from apps.organization.tests.factories import UserFactory
+
+        user = UserFactory(
+            username="no_membership_perm", email="no_membership_perm@example.com"
+        )
+        request = self._make_gov_request(
+            user=user,
+            auth={"token_scope": "governance"},
+        )
+        assert self.permission.has_permission(request, None) is False
+
+    def test_valid_scope_no_global_permissions(self, platform_admin_user):
+        """User with governance token + platform membership but no global perms."""
+        request = self._make_gov_request(
+            user=platform_admin_user,
+            auth={"token_scope": "governance"},
+        )
+        assert self.permission.has_permission(request, None) is False
+
+    def test_permission_message_and_code(self):
+        """Verify message and code attributes on the permission class."""
+        assert (
+            self.permission.message
+            == "This action requires governance-level authentication."
+        )
+        assert self.permission.code == "governance_auth_required"

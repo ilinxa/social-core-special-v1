@@ -28,7 +28,10 @@ DEBUG = True
 # ============================================
 # ALLOWED HOSTS
 # ============================================
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "[::1]"]
+_extra_hosts = os.getenv("ALLOWED_HOSTS", "").split(",")
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "[::1]"] + [
+    h.strip() for h in _extra_hosts if h.strip()
+]
 
 # ============================================
 # STATIC FILES

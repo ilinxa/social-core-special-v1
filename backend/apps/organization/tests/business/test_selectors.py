@@ -62,3 +62,62 @@ class TestBusinessAccountSelectorListByMember:
 
         result = BusinessAccountSelector.list_by_member(user=user)
         assert business_with_profile not in result
+
+
+@pytest.mark.django_db
+class TestBusinessAccountSelectorListAll:
+    """Tests for list_all (governance view)."""
+
+    def test_returns_all_businesses(self, business_with_profile):
+        result = BusinessAccountSelector.list_all()
+        assert business_with_profile in result
+
+    def test_excludes_deleted_by_default(self, business_with_profile):
+        business_with_profile.is_deleted = True
+        business_with_profile.save(update_fields=["is_deleted"])
+        result = BusinessAccountSelector.list_all()
+        assert business_with_profile not in result
+
+    def test_includes_deleted_when_requested(self, business_with_profile):
+        business_with_profile.is_deleted = True
+        business_with_profile.save(update_fields=["is_deleted"])
+        result = BusinessAccountSelector.list_all(include_deleted=True)
+        assert business_with_profile in result
+
+    def test_includes_suspended_businesses(self, suspended_business):
+        result = BusinessAccountSelector.list_all()
+        assert suspended_business in result
+
+
+@pytest.mark.django_db
+class TestBusinessAccountSelectorListFiltered:
+    """Tests for list_filtered (governance view)."""
+
+    def test_filter_by_status(self, business_with_profile, suspended_business):
+        result = BusinessAccountSelector.list_filtered(status="active")
+        assert business_with_profile in result
+        assert suspended_business not in result
+
+    def test_filter_by_country(self, business_with_profile):
+        result = BusinessAccountSelector.list_filtered(
+            country=business_with_profile.country
+        )
+        assert business_with_profile in result
+
+    def test_filter_by_search(self, business_with_profile):
+        result = BusinessAccountSelector.list_filtered(
+            search=business_with_profile.legal_name[:5]
+        )
+        assert business_with_profile in result
+
+    def test_no_filters_returns_all(self, business_with_profile, suspended_business):
+        result = BusinessAccountSelector.list_filtered()
+        assert business_with_profile in result
+        assert suspended_business in result
+
+    def test_combined_filters(self, business_with_profile):
+        result = BusinessAccountSelector.list_filtered(
+            status="active",
+            country=business_with_profile.country,
+        )
+        assert business_with_profile in result

@@ -22,10 +22,19 @@ def expire_stale_chat_requests():
     Runs periodically via Celery beat. Stale requests are auto-expired so
     conversations can be re-initiated.
     """
+    from apps.core.feature_config import feature_config
+
+    if not feature_config.is_system_enabled("chat"):
+        logger.info("chat.task.expire_requests.skipped", reason="system_disabled")
+        return 0
+
     from apps.chat.constants import CHAT_REQUEST_EXPIRY_DAYS, RequestStatus
     from apps.chat.models import ConversationParticipant
 
-    cutoff = timezone.now() - timedelta(days=CHAT_REQUEST_EXPIRY_DAYS)
+    expiry_days = feature_config.get_value(
+        "chat.requests.expiry_days", CHAT_REQUEST_EXPIRY_DAYS
+    )
+    cutoff = timezone.now() - timedelta(days=expiry_days)
     count = ConversationParticipant.objects.filter(
         request_status=RequestStatus.PENDING,
         created_at__lt=cutoff,
@@ -43,10 +52,16 @@ def cleanup_orphan_attachments():
     Orphan attachments older than CHAT_ATTACHMENT_ORPHAN_TTL_HOURS are cleaned up.
     Storage deletion is best-effort — the DB record is deleted regardless.
     """
-    from apps.chat.constants import CHAT_ATTACHMENT_ORPHAN_TTL_HOURS
-    from apps.chat.models import MessageAttachment
+    from apps.core.feature_config import feature_config
+
+    if not feature_config.is_system_enabled("chat"):
+        logger.info("chat.task.cleanup_orphans.skipped", reason="system_disabled")
+        return 0
 
     from django.core.files.storage import default_storage
+
+    from apps.chat.constants import CHAT_ATTACHMENT_ORPHAN_TTL_HOURS
+    from apps.chat.models import MessageAttachment
 
     cutoff = timezone.now() - timedelta(hours=CHAT_ATTACHMENT_ORPHAN_TTL_HOURS)
     orphans = MessageAttachment.objects.filter(

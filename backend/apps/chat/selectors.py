@@ -10,12 +10,7 @@ from uuid import UUID
 from django.db import connection
 from django.db.models import Count, Q, QuerySet, Subquery
 
-from apps.chat.constants import (
-    MessageStatus,
-    ParticipantType,
-    RequestStatus,
-    ScopeType,
-)
+from apps.chat.constants import MessageStatus, ParticipantType, RequestStatus, ScopeType
 from apps.chat.models import (
     ChatBlock,
     Conversation,
@@ -24,7 +19,8 @@ from apps.chat.models import (
     MessageAttachment,
     MessageReaction,
 )
-from apps.core.exceptions import NotFound
+from apps.core.exceptions import FeatureDisabled, NotFound
+from apps.core.feature_config import feature_config
 
 
 class ChatSelector:
@@ -157,13 +153,9 @@ class ChatSelector:
 
         if cursor is not None:
             if direction == "older":
-                qs = qs.filter(sequence_number__lt=cursor).order_by(
-                    "-sequence_number"
-                )
+                qs = qs.filter(sequence_number__lt=cursor).order_by("-sequence_number")
             else:
-                qs = qs.filter(sequence_number__gt=cursor).order_by(
-                    "sequence_number"
-                )
+                qs = qs.filter(sequence_number__gt=cursor).order_by("sequence_number")
         else:
             # No cursor = latest messages
             qs = qs.order_by("-sequence_number")
@@ -183,9 +175,7 @@ class ChatSelector:
     # =========================================================================
 
     @staticmethod
-    def get_participants(
-        *, conversation_id: UUID
-    ) -> QuerySet[ConversationParticipant]:
+    def get_participants(*, conversation_id: UUID) -> QuerySet[ConversationParticipant]:
         """Get all active participants for a conversation."""
         return ConversationParticipant.objects.filter(
             conversation_id=conversation_id,
@@ -243,9 +233,7 @@ class ChatSelector:
         )
 
     @staticmethod
-    def count_pending_requests(
-        *, recipient_type: str, recipient_id: UUID
-    ) -> int:
+    def count_pending_requests(*, recipient_type: str, recipient_id: UUID) -> int:
         """Count pending chat requests for a recipient."""
         return ConversationParticipant.objects.filter(
             participant_type=recipient_type,
@@ -259,9 +247,7 @@ class ChatSelector:
     # =========================================================================
 
     @staticmethod
-    def is_blocked(
-        *, blocker_id: UUID, blocked_type: str, blocked_id: UUID
-    ) -> bool:
+    def is_blocked(*, blocker_id: UUID, blocked_type: str, blocked_id: UUID) -> bool:
         """Check if blocker has blocked the specified participant."""
         return ChatBlock.objects.filter(
             blocker_id=blocker_id,
@@ -310,9 +296,11 @@ class ChatSelector:
 
         if participant.last_seen_message_id:
             # Get the sequence number of the last seen message
-            last_seen = Message.objects.filter(
-                id=participant.last_seen_message_id
-            ).values_list("sequence_number", flat=True).first()
+            last_seen = (
+                Message.objects.filter(id=participant.last_seen_message_id)
+                .values_list("sequence_number", flat=True)
+                .first()
+            )
             if last_seen is not None:
                 qs = qs.filter(sequence_number__gt=last_seen)
 
@@ -323,18 +311,36 @@ class ChatSelector:
         """
         Get unread counts aggregated by scope for a user.
 
-        Returns: {"global": N, "business": {id: N}, "platform": N}
+        Returns: {
+            "global": N,
+            "business": {id: N},
+            "platform": N,
+            "entity": {"business": {id: N}, "platform": {id: N}}
+        }
+
+        The "global"/"business"/"platform" keys track unread for the user
+        as a personal participant. The "entity" key tracks unread for
+        business/platform entities the user has can_manage_chat permission for.
         """
-        # Get all conversations the user participates in
-        participant_records = ConversationParticipant.objects.filter(
-            participant_type=ParticipantType.USER,
-            participant_id=user_id,
-            is_active=True,
-        ).select_related("conversation").exclude(
-            request_status=RequestStatus.PENDING,
+        # ── User-level unread (personal conversations) ──
+        participant_records = (
+            ConversationParticipant.objects.filter(
+                participant_type=ParticipantType.USER,
+                participant_id=user_id,
+                is_active=True,
+            )
+            .select_related("conversation")
+            .exclude(
+                request_status=RequestStatus.PENDING,
+            )
         )
 
-        result = {"global": 0, "business": {}, "platform": 0}
+        result = {
+            "global": 0,
+            "business": {},
+            "platform": 0,
+            "entity": {"business": {}, "platform": {}},
+        }
 
         for pr in participant_records:
             count = ChatSelector.get_unread_count(
@@ -356,7 +362,71 @@ class ChatSelector:
             elif conv.scope_type == ScopeType.PLATFORM:
                 result["platform"] += count
 
+        # ── Entity-level unread (business/platform entity inboxes) ──
+        entity_records = (
+            ConversationParticipant.objects.filter(
+                participant_type__in=[
+                    ParticipantType.BUSINESS,
+                    ParticipantType.PLATFORM,
+                ],
+                is_active=True,
+            )
+            .select_related("conversation")
+            .filter(conversation__scope_type=ScopeType.GLOBAL)
+        )
+
+        # Collect unique entity IDs for permission check
+        entity_ids_by_type: dict[str, set] = {}
+        for er in entity_records:
+            entity_ids_by_type.setdefault(er.participant_type, set()).add(
+                er.participant_id
+            )
+
+        # Check which entities this user can manage
+        from apps.chat.policies import ChatPolicy
+
+        managed_entities: set[tuple[str, UUID]] = set()
+        for account_type, ids in entity_ids_by_type.items():
+            for account_id in ids:
+                if ChatPolicy.can_manage_entity_chat(
+                    user=ChatSelector._get_user(user_id),
+                    account_type=account_type,
+                    account_id=account_id,
+                ):
+                    managed_entities.add((account_type, account_id))
+
+        # Now count unread for managed entities
+        for er in entity_records:
+            key = (er.participant_type, er.participant_id)
+            if key not in managed_entities:
+                continue
+
+            count = ChatSelector.get_unread_count(
+                conversation_id=er.conversation_id,
+                participant_type=er.participant_type,
+                participant_id=er.participant_id,
+            )
+            if count == 0:
+                continue
+
+            entity_key = str(er.participant_id)
+            if er.participant_type == ParticipantType.BUSINESS:
+                result["entity"]["business"][entity_key] = (
+                    result["entity"]["business"].get(entity_key, 0) + count
+                )
+            elif er.participant_type == ParticipantType.PLATFORM:
+                result["entity"]["platform"][entity_key] = (
+                    result["entity"]["platform"].get(entity_key, 0) + count
+                )
+
         return result
+
+    @staticmethod
+    def _get_user(user_id: UUID):
+        """Fetch user by ID (cached within request cycle)."""
+        from apps.users.models import User
+
+        return User.objects.filter(id=user_id).first()
 
     # =========================================================================
     # ATTACHMENTS
@@ -474,6 +544,10 @@ class ChatSelector:
             scope_id: Filter to this scope ID (None for global)
             conversation_id: Optional — restrict to a single conversation
         """
+        # Feature gate — chat search
+        if not feature_config.is_feature_enabled("user.chat.search"):
+            raise FeatureDisabled(feature="user.chat.search")
+
         # Build base queryset: only messages in conversations the user participates in
         conversation_ids = ConversationParticipant.objects.filter(
             participant_type=participant_type,

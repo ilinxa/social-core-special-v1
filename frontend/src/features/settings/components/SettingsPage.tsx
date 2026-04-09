@@ -6,6 +6,8 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NotificationPreferencesPanel } from "@/features/notifications/components/NotificationPreferencesPanel";
+import { useNotificationSystemEnabled } from "@/stores/notification-store";
 import { ConfirmActionDialog } from "@/components/common/ConfirmActionDialog";
 import { OwnershipTransferDialog } from "@/features/members/components/OwnershipTransferDialog";
 import { useLeaveMember } from "@/features/members/hooks/use-member-mutations";
@@ -45,6 +47,7 @@ function SettingsPageInner({
   verificationStatusDisplay,
 }: SettingsPageInnerProps) {
   const router = useRouter();
+  const notificationsEnabled = useNotificationSystemEnabled();
   const [transferOpen, setTransferOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -90,6 +93,14 @@ function SettingsPageInner({
           </p>
         </CardContent>
       </Card>
+
+      {/* Notification preferences */}
+      {notificationsEnabled && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Notification Preferences</h2>
+          <NotificationPreferencesPanel />
+        </div>
+      )}
 
       {/* Verification — business accounts only */}
       {accountType === "business" && verificationStatus && (

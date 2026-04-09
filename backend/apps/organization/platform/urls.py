@@ -21,6 +21,7 @@ URL patterns:
 
 from django.urls import path
 
+from apps.core.observability.audit.views import PlatformAuditListView
 from apps.organization.platform.views import (
     PlatformAccountView,
     PlatformProfileView,
@@ -35,5 +36,10 @@ urlpatterns = [
     path("account/", PlatformAccountView.as_view(), name="account"),
     path("profile/", PlatformProfileView.as_view(), name="profile"),
     path("settings/", PlatformSettingsView.as_view(), name="settings"),
-    path("approved-creators/", ApprovedBusinessCreatorsListView.as_view(), name="approved-creators"),
+    path(
+        "approved-creators/",
+        ApprovedBusinessCreatorsListView.as_view(),
+        name="approved-creators",
+    ),
+    path("audit/", PlatformAuditListView.as_view(), name="audit"),
 ] + platform_urlpatterns

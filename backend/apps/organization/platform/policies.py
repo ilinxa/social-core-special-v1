@@ -7,7 +7,8 @@ They are called by views/services to enforce business rules.
 
 Uses RBAC membership and permissions for console authorization:
 - Permission checks: _has_platform_permission() helper
-- Staff/superuser: Django admin bypass (separate from RBAC)
+- can_configure: superuser-only (platform bootstrap, not RBAC)
+- All other methods: RBAC-only (Decision 3 — gconsole Phase 1)
 """
 
 from apps.core.constants import AccountType
@@ -58,12 +59,10 @@ class PlatformPolicy:
         """
         Check if user can update platform settings.
 
-        Superusers or RBAC members with can_edit_business permission.
+        RBAC members with can_edit_business permission.
         """
         if not user.is_authenticated:
             return False
-        if user.is_superuser:
-            return True
         return PlatformPolicy._has_platform_permission(
             user=user,
             permission_code="can_edit_business",
@@ -74,12 +73,10 @@ class PlatformPolicy:
         """
         Check if user can update platform profile.
 
-        Staff/superusers or RBAC members with can_edit_profile permission.
+        RBAC members with can_edit_profile permission.
         """
         if not user.is_authenticated:
             return False
-        if user.is_staff or user.is_superuser:
-            return True
         return PlatformPolicy._has_platform_permission(
             user=user,
             permission_code="can_edit_profile",

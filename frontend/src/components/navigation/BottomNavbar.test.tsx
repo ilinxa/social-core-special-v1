@@ -150,7 +150,7 @@ describe("BottomNavbar", () => {
       );
       expect(screen.getByRole("link", { name: /cms/i })).toHaveAttribute(
         "href",
-        "/pconsole/cms/sites",
+        "/cconsole/sites",
       );
     });
   });

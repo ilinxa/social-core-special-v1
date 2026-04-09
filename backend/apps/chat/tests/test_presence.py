@@ -29,9 +29,7 @@ class TestPresenceSetOnline:
         uid = uuid.uuid4()
         mock_redis = _setup_mock_redis(mock_from_url)
         PresenceManager.set_online(uid, ttl=30)
-        mock_redis.setex.assert_called_once_with(
-            f"chat:presence:{uid}", 30, "1"
-        )
+        mock_redis.setex.assert_called_once_with(f"chat:presence:{uid}", 30, "1")
 
     @patch("redis.from_url")
     def test_set_online_default_ttl(self, mock_from_url):
@@ -39,9 +37,7 @@ class TestPresenceSetOnline:
         mock_redis = _setup_mock_redis(mock_from_url)
         PresenceManager.set_online(uid)
         # Default TTL is WS_PRESENCE_TTL_SECONDS = 30
-        mock_redis.setex.assert_called_once_with(
-            f"chat:presence:{uid}", 30, "1"
-        )
+        mock_redis.setex.assert_called_once_with(f"chat:presence:{uid}", 30, "1")
 
     @patch("redis.from_url")
     def test_set_online_redis_error_fails_open(self, mock_from_url):

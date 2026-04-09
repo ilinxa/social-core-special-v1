@@ -14,17 +14,21 @@ def create_fts_indexes(apps, schema_editor):
         return
 
     with schema_editor.connection.cursor() as cursor:
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS chat_message_content_fts_idx
             ON chat_message
             USING GIN (to_tsvector('english', content));
-        """)
+        """
+        )
         cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS chat_message_content_trgm_idx
             ON chat_message
             USING GIN (content gin_trgm_ops);
-        """)
+        """
+        )
 
 
 def drop_fts_indexes(apps, schema_editor):

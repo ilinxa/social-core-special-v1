@@ -1,8 +1,10 @@
-export default function NotificationsPage() {
+import { FeatureErrorBoundary } from "@/components/common/ErrorBoundary";
+import { NotificationsPage } from "@/features/notifications/components/NotificationsPage";
+
+export default function Page() {
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Notifications</h1>
-      <p className="mt-2 text-muted-foreground">Notifications coming soon.</p>
-    </div>
+    <FeatureErrorBoundary>
+      <NotificationsPage />
+    </FeatureErrorBoundary>
   );
 }

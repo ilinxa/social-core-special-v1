@@ -20,7 +20,12 @@ Security:
 import uuid
 
 from django.conf import settings
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -32,6 +37,7 @@ from apps.auth.models import DeviceSession
 from apps.auth.services import (
     AuthService,
     DeviceInfo,
+    GovernanceAuthService,
     PasswordService,
     VerificationService,
 )
@@ -1342,3 +1348,114 @@ class AppleOAuthCallbackView(APIView):
         }
 
         return Response(serializers.AuthResponseSerializer(response_data).data)
+
+
+# =============================================================================
+# GOVERNANCE STEP-UP AUTH
+# =============================================================================
+
+
+class GovernancePasswordAuthView(APIView):
+    """
+    Step-up authentication via password re-entry.
+
+    POST /api/v1/auth/governance/authenticate/
+
+    Requires standard authentication (IsAuthenticated).
+    Returns a short-lived governance-scoped JWT.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=serializers.GovernancePasswordAuthSerializer,
+        responses={200: serializers.GovernanceTokenResponseSerializer},
+        tags=["Governance Auth"],
+    )
+    def post(self, request):
+        serializer = serializers.GovernancePasswordAuthSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        token = GovernanceAuthService.authenticate_with_password(
+            user=request.user,
+            password=serializer.validated_data["password"],
+            request=request,
+        )
+
+        return Response(
+            {
+                "access": token.access_token,
+                "expires_in": token.expires_in,
+            }
+        )
+
+
+class GovernanceOTPSendView(APIView):
+    """
+    Send governance OTP code to user's email.
+
+    POST /api/v1/auth/governance/otp/send/
+
+    Requires standard authentication. No request body needed.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: inline_serializer(
+                "GovernanceOTPSendResponse", fields={}
+            )
+        },
+        tags=["Governance Auth"],
+    )
+    def post(self, request):
+        GovernanceAuthService.send_otp(
+            user=request.user,
+            request=request,
+        )
+
+        return Response(
+            {"message": "Governance OTP sent to your email"},
+            status=status.HTTP_200_OK,
+        )
+
+
+class GovernanceOTPVerifyView(APIView):
+    """
+    Verify governance OTP code and issue governance token.
+
+    POST /api/v1/auth/governance/otp/verify/
+
+    Requires standard authentication.
+    Returns a short-lived governance-scoped JWT.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=serializers.GovernanceOTPVerifySerializer,
+        responses={200: serializers.GovernanceTokenResponseSerializer},
+        tags=["Governance Auth"],
+    )
+    def post(self, request):
+        serializer = serializers.GovernanceOTPVerifySerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        token = GovernanceAuthService.verify_otp(
+            user=request.user,
+            code=serializer.validated_data["code"],
+            request=request,
+        )
+
+        return Response(
+            {
+                "access": token.access_token,
+                "expires_in": token.expires_in,
+            }
+        )

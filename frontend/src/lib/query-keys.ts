@@ -82,8 +82,11 @@ export const queryKeys = {
   },
   notifications: {
     all: ["notifications"] as const,
+    history: (params?: Record<string, unknown>) =>
+      [...queryKeys.notifications.all, "history", params] as const,
+    scopes: () => [...queryKeys.notifications.all, "scopes"] as const,
     preferences: () => [...queryKeys.notifications.all, "preferences"] as const,
-    history: () => [...queryKeys.notifications.all, "history"] as const,
+    types: () => [...queryKeys.notifications.all, "types"] as const,
   },
   network: {
     all: ["network"] as const,
@@ -111,5 +114,79 @@ export const queryKeys = {
       [...queryKeys.explore.all, "tags", q, category] as const,
     cities: (country: string) =>
       [...queryKeys.explore.all, "cities", country] as const,
+  },
+  chat: {
+    all: ["chat"] as const,
+    conversations: (params?: Record<string, unknown>) =>
+      [...queryKeys.chat.all, "conversations", params] as const,
+    conversation: (id: string) =>
+      [...queryKeys.chat.all, "conversation", id] as const,
+    participants: (conversationId: string) =>
+      [...queryKeys.chat.all, "participants", conversationId] as const,
+    messages: (conversationId: string) =>
+      [...queryKeys.chat.all, "messages", conversationId] as const,
+    mediaGallery: (conversationId: string) =>
+      [...queryKeys.chat.all, "media", conversationId] as const,
+    requests: () => [...queryKeys.chat.all, "requests"] as const,
+    blocks: () => [...queryKeys.chat.all, "blocks"] as const,
+    entityInbox: (accountType: string, accountId: string) =>
+      [...queryKeys.chat.all, "entity-inbox", accountType, accountId] as const,
+    search: (params: Record<string, unknown>) =>
+      [...queryKeys.chat.all, "search", params] as const,
+    unread: () => [...queryKeys.chat.all, "unread"] as const,
+  },
+  governance: {
+    all: ["governance"] as const,
+    businesses: (params?: Record<string, unknown>) =>
+      [...queryKeys.governance.all, "businesses", params] as const,
+    businessDetail: (id: string) =>
+      [...queryKeys.governance.all, "business", id] as const,
+    verification: (params?: Record<string, unknown>) =>
+      [...queryKeys.governance.all, "verification", params] as const,
+    approvedCreators: (params?: Record<string, unknown>) =>
+      [...queryKeys.governance.all, "approved-creators", params] as const,
+    auditLogs: (params?: Record<string, unknown>) =>
+      [...queryKeys.governance.all, "audit-logs", params] as const,
+    members: (params?: Record<string, unknown>) =>
+      [...queryKeys.governance.all, "members", params] as const,
+    memberDetail: (id: string) =>
+      [...queryKeys.governance.all, "member", id] as const,
+    transactions: (params?: Record<string, unknown>) =>
+      [...queryKeys.governance.all, "transactions", params] as const,
+  },
+  cms: {
+    all: ["cms"] as const,
+    sites: (params?: Record<string, unknown>) =>
+      [...queryKeys.cms.all, "sites", params] as const,
+    site: (slug: string) => [...queryKeys.cms.all, "site", slug] as const,
+    pages: (params?: Record<string, unknown>) =>
+      [...queryKeys.cms.all, "pages", params] as const,
+    page: (slug: string) => [...queryKeys.cms.all, "page", slug] as const,
+    blockPlacement: (uuid: string) =>
+      [...queryKeys.cms.all, "block-placement", uuid] as const,
+    blockHistory: (uuid: string) =>
+      [...queryKeys.cms.all, "block-history", uuid] as const,
+    catalogSections: (slug: string) =>
+      [...queryKeys.cms.all, "catalog-sections", slug] as const,
+    catalogBlocks: (slug: string) =>
+      [...queryKeys.cms.all, "catalog-blocks", slug] as const,
+    librarySections: (slug: string) =>
+      [...queryKeys.cms.all, "library-sections", slug] as const,
+    libraryBlocks: (slug: string) =>
+      [...queryKeys.cms.all, "library-blocks", slug] as const,
+    adminSectionTemplates: () =>
+      [...queryKeys.cms.all, "admin-section-templates"] as const,
+    adminBlockTemplates: () =>
+      [...queryKeys.cms.all, "admin-block-templates"] as const,
+    mediaFiles: (params?: Record<string, unknown>) =>
+      [...queryKeys.cms.all, "media-files", params] as const,
+    mediaFile: (uuid: string) =>
+      [...queryKeys.cms.all, "media-file", uuid] as const,
+    apiKeys: (siteId?: string) =>
+      [...queryKeys.cms.all, "api-keys", siteId] as const,
+    businessStatus: () =>
+      [...queryKeys.cms.all, "business-status"] as const,
+    businessActivations: (uuid: string) =>
+      [...queryKeys.cms.all, "business-activations", uuid] as const,
   },
 };

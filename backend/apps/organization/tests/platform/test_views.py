@@ -101,28 +101,28 @@ class TestPlatformAccountViewPermissions:
         assert perms["can_edit_profile"] is False
         assert perms["can_edit_settings"] is False
 
-    def test_staff_gets_profile_edit_permission(
+    def test_platform_admin_gets_edit_permissions(
         self,
-        staff_client,
+        platform_admin_client,
         platform_account,
         platform_profile,
     ):
-        """Staff can edit profile but not settings."""
-        response = staff_client.get("/api/v1/platform/account/")
+        """Platform Admin (RBAC) can edit profile and settings."""
+        response = platform_admin_client.get("/api/v1/platform/account/")
 
         perms = response.data["_permissions"]
         assert perms["can_view"] is True
         assert perms["can_edit_profile"] is True
-        assert perms["can_edit_settings"] is False
+        assert perms["can_edit_settings"] is True
 
-    def test_superuser_gets_all_permissions(
+    def test_platform_owner_gets_all_permissions(
         self,
-        admin_client,
+        platform_owner_client,
         platform_account,
         platform_profile,
     ):
-        """Superuser gets all permissions."""
-        response = admin_client.get("/api/v1/platform/account/")
+        """Platform Owner (RBAC) gets all permissions."""
+        response = platform_owner_client.get("/api/v1/platform/account/")
 
         perms = response.data["_permissions"]
         assert perms["can_view"] is True
@@ -162,11 +162,11 @@ class TestPlatformProfileViewPermissions:
 
     def test_patch_profile_excludes_permissions(
         self,
-        staff_client,
+        platform_admin_client,
         platform_profile,
     ):
         """PATCH profile response does NOT include _permissions."""
-        response = staff_client.patch(
+        response = platform_admin_client.patch(
             "/api/v1/platform/profile/",
             {"tagline": "Updated"},
             format="json",
@@ -188,9 +188,11 @@ class TestPlatformProfileView:
         assert "name" in response.data
         assert "tagline" in response.data
 
-    def test_update_platform_profile_as_staff(self, staff_client, platform_profile):
-        """Test updating platform profile as staff user."""
-        response = staff_client.patch(
+    def test_update_platform_profile_as_admin(
+        self, platform_admin_client, platform_profile
+    ):
+        """Test updating platform profile as Platform Admin (RBAC)."""
+        response = platform_admin_client.patch(
             "/api/v1/platform/profile/",
             {"name": "Updated Platform", "tagline": "New tagline"},
             format="json",
@@ -212,11 +214,13 @@ class TestPlatformProfileView:
 
         assert response.status_code == 403
 
-    def test_update_platform_profile_partial(self, staff_client, platform_profile):
-        """Test partial profile update."""
+    def test_update_platform_profile_partial(
+        self, platform_admin_client, platform_profile
+    ):
+        """Test partial profile update as Platform Admin (RBAC)."""
         original_name = platform_profile.name
 
-        response = staff_client.patch(
+        response = platform_admin_client.patch(
             "/api/v1/platform/profile/",
             {"tagline": "Only tagline changed"},
             format="json",
@@ -231,9 +235,9 @@ class TestPlatformProfileView:
 class TestPlatformSettingsView:
     """Tests for PlatformSettingsView endpoints."""
 
-    def test_update_settings_as_superuser(self, admin_client, platform_account):
-        """Test updating platform settings as superuser."""
-        response = admin_client.patch(
+    def test_update_settings_as_owner(self, platform_owner_client, platform_account):
+        """Test updating platform settings as Platform Owner (RBAC)."""
+        response = platform_owner_client.patch(
             "/api/v1/platform/settings/",
             {"settings": {"new_feature": True}},
             format="json",
@@ -264,13 +268,15 @@ class TestPlatformSettingsView:
 
         assert response.status_code == 403
 
-    def test_update_settings_merges_existing(self, admin_client, platform_account):
+    def test_update_settings_merges_existing(
+        self, platform_owner_client, platform_account
+    ):
         """Test that settings are merged, not replaced."""
         # Set initial settings
         platform_account.settings = {"existing": "value"}
         platform_account.save()
 
-        response = admin_client.patch(
+        response = platform_owner_client.patch(
             "/api/v1/platform/settings/",
             {"settings": {"new": "setting"}},
             format="json",
@@ -433,11 +439,11 @@ class TestPlatformRelationshipInjection:
 
     def test_update_settings_open_member_request(
         self,
-        admin_client,
+        platform_owner_client,
         platform_account,
     ):
-        """Superuser can update open_member_request setting."""
-        response = admin_client.patch(
+        """Platform Owner can update open_member_request setting."""
+        response = platform_owner_client.patch(
             "/api/v1/platform/settings/",
             {"open_member_request": False},
             format="json",

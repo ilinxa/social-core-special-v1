@@ -247,11 +247,13 @@ class TestMessageSend:
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "message.send",
-                "conversation_id": str(conv_id),
-                "content": "Hello",
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "message.send",
+                    "conversation_id": str(conv_id),
+                    "content": "Hello",
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "message.new"
             assert response["content"] == "Hello"
@@ -264,10 +266,12 @@ class TestMessageSend:
         with patches["get_convs"], patches["presence_on"], patches["heartbeat"]:
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "message.send",
-                "conversation_id": str(uuid.uuid4()),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "message.send",
+                    "conversation_id": str(uuid.uuid4()),
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "invalid_payload"
@@ -280,10 +284,12 @@ class TestMessageSend:
         with patches["get_convs"], patches["presence_on"], patches["heartbeat"]:
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "message.send",
-                "content": "Hello",
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "message.send",
+                    "content": "Hello",
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "invalid_payload"
@@ -328,13 +334,15 @@ class TestMessageSend:
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "message.send",
-                "conversation_id": str(conv_id),
-                "content": "Hi from biz",
-                "sender_type": "business",
-                "sender_id": str(biz_id),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "message.send",
+                    "conversation_id": str(conv_id),
+                    "content": "Hi from biz",
+                    "sender_type": "business",
+                    "sender_id": str(biz_id),
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "message.new"
             assert response["sender_type"] == "business"
@@ -369,11 +377,13 @@ class TestMessageSend:
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "message.send",
-                "conversation_id": str(uuid.uuid4()),
-                "content": "test",
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "message.send",
+                    "conversation_id": str(uuid.uuid4()),
+                    "content": "test",
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "permission_denied"
@@ -402,11 +412,13 @@ class TestMessageSend:
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "message.send",
-                "conversation_id": str(uuid.uuid4()),
-                "content": "test",
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "message.send",
+                    "conversation_id": str(uuid.uuid4()),
+                    "content": "test",
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "validation_error"
@@ -436,11 +448,13 @@ class TestMessageSend:
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "message.send",
-                "conversation_id": str(uuid.uuid4()),
-                "content": "test",
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "message.send",
+                    "conversation_id": str(uuid.uuid4()),
+                    "content": "test",
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "business_rule_violation"
@@ -478,11 +492,13 @@ class TestMessageEditDelete:
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "message.edit",
-                "message_id": str(msg_id),
-                "content": "Edited",
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "message.edit",
+                    "message_id": str(msg_id),
+                    "content": "Edited",
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "message.edited"
             assert response["content"] == "Edited"
@@ -496,10 +512,12 @@ class TestMessageEditDelete:
         with patches["get_convs"], patches["presence_on"], patches["heartbeat"]:
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "message.edit",
-                "message_id": str(uuid.uuid4()),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "message.edit",
+                    "message_id": str(uuid.uuid4()),
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "invalid_payload"
@@ -532,10 +550,12 @@ class TestMessageEditDelete:
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "message.delete",
-                "message_id": str(msg_id),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "message.delete",
+                    "message_id": str(msg_id),
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "message.deleted"
             assert response["message_id"] == str(msg_id)
@@ -570,10 +590,12 @@ class TestTyping:
         with patches["get_convs"], patches["presence_on"], patches["heartbeat"]:
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "typing.start",
-                "conversation_id": str(conv_id),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "typing.start",
+                    "conversation_id": str(conv_id),
+                }
+            )
             # The sender is excluded (no self-echo), so we should NOT receive
             # a typing event back. receive_nothing returns True if queue is empty.
             assert await communicator.receive_nothing(timeout=0.5) is True
@@ -588,10 +610,12 @@ class TestTyping:
         with patches["get_convs"], patches["presence_on"], patches["heartbeat"]:
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "typing.stop",
-                "conversation_id": str(conv_id),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "typing.stop",
+                    "conversation_id": str(conv_id),
+                }
+            )
             # No self-echo expected
             assert await communicator.receive_nothing(timeout=0.5) is True
             await communicator.disconnect()
@@ -618,10 +642,12 @@ class TestTyping:
         with patches["get_convs"], patches["presence_on"], patches["heartbeat"]:
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "typing.start",
-                "conversation_id": str(conv_id),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "typing.start",
+                    "conversation_id": str(conv_id),
+                }
+            )
             # If self-echo was happening, we'd get a typing event.
             # We should NOT receive anything.
             assert await communicator.receive_nothing(timeout=0.5) is True
@@ -646,17 +672,17 @@ class TestWatermarks:
             patches["get_convs"],
             patches["presence_on"],
             patches["heartbeat"],
-            patch.object(
-                ChatConsumer, "_db_update_seen", new=mock_db_seen
-            ),
+            patch.object(ChatConsumer, "_db_update_seen", new=mock_db_seen),
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "seen",
-                "conversation_id": str(conv_id),
-                "last_seen_message_id": str(msg_id),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "seen",
+                    "conversation_id": str(conv_id),
+                    "last_seen_message_id": str(msg_id),
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "seen.update"
             assert response["conversation_id"] == str(conv_id)
@@ -676,17 +702,17 @@ class TestWatermarks:
             patches["get_convs"],
             patches["presence_on"],
             patches["heartbeat"],
-            patch.object(
-                ChatConsumer, "_db_update_delivered", new=mock_db_delivered
-            ),
+            patch.object(ChatConsumer, "_db_update_delivered", new=mock_db_delivered),
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "delivered",
-                "conversation_id": str(conv_id),
-                "last_delivered_message_id": str(msg_id),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "delivered",
+                    "conversation_id": str(conv_id),
+                    "last_delivered_message_id": str(msg_id),
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "delivered.update"
             assert response["conversation_id"] == str(conv_id)
@@ -701,10 +727,12 @@ class TestWatermarks:
         with patches["get_convs"], patches["presence_on"], patches["heartbeat"]:
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "seen",
-                "conversation_id": str(uuid.uuid4()),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "seen",
+                    "conversation_id": str(uuid.uuid4()),
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "invalid_payload"
@@ -717,10 +745,12 @@ class TestWatermarks:
         with patches["get_convs"], patches["presence_on"], patches["heartbeat"]:
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "delivered",
-                "conversation_id": str(uuid.uuid4()),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "delivered",
+                    "conversation_id": str(uuid.uuid4()),
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "invalid_payload"
@@ -751,10 +781,12 @@ class TestPresence:
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "presence.subscribe",
-                "user_ids": [str(target_uid)],
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "presence.subscribe",
+                    "user_ids": [str(target_uid)],
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "presence"
             assert response["user_id"] == str(target_uid)
@@ -768,10 +800,12 @@ class TestPresence:
         with patches["get_convs"], patches["presence_on"], patches["heartbeat"]:
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "presence.subscribe",
-                "user_ids": "not-a-list",
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "presence.subscribe",
+                    "user_ids": "not-a-list",
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "invalid_payload"
@@ -784,10 +818,12 @@ class TestPresence:
         with patches["get_convs"], patches["presence_on"], patches["heartbeat"]:
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "presence.subscribe",
-                "user_ids": [str(uuid.uuid4()) for _ in range(51)],
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "presence.subscribe",
+                    "user_ids": [str(uuid.uuid4()) for _ in range(51)],
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "too_many_subscriptions"
@@ -814,17 +850,21 @@ class TestPresence:
             await communicator.connect()
 
             # First subscribe
-            await communicator.send_json_to({
-                "type": "presence.subscribe",
-                "user_ids": [str(uid1)],
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "presence.subscribe",
+                    "user_ids": [str(uid1)],
+                }
+            )
             # No responses since _get_online_users returns empty
 
             # Second subscribe (should replace)
-            await communicator.send_json_to({
-                "type": "presence.subscribe",
-                "user_ids": [str(uid2)],
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "presence.subscribe",
+                    "user_ids": [str(uid2)],
+                }
+            )
             await communicator.disconnect()
 
 
@@ -852,10 +892,12 @@ class TestGroupManagement:
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "conversation.join",
-                "conversation_id": str(conv_id),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "conversation.join",
+                    "conversation_id": str(conv_id),
+                }
+            )
             # No response expected (success is silent)
             assert await communicator.receive_nothing(timeout=0.5) is True
             await communicator.disconnect()
@@ -878,10 +920,12 @@ class TestGroupManagement:
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "conversation.join",
-                "conversation_id": str(conv_id),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "conversation.join",
+                    "conversation_id": str(conv_id),
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "not_participant"
@@ -896,10 +940,12 @@ class TestGroupManagement:
         with patches["get_convs"], patches["presence_on"], patches["heartbeat"]:
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "conversation.leave",
-                "conversation_id": str(conv_id),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "conversation.leave",
+                    "conversation_id": str(conv_id),
+                }
+            )
             # No response expected (success is silent)
             assert await communicator.receive_nothing(timeout=0.5) is True
             await communicator.disconnect()
@@ -980,11 +1026,13 @@ class TestErrorHandling:
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "message.send",
-                "conversation_id": str(uuid.uuid4()),
-                "content": "test",
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "message.send",
+                    "conversation_id": str(uuid.uuid4()),
+                    "content": "test",
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "internal_error"
@@ -1004,18 +1052,18 @@ class TestErrorHandling:
             patch.object(
                 ChatConsumer,
                 "_db_update_seen",
-                new=AsyncMock(
-                    side_effect=NotFound(resource="ConversationParticipant")
-                ),
+                new=AsyncMock(side_effect=NotFound(resource="ConversationParticipant")),
             ),
         ):
             communicator = _make_communicator(user)
             await communicator.connect()
-            await communicator.send_json_to({
-                "type": "seen",
-                "conversation_id": str(uuid.uuid4()),
-                "last_seen_message_id": str(uuid.uuid4()),
-            })
+            await communicator.send_json_to(
+                {
+                    "type": "seen",
+                    "conversation_id": str(uuid.uuid4()),
+                    "last_seen_message_id": str(uuid.uuid4()),
+                }
+            )
             response = await communicator.receive_json_from(timeout=2)
             assert response["type"] == "error"
             assert response["code"] == "not_found"

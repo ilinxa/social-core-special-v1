@@ -165,9 +165,7 @@ class TestNotifySafe:
             ChatService,
             "_notify_new_message",
         ) as mock_handler:
-            with patch(
-                "apps.chat.services.NotificationService", mock_ns, create=True
-            ):
+            with patch("apps.chat.services.NotificationService", mock_ns, create=True):
                 ChatService._notify_safe("new_message", message="m", conversation="c")
             mock_handler.assert_called_once()
 
@@ -311,6 +309,57 @@ class TestNotifyNewMessage:
 
     @patch("apps.chat.services.ChatService._is_rate_limited", return_value=False)
     @patch("apps.chat.presence.PresenceManager")
+    def test_skips_muted_participant(
+        self, mock_pm, mock_rl, group_conversation, message_in_group, user_b
+    ):
+        """Muted participants should not receive notifications."""
+        mock_pm.is_online.return_value = False
+        mock_ns = MagicMock()
+
+        # Mute user_b's participation
+        p = ConversationParticipant.objects.get(
+            conversation=group_conversation,
+            participant_id=user_b.id,
+        )
+        p.is_muted = True
+        p.save(update_fields=["is_muted"])
+
+        ChatService._notify_new_message(
+            mock_ns, message=message_in_group, conversation=group_conversation
+        )
+
+        # user_b should NOT be in the notified users
+        call_user_ids = [c.kwargs["user"].id for c in mock_ns.send.call_args_list]
+        assert user_b.id not in call_user_ids
+
+    @patch("apps.chat.services.ChatService._is_rate_limited", return_value=False)
+    @patch("apps.chat.presence.PresenceManager")
+    def test_muted_participant_does_not_block_others(
+        self, mock_pm, mock_rl, group_conversation, message_in_group, user_b, user_c
+    ):
+        """Muting one participant doesn't affect notifications for others."""
+        mock_pm.is_online.return_value = False
+        mock_ns = MagicMock()
+
+        # Mute only user_b
+        p = ConversationParticipant.objects.get(
+            conversation=group_conversation,
+            participant_id=user_b.id,
+        )
+        p.is_muted = True
+        p.save(update_fields=["is_muted"])
+
+        ChatService._notify_new_message(
+            mock_ns, message=message_in_group, conversation=group_conversation
+        )
+
+        # user_c should still be notified
+        call_user_ids = [c.kwargs["user"].id for c in mock_ns.send.call_args_list]
+        assert user_c.id in call_user_ids
+        assert user_b.id not in call_user_ids
+
+    @patch("apps.chat.services.ChatService._is_rate_limited", return_value=False)
+    @patch("apps.chat.presence.PresenceManager")
     def test_notification_context_shape(
         self, mock_pm, mock_rl, dm_conversation, user, user_b
     ):
@@ -348,6 +397,8 @@ class TestNotifyRequestReceived:
         mock_ns = MagicMock()
         conv = MagicMock()
         conv.id = uuid.uuid4()
+        conv.scope_type = "global"
+        conv.scope_id = None
 
         ChatService._notify_request_received(
             mock_ns,
@@ -375,6 +426,8 @@ class TestNotifyRequestAccepted:
         mock_ns = MagicMock()
         conv = MagicMock()
         conv.id = uuid.uuid4()
+        conv.scope_type = "global"
+        conv.scope_id = None
 
         ChatService._notify_request_accepted(
             mock_ns,
@@ -403,6 +456,8 @@ class TestNotifyGroupAdded:
         conv = MagicMock()
         conv.id = uuid.uuid4()
         conv.name = "Dev Chat"
+        conv.scope_type = "global"
+        conv.scope_id = None
 
         ChatService._notify_group_added(
             mock_ns,
@@ -415,9 +470,7 @@ class TestNotifyGroupAdded:
         ctx = mock_ns.send.call_args.kwargs["context"]
         assert ctx["group_name"] == "Dev Chat"
         assert ctx["added_by_name"] == "alice"
-        assert (
-            mock_ns.send.call_args.kwargs["notification_type"] == "chat_group_added"
-        )
+        assert mock_ns.send.call_args.kwargs["notification_type"] == "chat_group_added"
 
 
 # =============================================================================

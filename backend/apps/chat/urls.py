@@ -86,11 +86,28 @@ urlpatterns = [
     ),
     # Unread counts
     path("unread/", views.UnreadCountsView.as_view(), name="unread-counts"),
+    # Group Admin Management
+    path(
+        "conversations/<uuid:conversation_id>/participants/<uuid:participant_id>/promote/",
+        views.PromoteToAdminView.as_view(),
+        name="participant-promote",
+    ),
+    path(
+        "conversations/<uuid:conversation_id>/participants/<uuid:participant_id>/demote/",
+        views.DemoteFromAdminView.as_view(),
+        name="participant-demote",
+    ),
     # Attachments
     path(
         "conversations/<uuid:conversation_id>/upload/",
         views.AttachmentUploadView.as_view(),
         name="attachment-upload",
+    ),
+    # Media Gallery
+    path(
+        "conversations/<uuid:conversation_id>/media/",
+        views.MediaGalleryView.as_view(),
+        name="media-gallery",
     ),
     # Reactions
     path(

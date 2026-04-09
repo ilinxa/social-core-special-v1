@@ -192,6 +192,7 @@ class MembershipPolicy:
         # The service uses can_suspend_member for reactivation to ACTIVE.
         reactivatable = target_membership.status in (
             MembershipStatus.SUSPENDED,
+            MembershipStatus.BANNED,
             MembershipStatus.REMOVED,
         )
         can_reactivate = reactivatable and _safe_check("can_suspend_member")

@@ -1,0 +1,382 @@
+=== E2E Global Setup ===
+  [1/8] Waiting for backend health...
+  [1/8] Backend healthy.
+  [1/8] Waiting for frontend...
+  [1/8] Frontend ready.
+  [2/8] Resetting E2E database (drop → create)...
+  [2/8] Database recreated.
+  [3/8] Running Django migrations...
+  [3/8] Migrations complete.
+  [4/8] Creating test users...
+  [4/8] Created 5 users.
+  [5/8] Setting up business owner...
+  [5/8] Business created: e2e-test-biz (max_members=10, open_member_request=true)
+  [5/8] Owner membership verified: 1 membership(s).
+  [6/8] Setting up platform admin...
+  [6/8] Platform configured.
+  [6/8] Platform owner membership created: 02a3fc88-7333-42e3-a4d0-5184f4654033
+  [6b/8] Seeding CMS templates...
+  [6b/8] CMS templates seeded (2 sections, 2 blocks).
+  [7/8] Setting up business member...
+  [7/8] Business member user ready (invitations tested in L1/L2).
+  [8/8] Saving storage states...
+  [8/8] Storage states saved.
+=== Global Setup Complete (17.9s) ===
+
+Running 21 tests using 2 workers
+
+  ok  2 [smoke-mobile] › tests\smoke\responsive\auth-mobile.spec.ts:20:7 › Auth — Mobile › login form renders and all elements are visible (1.2s)
+  ok  3 [smoke-mobile] › tests\smoke\responsive\auth-mobile.spec.ts:50:7 › Auth — Mobile › register form renders all fields on mobile (707ms)
+  ok  1 [smoke-mobile] › tests\smoke\responsive\auth-mobile.spec.ts:32:7 › Auth — Mobile › login form is usable — fields accept input and submit works (2.4s)
+  ok  5 [smoke-mobile] › tests\smoke\responsive\auth-mobile.spec.ts:76:7 › Auth — Mobile › forgot password link is tappable on mobile (1.0s)
+  ok  6 [smoke-mobile] › tests\smoke\responsive\auth-mobile.spec.ts:84:7 › Auth — Mobile › sign up link navigates from login on mobile (1.1s)
+  ok  7 [smoke-mobile] › tests\smoke\responsive\business-console-mobile.spec.ts:28:7 › Business Console — Mobile › dashboard renders on mobile (1.5s)
+  ok  8 [smoke-mobile] › tests\smoke\responsive\business-console-mobile.spec.ts:36:7 › Business Console — Mobile › sidebar is hidden on mobile in business console (1.3s)
+  ok  9 [smoke-mobile] › tests\smoke\responsive\business-console-mobile.spec.ts:44:7 › Business Console — Mobile › bottom navbar shows in business console (1.7s)
+  ok 10 [smoke-mobile] › tests\smoke\responsive\business-console-mobile.spec.ts:52:7 › Business Console — Mobile › settings page renders on mobile (1.5s)
+  ok 11 [smoke-mobile] › tests\smoke\responsive\business-console-mobile.spec.ts:59:7 › Business Console — Mobile › danger zone buttons are visible on mobile settings (1.4s)
+  x   4 [smoke-mobile] › tests\smoke\responsive\auth-mobile.spec.ts:63:7 › Auth — Mobile › register form is usable — submit redirects to verify (11.2s)
+  ok 12 [smoke-mobile] › tests\smoke\responsive\business-console-mobile.spec.ts:70:7 › Business Console — Mobile › account switcher works on mobile (1.4s)
+  x  13 [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:24:7 › Chat — Mobile › conversation list fills screen on mobile (11.7s)
+  x  14 [smoke-mobile] › tests\smoke\responsive\auth-mobile.spec.ts:63:7 › Auth — Mobile › register form is usable — submit redirects to verify (retry #1) (11.2s)
+  x  15 [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:24:7 › Chat — Mobile › conversation list fills screen on mobile (retry #1) (12.1s)
+  x  16 [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:50:7 › Chat — Mobile › selecting conversation shows message view with back button (11.7s)
+  x  17 [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:85:7 › Chat — Mobile › compose bar is usable on mobile (11.6s)
+  x  18 [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:50:7 › Chat — Mobile › selecting conversation shows message view with back button (retry #1) (11.7s)
+  ok 20 [smoke-mobile] › tests\smoke\responsive\navigation-mobile.spec.ts:19:7 › Navigation — Mobile › sidebar is hidden on mobile (1.4s)
+  ok 21 [smoke-mobile] › tests\smoke\responsive\navigation-mobile.spec.ts:33:7 › Navigation — Mobile › bottom navbar is visible on mobile (1.3s)
+  x  22 [smoke-mobile] › tests\smoke\responsive\navigation-mobile.spec.ts:46:7 › Navigation — Mobile › bottom navbar links navigate correctly (1.2s)
+  x  23 [smoke-mobile] › tests\smoke\responsive\navigation-mobile.spec.ts:46:7 › Navigation — Mobile › bottom navbar links navigate correctly (retry #1) (1.5s)
+  ok 24 [smoke-mobile] › tests\smoke\responsive\navigation-mobile.spec.ts:63:7 › Navigation — Mobile › main content area is visible on mobile (1.3s)
+  ok 25 [smoke-mobile] › tests\smoke\responsive\navigation-mobile.spec.ts:74:7 › Navigation — Mobile › public pages have mobile-friendly navigation (734ms)
+  x  19 [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:85:7 › Chat — Mobile › compose bar is usable on mobile (retry #1) (11.9s)
+  ok 26 [smoke-mobile] › tests\smoke\responsive\navigation-mobile.spec.ts:84:7 › Navigation — Mobile › user menu is accessible on mobile (1.3s)
+=== E2E Global Teardown ===
+  Tests complete. Docker stack remains running.
+  Run `make e2e-down` to stop the E2E stack.
+=== Teardown Done ===
+
+
+  1) [smoke-mobile] › tests\smoke\responsive\auth-mobile.spec.ts:63:7 › Auth — Mobile › register form is usable — submit redirects to verify 
+
+    Error: [2mexpect([22m[31mpage[39m[2m).[22mtoHaveURL[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Expected pattern: [32m/\/verify-email/[39m
+    Received string:  [31m"http://localhost:3001/home"[39m
+    Timeout: 10000ms
+
+    Call log:
+    [2m  - Expect "toHaveURL" with timeout 10000ms[22m
+    [2m    4 × unexpected value "http://localhost:3001/register"[22m
+    [2m    10 × unexpected value "http://localhost:3001/home"[22m
+
+
+      71 |
+      72 |     await registerPage.register(email, username, 'TestPass123!');
+    > 73 |     await expect(page).toHaveURL(/\/verify-email/);
+         |                        ^
+      74 |   });
+      75 |
+      76 |   test('forgot password link is tappable on mobile', async ({ page }) => {
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\smoke\responsive\auth-mobile.spec.ts:73:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\auth-mobile-Auth-—-Mobile--d181c--submit-redirects-to-verify-smoke-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\auth-mobile-Auth-—-Mobile--d181c--submit-redirects-to-verify-smoke-mobile\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mpage[39m[2m).[22mtoHaveURL[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Expected pattern: [32m/\/verify-email/[39m
+    Received string:  [31m"http://localhost:3001/home"[39m
+    Timeout: 10000ms
+
+    Call log:
+    [2m  - Expect "toHaveURL" with timeout 10000ms[22m
+    [2m    4 × unexpected value "http://localhost:3001/register"[22m
+    [2m    10 × unexpected value "http://localhost:3001/home"[22m
+
+
+      71 |
+      72 |     await registerPage.register(email, username, 'TestPass123!');
+    > 73 |     await expect(page).toHaveURL(/\/verify-email/);
+         |                        ^
+      74 |   });
+      75 |
+      76 |   test('forgot password link is tappable on mobile', async ({ page }) => {
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\smoke\responsive\auth-mobile.spec.ts:73:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\auth-mobile-Auth-—-Mobile--d181c--submit-redirects-to-verify-smoke-mobile-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\auth-mobile-Auth-—-Mobile--d181c--submit-redirects-to-verify-smoke-mobile-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\auth-mobile-Auth-—-Mobile--d181c--submit-redirects-to-verify-smoke-mobile-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\auth-mobile-Auth-—-Mobile--d181c--submit-redirects-to-verify-smoke-mobile-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:24:7 › Chat — Mobile › conversation list fills screen on mobile 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('listbox', { name: /conversations/i }).or(getByText(/no conversations yet/i))
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('listbox', { name: /conversations/i }).or(getByText(/no conversations yet/i))[22m
+
+
+      45 |     // On mobile, conversation list should be visible
+      46 |     const chatPage = new ChatPage(page);
+    > 47 |     await expect(chatPage.conversationList.or(chatPage.noConversationsMessage)).toBeVisible();
+         |                                                                                 ^
+      48 |   });
+      49 |
+      50 |   test('selecting conversation shows message view with back button', async ({
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\smoke\responsive\chat-mobile.spec.ts:47:81
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\chat-mobile-Chat-—-Mobile--73126-list-fills-screen-on-mobile-smoke-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\chat-mobile-Chat-—-Mobile--73126-list-fills-screen-on-mobile-smoke-mobile\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('listbox', { name: /conversations/i }).or(getByText(/no conversations yet/i))
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('listbox', { name: /conversations/i }).or(getByText(/no conversations yet/i))[22m
+
+
+      45 |     // On mobile, conversation list should be visible
+      46 |     const chatPage = new ChatPage(page);
+    > 47 |     await expect(chatPage.conversationList.or(chatPage.noConversationsMessage)).toBeVisible();
+         |                                                                                 ^
+      48 |   });
+      49 |
+      50 |   test('selecting conversation shows message view with back button', async ({
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\smoke\responsive\chat-mobile.spec.ts:47:81
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\chat-mobile-Chat-—-Mobile--73126-list-fills-screen-on-mobile-smoke-mobile-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\chat-mobile-Chat-—-Mobile--73126-list-fills-screen-on-mobile-smoke-mobile-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\chat-mobile-Chat-—-Mobile--73126-list-fills-screen-on-mobile-smoke-mobile-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\chat-mobile-Chat-—-Mobile--73126-list-fills-screen-on-mobile-smoke-mobile-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:50:7 › Chat — Mobile › selecting conversation shows message view with back button 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('listbox', { name: /conversations/i })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('listbox', { name: /conversations/i })[22m
+
+
+      65 |     const chatPage = new ChatPage(page);
+      66 |     // Wait for conversation list to load
+    > 67 |     await expect(chatPage.conversationList).toBeVisible();
+         |                                             ^
+      68 |
+      69 |     // Click first conversation
+      70 |     const firstConv = chatPage.conversationList.getByRole('option').first();
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\smoke\responsive\chat-mobile.spec.ts:67:45
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\chat-mobile-Chat-—-Mobile--8db17-ssage-view-with-back-button-smoke-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\chat-mobile-Chat-—-Mobile--8db17-ssage-view-with-back-button-smoke-mobile\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('listbox', { name: /conversations/i })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('listbox', { name: /conversations/i })[22m
+
+
+      65 |     const chatPage = new ChatPage(page);
+      66 |     // Wait for conversation list to load
+    > 67 |     await expect(chatPage.conversationList).toBeVisible();
+         |                                             ^
+      68 |
+      69 |     // Click first conversation
+      70 |     const firstConv = chatPage.conversationList.getByRole('option').first();
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\smoke\responsive\chat-mobile.spec.ts:67:45
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\chat-mobile-Chat-—-Mobile--8db17-ssage-view-with-back-button-smoke-mobile-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\chat-mobile-Chat-—-Mobile--8db17-ssage-view-with-back-button-smoke-mobile-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\chat-mobile-Chat-—-Mobile--8db17-ssage-view-with-back-button-smoke-mobile-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\chat-mobile-Chat-—-Mobile--8db17-ssage-view-with-back-button-smoke-mobile-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:85:7 › Chat — Mobile › compose bar is usable on mobile 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('listbox', { name: /conversations/i })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('listbox', { name: /conversations/i })[22m
+
+
+       97 |
+       98 |     const chatPage = new ChatPage(page);
+    >  99 |     await expect(chatPage.conversationList).toBeVisible();
+          |                                             ^
+      100 |
+      101 |     const firstConv = chatPage.conversationList.getByRole('option').first();
+      102 |     if (await firstConv.isVisible()) {
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\smoke\responsive\chat-mobile.spec.ts:99:45
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\chat-mobile-Chat-—-Mobile-compose-bar-is-usable-on-mobile-smoke-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\chat-mobile-Chat-—-Mobile-compose-bar-is-usable-on-mobile-smoke-mobile\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('listbox', { name: /conversations/i })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('listbox', { name: /conversations/i })[22m
+
+
+       97 |
+       98 |     const chatPage = new ChatPage(page);
+    >  99 |     await expect(chatPage.conversationList).toBeVisible();
+          |                                             ^
+      100 |
+      101 |     const firstConv = chatPage.conversationList.getByRole('option').first();
+      102 |     if (await firstConv.isVisible()) {
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\smoke\responsive\chat-mobile.spec.ts:99:45
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\chat-mobile-Chat-—-Mobile-compose-bar-is-usable-on-mobile-smoke-mobile-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\chat-mobile-Chat-—-Mobile-compose-bar-is-usable-on-mobile-smoke-mobile-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\chat-mobile-Chat-—-Mobile-compose-bar-is-usable-on-mobile-smoke-mobile-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\chat-mobile-Chat-—-Mobile-compose-bar-is-usable-on-mobile-smoke-mobile-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [smoke-mobile] › tests\smoke\responsive\navigation-mobile.spec.ts:46:7 › Navigation — Mobile › bottom navbar links navigate correctly 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: >= [32m3[39m
+    Received:    [31m0[39m
+
+      58 |
+      59 |     // Should have at least Home, Explore, and Profile links
+    > 60 |     expect(linkCount).toBeGreaterThanOrEqual(3);
+         |                       ^
+      61 |   });
+      62 |
+      63 |   test('main content area is visible on mobile', async ({ page }) => {
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\smoke\responsive\navigation-mobile.spec.ts:60:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\navigation-mobile-Navigati-3fd41-ar-links-navigate-correctly-smoke-mobile\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\navigation-mobile-Navigati-3fd41-ar-links-navigate-correctly-smoke-mobile\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: >= [32m3[39m
+    Received:    [31m0[39m
+
+      58 |
+      59 |     // Should have at least Home, Explore, and Profile links
+    > 60 |     expect(linkCount).toBeGreaterThanOrEqual(3);
+         |                       ^
+      61 |   });
+      62 |
+      63 |   test('main content area is visible on mobile', async ({ page }) => {
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\smoke\responsive\navigation-mobile.spec.ts:60:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\navigation-mobile-Navigati-3fd41-ar-links-navigate-correctly-smoke-mobile-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\navigation-mobile-Navigati-3fd41-ar-links-navigate-correctly-smoke-mobile-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\navigation-mobile-Navigati-3fd41-ar-links-navigate-correctly-smoke-mobile-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\navigation-mobile-Navigati-3fd41-ar-links-navigate-correctly-smoke-mobile-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5 failed
+    [smoke-mobile] › tests\smoke\responsive\auth-mobile.spec.ts:63:7 › Auth — Mobile › register form is usable — submit redirects to verify 
+    [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:24:7 › Chat — Mobile › conversation list fills screen on mobile 
+    [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:50:7 › Chat — Mobile › selecting conversation shows message view with back button 
+    [smoke-mobile] › tests\smoke\responsive\chat-mobile.spec.ts:85:7 › Chat — Mobile › compose bar is usable on mobile 
+    [smoke-mobile] › tests\smoke\responsive\navigation-mobile.spec.ts:46:7 › Navigation — Mobile › bottom navbar links navigate correctly 
+  16 passed (1.4m)

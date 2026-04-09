@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from apps.cms.constants import (
     MAX_VERSIONS_PER_PLACEMENT,
+    TEMPLATE_ELIGIBILITY,
     VERSION_THROTTLE_SECONDS,
     BlockPlacementStatus,
     ContentLayer,
@@ -22,6 +23,7 @@ from apps.cms.constants import (
 )
 from apps.cms.models import (
     BlockTemplate,
+    BlockTemplateActivation,
     CMSApiKey,
     ContentVersion,
     MediaFile,
@@ -30,6 +32,7 @@ from apps.cms.models import (
     PageSectionPlacement,
     SectionBlockPlacement,
     SectionTemplate,
+    SectionTemplateActivation,
     Site,
 )
 from apps.cms.selectors import (
@@ -38,6 +41,7 @@ from apps.cms.selectors import (
     CMSMediaSelector,
     CMSPageSelector,
     CMSSiteSelector,
+    CMSTemplateActivationSelector,
     CMSTemplateSelector,
 )
 from apps.core.exceptions import (
@@ -47,6 +51,7 @@ from apps.core.exceptions import (
     PermissionDenied,
     ValidationError,
 )
+from apps.core.feature_config import feature_config
 from apps.core.observability import AuditLog, AuditService, get_logger
 from apps.core.types import ActorContext
 from apps.rbac.policies import MembershipPolicy
@@ -71,12 +76,359 @@ def _resolve_actor(actor_context: ActorContext):
 
 
 # ===========================================================================
+# Template Activation Check Helper
+# ===========================================================================
+
+
+def _check_template_activation(*, template, owner_type: str, owner_id):
+    """
+    Verify template is activated for this org.
+    Platform context: skip check (platform can use any template).
+    Business context: require active activation.
+    """
+    from apps.core.constants import OwnerType
+
+    if owner_type == OwnerType.PLATFORM:
+        return  # Platform uses templates directly
+
+    if owner_type == OwnerType.BUSINESS:
+        template_type = "section" if isinstance(template, SectionTemplate) else "block"
+        activated = CMSTemplateActivationSelector.is_template_activated(
+            template_id=template.id,
+            template_type=template_type,
+            org_type=owner_type,
+            org_id=owner_id,
+        )
+        if not activated:
+            raise BusinessRuleViolation(
+                message="Template not activated for this organization",
+                rule="template_not_activated",
+            )
+
+
+# ===========================================================================
+# CMSTemplateActivationService
+# ===========================================================================
+
+
+class CMSTemplateActivationService:
+    """Template activation — orgs select templates from catalog into their library."""
+
+    @staticmethod
+    @transaction.atomic
+    def activate_section_template(
+        *,
+        actor_context: ActorContext,
+        template_id: UUID,
+        request=None,
+    ) -> SectionTemplateActivation:
+        """Activate a section template for the actor's org."""
+        MembershipPolicy.authorize_action(
+            actor_context=actor_context,
+            required_permission="can_activate_cms_template",
+        )
+        template = CMSTemplateSelector.get_section_template_by_id(
+            template_id=template_id
+        )
+
+        # Eligibility check
+        eligible = TEMPLATE_ELIGIBILITY.get(actor_context.account_type, set())
+        if template.org_type not in eligible:
+            raise BusinessRuleViolation(
+                message="Template not available for this organization type",
+                rule="template_not_eligible",
+            )
+
+        # Limit check
+        current_count = SectionTemplateActivation.objects.filter(
+            org_type=actor_context.account_type,
+            org_id=actor_context.account_id,
+            is_active=True,
+        ).count()
+        feature_config.check_limit(
+            f"{actor_context.account_type}.cms.max_active_section_templates",
+            current_count,
+            rule="max_active_section_templates_exceeded",
+            resource="Section template activation",
+        )
+
+        actor = _resolve_actor(actor_context)
+
+        # Create or reactivate
+        activation, created = SectionTemplateActivation.objects.get_or_create(
+            template=template,
+            org_type=actor_context.account_type,
+            org_id=actor_context.account_id,
+            defaults={"activated_by": actor, "is_active": True},
+        )
+        if not created and not activation.is_active:
+            activation.is_active = True
+            activation.activated_by = actor
+            activation.save(update_fields=["is_active", "activated_by", "updated_at"])
+
+        logger.info(
+            "cms.template.activated",
+            template_id=str(template.id),
+            template_type="section",
+            org_type=actor_context.account_type,
+            org_id=str(actor_context.account_id),
+        )
+        AuditService.log(
+            action=AuditLog.Action.CMS_TEMPLATE_ACTIVATED,
+            actor=actor,
+            resource=template,
+            request=request,
+            details={
+                "template_type": "section",
+                "org_type": actor_context.account_type,
+                "org_id": str(actor_context.account_id),
+            },
+        )
+        return activation
+
+    @staticmethod
+    @transaction.atomic
+    def activate_block_template(
+        *,
+        actor_context: ActorContext,
+        template_id: UUID,
+        request=None,
+    ) -> BlockTemplateActivation:
+        """Activate a block template for the actor's org."""
+        MembershipPolicy.authorize_action(
+            actor_context=actor_context,
+            required_permission="can_activate_cms_template",
+        )
+        template = CMSTemplateSelector.get_block_template_by_id(template_id=template_id)
+
+        # Eligibility check
+        eligible = TEMPLATE_ELIGIBILITY.get(actor_context.account_type, set())
+        if template.org_type not in eligible:
+            raise BusinessRuleViolation(
+                message="Template not available for this organization type",
+                rule="template_not_eligible",
+            )
+
+        # Limit check
+        current_count = BlockTemplateActivation.objects.filter(
+            org_type=actor_context.account_type,
+            org_id=actor_context.account_id,
+            is_active=True,
+        ).count()
+        feature_config.check_limit(
+            f"{actor_context.account_type}.cms.max_active_block_templates",
+            current_count,
+            rule="max_active_block_templates_exceeded",
+            resource="Block template activation",
+        )
+
+        actor = _resolve_actor(actor_context)
+
+        # Create or reactivate
+        activation, created = BlockTemplateActivation.objects.get_or_create(
+            template=template,
+            org_type=actor_context.account_type,
+            org_id=actor_context.account_id,
+            defaults={"activated_by": actor, "is_active": True},
+        )
+        if not created and not activation.is_active:
+            activation.is_active = True
+            activation.activated_by = actor
+            activation.save(update_fields=["is_active", "activated_by", "updated_at"])
+
+        logger.info(
+            "cms.template.activated",
+            template_id=str(template.id),
+            template_type="block",
+            org_type=actor_context.account_type,
+            org_id=str(actor_context.account_id),
+        )
+        AuditService.log(
+            action=AuditLog.Action.CMS_TEMPLATE_ACTIVATED,
+            actor=actor,
+            resource=template,
+            request=request,
+            details={
+                "template_type": "block",
+                "org_type": actor_context.account_type,
+                "org_id": str(actor_context.account_id),
+            },
+        )
+        return activation
+
+    @staticmethod
+    @transaction.atomic
+    def deactivate_section_template(
+        *,
+        actor_context: ActorContext,
+        activation_id: UUID,
+        request=None,
+    ) -> None:
+        """Deactivate a section template — sets is_active=False."""
+        from apps.cms.policies import CMSActivationPolicy
+
+        MembershipPolicy.authorize_action(
+            actor_context=actor_context,
+            required_permission="can_deactivate_cms_template",
+        )
+        activation = CMSTemplateActivationSelector.get_section_activation(
+            activation_id=activation_id
+        )
+
+        # Verify org ownership
+        if activation.org_type != actor_context.account_type or str(
+            activation.org_id
+        ) != str(actor_context.account_id):
+            raise PermissionDenied(
+                message="Cannot manage activations for another organization"
+            )
+
+        # Check template not in use
+        CMSActivationPolicy.can_deactivate_section_template(
+            activation=activation,
+            org_type=actor_context.account_type,
+            org_id=actor_context.account_id,
+        )
+
+        activation.is_active = False
+        activation.save(update_fields=["is_active", "updated_at"])
+
+        actor = _resolve_actor(actor_context)
+        logger.info(
+            "cms.template.deactivated",
+            template_id=str(activation.template_id),
+            template_type="section",
+            org_type=actor_context.account_type,
+            org_id=str(actor_context.account_id),
+        )
+        AuditService.log(
+            action=AuditLog.Action.CMS_TEMPLATE_DEACTIVATED,
+            actor=actor,
+            resource=activation.template,
+            request=request,
+            details={
+                "template_type": "section",
+                "org_type": actor_context.account_type,
+                "org_id": str(actor_context.account_id),
+            },
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def deactivate_block_template(
+        *,
+        actor_context: ActorContext,
+        activation_id: UUID,
+        request=None,
+    ) -> None:
+        """Deactivate a block template — sets is_active=False."""
+        from apps.cms.policies import CMSActivationPolicy
+
+        MembershipPolicy.authorize_action(
+            actor_context=actor_context,
+            required_permission="can_deactivate_cms_template",
+        )
+        activation = CMSTemplateActivationSelector.get_block_activation(
+            activation_id=activation_id
+        )
+
+        # Verify org ownership
+        if activation.org_type != actor_context.account_type or str(
+            activation.org_id
+        ) != str(actor_context.account_id):
+            raise PermissionDenied(
+                message="Cannot manage activations for another organization"
+            )
+
+        # Check template not in use
+        CMSActivationPolicy.can_deactivate_block_template(
+            activation=activation,
+            org_type=actor_context.account_type,
+            org_id=actor_context.account_id,
+        )
+
+        activation.is_active = False
+        activation.save(update_fields=["is_active", "updated_at"])
+
+        actor = _resolve_actor(actor_context)
+        logger.info(
+            "cms.template.deactivated",
+            template_id=str(activation.template_id),
+            template_type="block",
+            org_type=actor_context.account_type,
+            org_id=str(actor_context.account_id),
+        )
+        AuditService.log(
+            action=AuditLog.Action.CMS_TEMPLATE_DEACTIVATED,
+            actor=actor,
+            resource=activation.template,
+            request=request,
+            details={
+                "template_type": "block",
+                "org_type": actor_context.account_type,
+                "org_id": str(actor_context.account_id),
+            },
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def auto_provision_defaults(*, org_type: str, org_id, user=None) -> int:
+        """
+        Auto-activate all is_default=True templates for a new org.
+        Called by CMS activation outcome handler and platform admin toggle.
+        Returns count of templates activated.
+        """
+        eligible = TEMPLATE_ELIGIBILITY.get(org_type, set())
+        count = 0
+
+        for st in SectionTemplate.objects.filter(
+            is_default=True, org_type__in=eligible
+        ):
+            _, created = SectionTemplateActivation.objects.get_or_create(
+                template=st,
+                org_type=org_type,
+                org_id=org_id,
+                defaults={"activated_by": user, "is_active": True},
+            )
+            if created:
+                count += 1
+
+        for bt in BlockTemplate.objects.filter(is_default=True, org_type__in=eligible):
+            _, created = BlockTemplateActivation.objects.get_or_create(
+                template=bt,
+                org_type=org_type,
+                org_id=org_id,
+                defaults={"activated_by": user, "is_active": True},
+            )
+            if created:
+                count += 1
+
+        logger.info(
+            "cms.defaults.provisioned",
+            org_type=org_type,
+            org_id=str(org_id),
+            count=count,
+        )
+        if count > 0:
+            AuditService.log(
+                action=AuditLog.Action.CMS_DEFAULTS_PROVISIONED,
+                actor=user,
+                details={
+                    "org_type": org_type,
+                    "org_id": str(org_id),
+                    "templates_provisioned": count,
+                },
+            )
+        return count
+
+
+# ===========================================================================
 # CMSSiteService
 # ===========================================================================
 
 
 class CMSSiteService:
-    """Site lifecycle — create, update, soft-delete (platform-only, superuser)."""
+    """Site lifecycle — create, update, soft-delete."""
 
     @staticmethod
     @transaction.atomic
@@ -96,6 +448,18 @@ class CMSSiteService:
             actor_context=actor_context,
             required_permission="can_create_cms_site",
         )
+
+        # VG limit — business context only
+        if owner_type == "business":
+            current = Site.objects.filter(
+                owner_type=owner_type, owner_id=owner_id
+            ).count()
+            feature_config.check_limit(
+                "business.cms.max_sites",
+                current,
+                rule="cms_max_sites_exceeded",
+                resource="CMS Site",
+            )
 
         # Check slug uniqueness
         if Site.objects.filter(slug=slug).exists():
@@ -458,6 +822,16 @@ class CMSPageService:
 
         site = CMSSiteSelector.get_by_id(site_id=site_id)
 
+        # VG limit — business context only
+        if site.owner_type == "business":
+            current = Page.objects.filter(site=site).count()
+            feature_config.check_limit(
+                "business.cms.max_pages_per_site",
+                current,
+                rule="cms_max_pages_per_site_exceeded",
+                resource="CMS Page",
+            )
+
         if Page.objects.filter(site=site, slug=slug).exists():
             raise ConflictError(resource="Page", conflict_type="duplicate")
 
@@ -518,6 +892,69 @@ class CMSPageService:
             Page.objects.filter(id=page_id).update(order=index)
 
         logger.info("cms.pages.reordered", site_id=str(site_id))
+
+    @staticmethod
+    @transaction.atomic
+    def update_page(
+        *,
+        actor_context: ActorContext,
+        page_id: UUID,
+        request: HttpRequest | None = None,
+        **fields,
+    ) -> Page:
+        """Update page metadata (title, description, path, metadata, is_visible)."""
+        MembershipPolicy.authorize_action(
+            actor_context=actor_context,
+            required_permission="can_edit_cms_page",
+        )
+        page = CMSPageSelector.get_by_id(page_id=page_id)
+        actor = _resolve_actor(actor_context)
+
+        allowed = {"title", "description", "path", "metadata", "is_visible"}
+        for key, value in fields.items():
+            if key in allowed:
+                setattr(page, key, value)
+
+        page.updated_by = actor
+        page.save()
+
+        logger.info("cms.page.updated", page_id=str(page.id))
+        AuditService.log(
+            action=AuditLog.Action.CMS_PAGE_UPDATED,
+            actor=actor,
+            resource=page,
+            request=request,
+        )
+        return page
+
+    @staticmethod
+    @transaction.atomic
+    def delete_page(
+        *,
+        actor_context: ActorContext,
+        page_id: UUID,
+        request: HttpRequest | None = None,
+    ) -> None:
+        """Soft-delete a page. Respects is_required invariant."""
+        from apps.cms.policies import CMSPolicy
+
+        MembershipPolicy.authorize_action(
+            actor_context=actor_context,
+            required_permission="can_delete_cms_page",
+        )
+        page = CMSPageSelector.get_by_id(page_id=page_id)
+        CMSPolicy.can_delete_page(page=page)
+
+        actor = _resolve_actor(actor_context)
+        page.soft_delete(user=actor)
+
+        logger.info("cms.page.deleted", page_id=str(page.id))
+        AuditService.log(
+            action=AuditLog.Action.CMS_PAGE_DELETED,
+            actor=actor,
+            resource=page,
+            request=request,
+        )
 
     @staticmethod
     @transaction.atomic
@@ -969,6 +1406,24 @@ class CMSMediaService:
             required_permission="can_upload_cms_media",
         )
 
+        # VG limits — business context only
+        if owner_type == "business":
+            current = MediaFile.objects.filter(
+                owner_type=owner_type, owner_id=owner_id
+            ).count()
+            feature_config.check_limit(
+                "business.cms.max_media_files",
+                current,
+                rule="cms_max_media_files_exceeded",
+                resource="CMS Media File",
+            )
+            max_mb = feature_config.get_value("business.cms.max_media_file_size_mb", 10)
+            if max_mb and file.size > max_mb * 1024 * 1024:
+                raise ValidationError(
+                    message=f"File size exceeds {max_mb}MB limit",
+                    field="file",
+                )
+
         import uuid as uuid_mod
 
         from django.core.files.storage import default_storage
@@ -1208,6 +1663,23 @@ class CMSApiKeyService:
         )
 
         site = CMSSiteSelector.get_by_id(site_id=site_id)
+
+        # VG limits — business context only
+        if site.owner_type == "business":
+            current = CMSApiKey.objects.filter(site=site).count()
+            feature_config.check_limit(
+                "business.cms.max_api_keys_per_site",
+                current,
+                rule="cms_max_api_keys_per_site_exceeded",
+                resource="CMS API Key",
+            )
+            # Use business-specific rate limit if no override provided
+            if rate_limit == 60:
+                biz_rate = feature_config.get_value(
+                    "business.cms.api_key_rate_limit", 60
+                )
+                rate_limit = biz_rate
+
         actor = _resolve_actor(actor_context)
 
         plaintext, prefix, key_hash = CMSApiKey.generate_key()
@@ -1348,7 +1820,9 @@ def _create_content_version_throttled(
         and latest.action == ContentVersionAction.DRAFT_SAVE
         and latest.created_by == actor
         and (timezone.now() - latest.created_at).total_seconds()
-        < VERSION_THROTTLE_SECONDS
+        < feature_config.get_value(
+            "cms.version_throttle_seconds", VERSION_THROTTLE_SECONDS
+        )
     ):
         # Update in-place
         latest.content_snapshot = content or {}
@@ -1368,7 +1842,11 @@ def _prune_old_versions(*, block_placement_id: UUID) -> None:
     version_ids = list(
         ContentVersion.objects.filter(block_placement_id=block_placement_id)
         .order_by("-version_number")
-        .values_list("id", flat=True)[MAX_VERSIONS_PER_PLACEMENT:]
+        .values_list("id", flat=True)[
+            feature_config.get_value(
+                "cms.max_versions_per_placement", MAX_VERSIONS_PER_PLACEMENT
+            ) :
+        ]
     )
     if version_ids:
         ContentVersion.objects.filter(id__in=version_ids).delete()

@@ -1,0 +1,123 @@
+# =============================================================================
+# E2E Nightly — Full Suite (L1 + L2 + L3)
+# =============================================================================
+# Runs at 2:00 AM UTC daily. Full test suite with video recordings.
+# Budget: <60 min. Alert on failure via GitHub notification.
+# =============================================================================
+
+name: E2E Nightly
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 2:00 AM UTC daily
+  workflow_dispatch:       # Allow manual trigger
+
+env:
+  E2E_BASE_URL: http://localhost:3001
+  E2E_API_URL: http://localhost:8001/api/v1
+  E2E_WS_URL: ws://localhost:8001/ws
+  E2E_DB_HOST: localhost
+  E2E_DB_PORT: "5433"
+  E2E_DB_NAME: backend_core_e2e_db
+  E2E_DB_USER: django_user
+  E2E_DB_PASSWORD: django_password
+
+jobs:
+  nightly-e2e:
+    name: Full E2E Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start E2E Docker stack
+        run: |
+          docker compose -f e2e/docker/docker-compose.e2e.yml \
+            -f e2e/docker/docker-compose.ci.yml \
+            up -d --build
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8001/health/ > /dev/null 2>&1; then
+              echo "Backend healthy"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 5
+          done
+          echo "Backend failed to start"
+          docker compose -f e2e/docker/docker-compose.e2e.yml logs backend-e2e
+          exit 1
+
+      - name: Wait for frontend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3001/ > /dev/null 2>&1; then
+              echo "Frontend healthy"
+              exit 0
+            fi
+            echo "Waiting for frontend... ($i/30)"
+            sleep 5
+          done
+          echo "Frontend failed to start"
+          docker compose -f e2e/docker/docker-compose.e2e.yml logs frontend-e2e
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install E2E dependencies
+        run: cd e2e && npm ci
+
+      - name: Install Playwright browsers
+        run: cd e2e && npx playwright install --with-deps chromium
+
+      # --- L1 Smoke (Desktop) ---
+      - name: L1 Smoke Tests (Desktop)
+        run: cd e2e && npx playwright test --project=smoke-desktop
+        env:
+          CI: true
+
+      # --- L1 Smoke (Mobile) ---
+      - name: L1 Smoke Tests (Mobile)
+        if: always()
+        run: cd e2e && npx playwright test --project=smoke-mobile
+        env:
+          CI: true
+
+      # --- L2 Workflows ---
+      - name: L2 Workflow Tests
+        if: always()
+        run: cd e2e && npx playwright test --project=workflows
+        env:
+          CI: true
+
+      # --- L3 Scenarios ---
+      - name: L3 Persona Scenarios
+        if: always()
+        run: cd e2e && npx playwright test --project=scenarios
+        env:
+          CI: true
+
+      # --- Reports ---
+      - name: Upload full test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-nightly-report-${{ github.run_number }}
+          path: |
+            e2e/reports/
+            e2e/test-results/
+          retention-days: 30
+
+      - name: Stop E2E stack
+        if: always()
+        run: |
+          docker compose -f e2e/docker/docker-compose.e2e.yml \
+            -f e2e/docker/docker-compose.ci.yml \
+            down -v

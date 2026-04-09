@@ -1,6 +1,10 @@
 # apps/organization/tests/platform/test_policies.py
 """
 Tests for PlatformPolicy RBAC-based authorization.
+
+Authorization is RBAC-only for pconsole/gconsole (Decision 3).
+can_configure remains superuser-only (platform bootstrap).
+All other methods use RBAC membership + permissions.
 """
 
 import pytest
@@ -94,7 +98,7 @@ class TestPlatformPolicyCanView:
 
 @pytest.mark.django_db
 class TestPlatformPolicyCanConfigure:
-    """Tests for can_configure policy — superuser only."""
+    """Tests for can_configure policy — superuser only (platform bootstrap)."""
 
     def test_superuser_can_configure(self, superuser):
         assert PlatformPolicy.can_configure(user=superuser) is True
@@ -108,13 +112,7 @@ class TestPlatformPolicyCanConfigure:
 
 @pytest.mark.django_db
 class TestPlatformPolicyCanUpdateProfile:
-    """Tests for can_update_profile — staff/superuser OR RBAC permission."""
-
-    def test_staff_can_update_profile(self, staff_user):
-        assert PlatformPolicy.can_update_profile(user=staff_user) is True
-
-    def test_superuser_can_update_profile(self, superuser):
-        assert PlatformPolicy.can_update_profile(user=superuser) is True
+    """Tests for can_update_profile — RBAC permission only (no staff bypass)."""
 
     def test_platform_owner_can_update_profile(self, platform_owner_user):
         """Platform Owner has all permissions via RBAC."""
@@ -123,6 +121,12 @@ class TestPlatformPolicyCanUpdateProfile:
     def test_platform_admin_can_update_profile(self, platform_admin_user):
         """Platform Admin has can_edit_profile via platform_only scope."""
         assert PlatformPolicy.can_update_profile(user=platform_admin_user) is True
+
+    def test_staff_without_rbac_cannot_update_profile(
+        self, staff_user, platform_with_rbac
+    ):
+        """Staff flag alone is NOT sufficient — RBAC membership required."""
+        assert PlatformPolicy.can_update_profile(user=staff_user) is False
 
     def test_non_member_cannot_update_profile(
         self, non_member_user, platform_with_rbac
@@ -136,24 +140,27 @@ class TestPlatformPolicyCanUpdateProfile:
 
 @pytest.mark.django_db
 class TestPlatformPolicyCanUpdateSettings:
-    """Tests for can_update_settings — superuser OR RBAC permission."""
-
-    def test_superuser_can_update_settings(self, superuser):
-        assert PlatformPolicy.can_update_settings(user=superuser) is True
+    """Tests for can_update_settings — RBAC permission only (no superuser bypass)."""
 
     def test_platform_owner_can_update_settings(self, platform_owner_user):
         """Platform Owner has all permissions via RBAC."""
         assert PlatformPolicy.can_update_settings(user=platform_owner_user) is True
 
-    def test_staff_cannot_update_settings_without_rbac(
+    def test_platform_admin_can_update_settings(self, platform_admin_user):
+        """Platform Admin has can_edit_business via platform_only scope."""
+        assert PlatformPolicy.can_update_settings(user=platform_admin_user) is True
+
+    def test_superuser_without_rbac_cannot_update_settings(
+        self, superuser, platform_with_rbac
+    ):
+        """Superuser flag alone is NOT sufficient — RBAC membership required."""
+        assert PlatformPolicy.can_update_settings(user=superuser) is False
+
+    def test_staff_without_rbac_cannot_update_settings(
         self, staff_user, platform_with_rbac
     ):
         """Staff without RBAC membership cannot update settings."""
         assert PlatformPolicy.can_update_settings(user=staff_user) is False
-
-    def test_platform_admin_can_update_settings(self, platform_admin_user):
-        """Platform Admin has can_edit_business via platform_only scope (migration 0005)."""
-        assert PlatformPolicy.can_update_settings(user=platform_admin_user) is True
 
     def test_non_member_cannot_update_settings(
         self, non_member_user, platform_with_rbac
@@ -174,7 +181,7 @@ class TestPlatformPolicyGetViewerPermissions:
         assert perms["can_edit_settings"] is True
 
     def test_admin_gets_edit_permissions(self, platform_admin_user):
-        """Platform Admin can view, edit profile, and edit settings (migration 0005)."""
+        """Platform Admin can view, edit profile, and edit settings."""
         perms = PlatformPolicy.get_viewer_permissions(user=platform_admin_user)
 
         assert perms["can_view"] is True

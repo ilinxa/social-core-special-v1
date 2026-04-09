@@ -9,6 +9,7 @@ from django.contrib import admin
 
 from apps.cms.models import (
     BlockTemplate,
+    BlockTemplateActivation,
     CMSApiKey,
     ContentVersion,
     MediaFile,
@@ -17,6 +18,7 @@ from apps.cms.models import (
     PageSectionPlacement,
     SectionBlockPlacement,
     SectionTemplate,
+    SectionTemplateActivation,
     Site,
 )
 
@@ -97,16 +99,45 @@ class PageAdmin(admin.ModelAdmin):
 
 @admin.register(SectionTemplate)
 class SectionTemplateAdmin(admin.ModelAdmin):
-    list_display = ["display_name", "section_type", "slug"]
+    list_display = ["display_name", "section_type", "slug", "org_type", "is_default"]
+    list_filter = ["org_type", "is_default", "section_type"]
     search_fields = ["name", "display_name"]
     readonly_fields = ["id", "created_at", "updated_at"]
 
 
 @admin.register(BlockTemplate)
 class BlockTemplateAdmin(admin.ModelAdmin):
-    list_display = ["display_name", "block_type", "schema_version", "slug"]
+    list_display = [
+        "display_name",
+        "block_type",
+        "schema_version",
+        "slug",
+        "org_type",
+        "is_default",
+    ]
+    list_filter = ["org_type", "is_default", "block_type"]
     search_fields = ["name", "display_name"]
     readonly_fields = ["id", "schema_version", "created_at", "updated_at"]
+
+
+@admin.register(SectionTemplateActivation)
+class SectionTemplateActivationAdmin(admin.ModelAdmin):
+    list_display = ["template", "org_type", "org_id", "is_active", "created_at"]
+    list_filter = ["org_type", "is_active"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("template")
+
+
+@admin.register(BlockTemplateActivation)
+class BlockTemplateActivationAdmin(admin.ModelAdmin):
+    list_display = ["template", "org_type", "org_id", "is_active", "created_at"]
+    list_filter = ["org_type", "is_active"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("template")
 
 
 @admin.register(PageSectionPlacement)

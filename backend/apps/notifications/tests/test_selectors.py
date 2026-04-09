@@ -376,3 +376,124 @@ class TestNotificationPreferenceSelector:
         )
 
         assert result == []
+
+
+# =============================================================================
+# OFFSET PAGINATION (ISSUE-7 tests)
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestNotificationLogSelectorOffset:
+    """Verify offset parameter on get_user_history."""
+
+    def test_offset_skips_results(self):
+        """offset=2 skips the first 2 results."""
+        user = UserFactory()
+        for _ in range(5):
+            NotificationLogFactory(user=user)
+
+        results = NotificationLogSelector.get_user_history(
+            user=user, offset=2, limit=10
+        )
+
+        assert len(results) == 3  # 5 total - 2 skipped
+
+    def test_offset_and_limit_combined(self):
+        """offset=1, limit=2 returns middle slice."""
+        user = UserFactory()
+        for _ in range(5):
+            NotificationLogFactory(user=user)
+
+        results = NotificationLogSelector.get_user_history(user=user, offset=1, limit=2)
+
+        assert len(results) == 2
+
+    def test_offset_zero_returns_all(self):
+        """offset=0 (default) returns from the beginning."""
+        user = UserFactory()
+        for _ in range(3):
+            NotificationLogFactory(user=user)
+
+        results = NotificationLogSelector.get_user_history(user=user, offset=0)
+
+        assert len(results) == 3
+
+
+# =============================================================================
+# SCOPE FILTERING
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestNotificationLogSelectorScope:
+    """Verify scope filtering on get_user_history."""
+
+    def test_scope_type_filter(self):
+        """scope_type filter returns only matching logs."""
+        from apps.notifications.tests.factories import ScopedNotificationLogFactory
+
+        user = UserFactory()
+        NotificationLogFactory(user=user)  # user-scoped
+        ScopedNotificationLogFactory(user=user)  # business-scoped
+
+        results = NotificationLogSelector.get_user_history(
+            user=user, scope_type="business"
+        )
+        assert len(results) == 1
+        assert results[0].scope_type == "business"
+
+    def test_scope_id_filter(self):
+        """scope_id filter returns only matching logs."""
+        import uuid
+
+        from apps.notifications.tests.factories import ScopedNotificationLogFactory
+
+        user = UserFactory()
+        biz_id = uuid.uuid4()
+        ScopedNotificationLogFactory(user=user, scope_id=biz_id)
+        ScopedNotificationLogFactory(user=user, scope_id=uuid.uuid4())
+
+        results = NotificationLogSelector.get_user_history(
+            user=user, scope_type="business", scope_id=biz_id
+        )
+        assert len(results) == 1
+        assert results[0].scope_id == biz_id
+
+    def test_no_scope_filter_returns_all(self):
+        """Without scope params, returns all scopes."""
+        from apps.notifications.tests.factories import ScopedNotificationLogFactory
+
+        user = UserFactory()
+        NotificationLogFactory(user=user)
+        ScopedNotificationLogFactory(user=user)
+
+        results = NotificationLogSelector.get_user_history(user=user)
+        assert len(results) == 2
+
+
+@pytest.mark.django_db
+class TestNotificationLogSelectorScopes:
+    """Tests for get_user_notification_scopes."""
+
+    def test_returns_distinct_scopes(self):
+        """Returns distinct scope_type/scope_id combinations with counts."""
+        from apps.notifications.tests.factories import ScopedNotificationLogFactory
+
+        user = UserFactory()
+        NotificationLogFactory(user=user)
+        NotificationLogFactory(user=user)
+        ScopedNotificationLogFactory(user=user)
+
+        scopes = list(NotificationLogSelector.get_user_notification_scopes(user=user))
+
+        assert len(scopes) >= 2
+        scope_types = {s["scope_type"] for s in scopes}
+        assert "user" in scope_types
+        assert "business" in scope_types
+
+    def test_empty_for_new_user(self):
+        """Returns empty for user with no notifications."""
+        user = UserFactory()
+        scopes = list(NotificationLogSelector.get_user_notification_scopes(user=user))
+        assert scopes == []

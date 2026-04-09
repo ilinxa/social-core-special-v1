@@ -19,6 +19,12 @@ def cleanup_tombstoned_media():
     Periodic task: Remove tombstoned media files with zero published references.
     Schedule: Daily or as configured in CELERY_BEAT_SCHEDULE.
     """
+    from apps.core.feature_config import feature_config
+
+    if not feature_config.is_system_enabled("cms"):
+        logger.info("cms.task.cleanup_tombstoned.skipped", reason="system_disabled")
+        return 0
+
     from apps.cms.services import CMSMediaService
 
     cleaned = CMSMediaService.cleanup_tombstoned()
@@ -32,6 +38,12 @@ def prune_content_versions():
     Periodic task: Prune content versions beyond retention limit.
     Schedule: Weekly.
     """
+    from apps.core.feature_config import feature_config
+
+    if not feature_config.is_system_enabled("cms"):
+        logger.info("cms.task.prune_versions.skipped", reason="system_disabled")
+        return 0
+
     from apps.cms.models import SectionBlockPlacement
     from apps.cms.services import _prune_old_versions
 

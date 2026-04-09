@@ -274,6 +274,27 @@ TRANSACTION_TYPES = {
         resubmission_cooldown_days=7,
         outcome_handler="apps.network.outcome_handlers.ConnectionOutcomeHandler.handle_account_accepted",
     ),
+    # --- CMS ---
+    "cms_activation_request": TransactionTypeConfig(
+        id="cms_activation_request",
+        name="CMS Activation Request",
+        category="cms",
+        conflict_group="cms_activation",
+        mode=TransactionMode.REQUEST,
+        initiator_types=[PartyType.MEMBERSHIP_ACTOR],
+        target_types=[PartyType.ACCOUNT],
+        context_type=ContextType.PLATFORM,
+        approver_policy=ApproverPolicy.PLATFORM_AUTHORITY,
+        approval_permission="can_approve_cms_activation",
+        owner_only=True,
+        payload_schema={
+            "business_id": {"type": "string", "format": "uuid", "required": True},
+            "reason": {"type": "string", "max_length": 1000, "required": False},
+        },
+        expiration_days=30,
+        resubmission_cooldown_days=14,
+        outcome_handler="apps.cms.outcome_handlers.CMSActivationOutcomeHandler.handle_approved",
+    ),
     # --- USER-TO-USER ---
     "user_connection_request": TransactionTypeConfig(
         id="user_connection_request",
@@ -291,6 +312,43 @@ TRANSACTION_TYPES = {
         expiration_days=30,
         resubmission_cooldown_days=7,
         outcome_handler="apps.network.outcome_handlers.ConnectionOutcomeHandler.handle_user_accepted",
+    ),
+    # --- GOVERNANCE APPEALS (constants only, outcome handlers deferred) ---
+    "business_suspension_appeal": TransactionTypeConfig(
+        id="business_suspension_appeal",
+        name="Business Suspension Appeal",
+        category="governance",
+        mode=TransactionMode.REQUEST,
+        initiator_types=[PartyType.MEMBERSHIP_ACTOR],
+        target_types=[PartyType.ACCOUNT],
+        context_type=ContextType.PLATFORM,
+        approver_policy=ApproverPolicy.PLATFORM_AUTHORITY,
+        approval_permission="can_suspend_business",
+        payload_schema={
+            "business_id": {"type": "string", "format": "uuid", "required": True},
+            "reason": {"type": "string", "max_length": 2000, "required": True},
+        },
+        expiration_days=30,
+        resubmission_cooldown_days=30,
+        enabled=False,
+    ),
+    "membership_enforcement_appeal": TransactionTypeConfig(
+        id="membership_enforcement_appeal",
+        name="Membership Enforcement Appeal",
+        category="governance",
+        mode=TransactionMode.REQUEST,
+        initiator_types=[PartyType.USER],
+        target_types=[PartyType.ACCOUNT],
+        context_type=ContextType.PLATFORM,
+        approver_policy=ApproverPolicy.PLATFORM_AUTHORITY,
+        approval_permission="can_suspend_member",
+        payload_schema={
+            "membership_id": {"type": "string", "format": "uuid", "required": True},
+            "reason": {"type": "string", "max_length": 2000, "required": True},
+        },
+        expiration_days=30,
+        resubmission_cooldown_days=30,
+        enabled=False,
     ),
 }
 

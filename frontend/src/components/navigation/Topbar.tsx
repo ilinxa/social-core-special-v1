@@ -7,6 +7,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/navigation/UserMenu";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 import { useIsAuthenticated, useIsInitialized } from "@/stores/auth-store";
 
 interface TopbarProps {
@@ -31,6 +32,7 @@ export function Topbar({ variant }: TopbarProps) {
           SocialMedia Adv
         </Link>
         <div className="flex-1" />
+        <NotificationBell />
         <UserMenu />
       </header>
     );

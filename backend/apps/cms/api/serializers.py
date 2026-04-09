@@ -9,6 +9,7 @@ from rest_framework import serializers
 
 from apps.cms.models import (
     BlockTemplate,
+    BlockTemplateActivation,
     CMSApiKey,
     ContentVersion,
     MediaFile,
@@ -18,6 +19,7 @@ from apps.cms.models import (
     PageSectionPlacement,
     SectionBlockPlacement,
     SectionTemplate,
+    SectionTemplateActivation,
     Site,
 )
 
@@ -197,6 +199,8 @@ class SectionTemplateOutputSerializer(serializers.ModelSerializer):
             "slug",
             "description",
             "section_type",
+            "org_type",
+            "is_default",
             "metadata",
             "ui_config",
             "created_at",
@@ -213,6 +217,8 @@ class BlockTemplateOutputSerializer(serializers.ModelSerializer):
             "slug",
             "description",
             "block_type",
+            "org_type",
+            "is_default",
             "schema",
             "schema_version",
             "default_content",
@@ -451,3 +457,93 @@ class PageExportOutputSerializer(serializers.Serializer):
     source_owner_type = serializers.CharField()
     source_owner_id = serializers.CharField()
     page = serializers.JSONField()
+
+
+# ---------------------------------------------------------------------------
+# Template Catalog & Activation Serializers
+# ---------------------------------------------------------------------------
+
+
+class TemplateCatalogSectionSerializer(serializers.ModelSerializer):
+    """Read-only catalog view of section templates."""
+
+    class Meta:
+        model = SectionTemplate
+        fields = [
+            "id",
+            "name",
+            "display_name",
+            "slug",
+            "section_type",
+            "description",
+            "ui_config",
+            "org_type",
+            "is_default",
+        ]
+
+
+class TemplateCatalogBlockSerializer(serializers.ModelSerializer):
+    """Read-only catalog view of block templates."""
+
+    class Meta:
+        model = BlockTemplate
+        fields = [
+            "id",
+            "name",
+            "display_name",
+            "slug",
+            "block_type",
+            "description",
+            "schema",
+            "schema_version",
+            "default_content",
+            "ui_config",
+            "org_type",
+            "is_default",
+        ]
+
+
+class TemplateActivationInputSerializer(serializers.Serializer):
+    """Input for activating a template."""
+
+    template_id = serializers.UUIDField()
+
+
+class SectionActivationOutputSerializer(serializers.ModelSerializer):
+    """Output for section template activation records."""
+
+    template = TemplateCatalogSectionSerializer(read_only=True)
+
+    class Meta:
+        model = SectionTemplateActivation
+        fields = ["id", "template", "is_active", "created_at", "updated_at"]
+
+
+class BlockActivationOutputSerializer(serializers.ModelSerializer):
+    """Output for block template activation records."""
+
+    template = TemplateCatalogBlockSerializer(read_only=True)
+
+    class Meta:
+        model = BlockTemplateActivation
+        fields = ["id", "template", "is_active", "created_at", "updated_at"]
+
+
+# ---------------------------------------------------------------------------
+# Business CMS Management Serializers (Platform Admin)
+# ---------------------------------------------------------------------------
+
+
+class BusinessCMSStatusSerializer(serializers.Serializer):
+    """Output for listing businesses with CMS status."""
+
+    id = serializers.UUIDField()
+    slug = serializers.CharField()
+    legal_name = serializers.CharField()
+    cms_enabled = serializers.BooleanField()
+
+
+class BusinessCMSToggleSerializer(serializers.Serializer):
+    """Input for toggling CMS for a business."""
+
+    cms_enabled = serializers.BooleanField(required=True)

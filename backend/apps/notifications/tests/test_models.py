@@ -18,6 +18,7 @@ from apps.notifications.tests.factories import (
     NotificationPreferenceFactory,
     SentNotificationLogFactory,
 )
+from apps.users.tests.factories import UserFactory
 
 # =============================================================================
 # NOTIFICATION PREFERENCE
@@ -205,3 +206,95 @@ class TestNotificationLog:
         log = NotificationLogFactory()
 
         assert log.retry_count == 0
+
+
+# =============================================================================
+# SCOPE FIELDS
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestNotificationLogScope:
+    """Tests for scope fields on NotificationLog."""
+
+    def test_default_scope_type_is_user(self):
+        """Default scope_type is 'user'."""
+        log = NotificationLogFactory()
+        assert log.scope_type == "user"
+
+    def test_default_scope_id_is_none(self):
+        """Default scope_id is None."""
+        log = NotificationLogFactory()
+        assert log.scope_id is None
+
+    def test_business_scope(self):
+        """Can create log with business scope."""
+        from apps.notifications.tests.factories import ScopedNotificationLogFactory
+
+        log = ScopedNotificationLogFactory()
+        assert log.scope_type == "business"
+        assert log.scope_id is not None
+
+    def test_str_includes_scope(self):
+        """__str__ includes scope for non-user scopes."""
+        from apps.notifications.tests.factories import ScopedNotificationLogFactory
+
+        log = ScopedNotificationLogFactory()
+        assert "[business]" in str(log)
+
+    def test_str_excludes_scope_for_user(self):
+        """__str__ does not include scope for user scope."""
+        log = NotificationLogFactory()
+        assert "[user]" not in str(log)
+
+
+@pytest.mark.django_db
+class TestNotificationPreferenceScope:
+    """Tests for scope fields on NotificationPreference."""
+
+    def test_default_scope_type_is_user(self):
+        """Default scope_type is 'user'."""
+        pref = NotificationPreferenceFactory()
+        assert pref.scope_type == "user"
+
+    def test_scoped_preference_creation(self):
+        """Can create a business-scoped preference."""
+        from apps.notifications.tests.factories import ScopedPreferenceFactory
+
+        pref = ScopedPreferenceFactory()
+        assert pref.scope_type == "business"
+        assert pref.scope_id is not None
+
+    def test_unique_global_constraint(self):
+        """Cannot create two global preferences for same user+type."""
+        pref = NotificationPreferenceFactory(notification_type="new_login")
+
+        with pytest.raises(IntegrityError):
+            with transaction.atomic():
+                NotificationPreferenceFactory(
+                    user=pref.user,
+                    notification_type="new_login",
+                )
+
+    def test_scoped_and_global_coexist(self):
+        """A user can have both global and scoped preferences for same type."""
+        import uuid
+
+        user = UserFactory()
+        # Global preference
+        NotificationPreferenceFactory(user=user, notification_type="new_login")
+        # Scoped preference for a business
+        from apps.notifications.tests.factories import ScopedPreferenceFactory
+
+        ScopedPreferenceFactory(
+            user=user,
+            notification_type="new_login",
+            scope_id=uuid.uuid4(),
+        )
+        # Should have 2 preferences
+        assert (
+            NotificationPreference.objects.filter(
+                user=user, notification_type="new_login"
+            ).count()
+            == 2
+        )

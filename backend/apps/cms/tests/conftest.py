@@ -2,17 +2,24 @@
 import pytest
 from rest_framework.test import APIClient
 
+from apps.cms.constants import TemplateOrgType
+from apps.cms.models import BlockTemplateActivation, SectionTemplateActivation
 from apps.cms.tests.factories import (
+    BlockTemplateActivationFactory,
     BlockTemplateFactory,
     MediaFileFactory,
     PageFactory,
     PageSectionPlacementFactory,
     SectionBlockPlacementFactory,
+    SectionTemplateActivationFactory,
     SectionTemplateFactory,
     SiteFactory,
 )
 from apps.core.constants import AccountType, OwnerType
-from apps.organization.tests.factories import PlatformAccountFactory
+from apps.organization.tests.factories import (
+    BusinessAccountFactory,
+    PlatformAccountFactory,
+)
 from apps.rbac.selectors import RoleSelector
 from apps.rbac.services import RBACService
 from apps.users.tests.factories import UserFactory
@@ -145,4 +152,90 @@ def media_file(db, user, platform_with_rbac):
         owner_id=platform_with_rbac.id,
         created_by=user,
         updated_by=user,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Business CMS Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def business_user(db):
+    """Separate user for business context."""
+    return UserFactory()
+
+
+@pytest.fixture
+def business_account(db, business_user):
+    """Business with CMS enabled and RBAC initialized."""
+    business = BusinessAccountFactory(
+        created_by=business_user,
+        updated_by=business_user,
+    )
+    business.cms_enabled = True
+    business.save(update_fields=["cms_enabled"])
+    RBACService.initialize_business_account(
+        business_id=business.id,
+        owner=business_user,
+    )
+    return business
+
+
+@pytest.fixture
+def business_actor_context(business_user, business_account):
+    """ActorContext for the business owner."""
+    from apps.rbac.selectors import MembershipSelector
+
+    membership = MembershipSelector.get_active_membership_for_user_account(
+        user=business_user,
+        account_type=AccountType.BUSINESS,
+        account_id=business_account.id,
+    )
+    return RBACService.build_actor_context(membership=membership)
+
+
+@pytest.fixture
+def business_section_template(db, user):
+    """Section template eligible for business orgs."""
+    return SectionTemplateFactory(
+        org_type=TemplateOrgType.ALL,
+        is_default=True,
+        created_by=user,
+        updated_by=user,
+    )
+
+
+@pytest.fixture
+def business_block_template(db, user):
+    """Block template eligible for business orgs."""
+    return BlockTemplateFactory(
+        org_type=TemplateOrgType.ALL,
+        is_default=True,
+        created_by=user,
+        updated_by=user,
+    )
+
+
+@pytest.fixture
+def activated_section_template(
+    business_section_template, business_account, business_user
+):
+    """Section template activated for the business."""
+    return SectionTemplateActivationFactory(
+        template=business_section_template,
+        org_type=OwnerType.BUSINESS,
+        org_id=business_account.id,
+        activated_by=business_user,
+    )
+
+
+@pytest.fixture
+def activated_block_template(business_block_template, business_account, business_user):
+    """Block template activated for the business."""
+    return BlockTemplateActivationFactory(
+        template=business_block_template,
+        org_type=OwnerType.BUSINESS,
+        org_id=business_account.id,
+        activated_by=business_user,
     )

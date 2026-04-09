@@ -24,12 +24,7 @@ from apps.chat.constants import (
     RequestStatus,
     ScopeType,
 )
-from apps.chat.models import (
-    ChatBlock,
-    Conversation,
-    ConversationParticipant,
-    Message,
-)
+from apps.chat.models import ChatBlock, Conversation, ConversationParticipant, Message
 from apps.chat.services import ChatService
 from apps.chat.tests.factories import (
     ChatBlockFactory,
@@ -274,6 +269,84 @@ class TestCreateConversation:
         )
         assert conv.scope_type == ScopeType.BUSINESS
         assert conv.scope_id == business.id
+
+    # -- can_manage_chat RBAC check for org-scoped group creation (Fix #2) --
+
+    @patch("apps.chat.services.ChatPolicy.can_manage_entity_chat", return_value=False)
+    def test_create_group_in_business_scope_requires_can_manage_chat(
+        self, mock_can_manage, user, business
+    ):
+        """Group creation in business scope should fail without can_manage_chat."""
+        biz_owner = business.created_by
+        with pytest.raises(PermissionDenied):
+            ChatService.create_conversation(
+                scope_type=ScopeType.BUSINESS,
+                scope_id=business.id,
+                conversation_type=ConversationType.GROUP,
+                participant_ids=[
+                    {
+                        "participant_type": ParticipantType.USER,
+                        "participant_id": user.id,
+                    }
+                ],
+                name="Biz Group",
+                creator_type=ParticipantType.USER,
+                creator_id=biz_owner.id,
+                acting_user=biz_owner,
+            )
+        mock_can_manage.assert_called_once_with(
+            user=biz_owner,
+            account_type=ScopeType.BUSINESS,
+            account_id=business.id,
+        )
+
+    @patch("apps.chat.services.ChatPolicy.can_manage_entity_chat", return_value=True)
+    def test_create_group_in_business_scope_with_permission(
+        self, mock_can_manage, user, business
+    ):
+        """Group creation in business scope should succeed with can_manage_chat."""
+        biz_owner = business.created_by
+        conv = ChatService.create_conversation(
+            scope_type=ScopeType.BUSINESS,
+            scope_id=business.id,
+            conversation_type=ConversationType.GROUP,
+            participant_ids=[
+                {
+                    "participant_type": ParticipantType.USER,
+                    "participant_id": user.id,
+                }
+            ],
+            name="Biz Group",
+            creator_type=ParticipantType.USER,
+            creator_id=biz_owner.id,
+            acting_user=biz_owner,
+        )
+        assert conv.conversation_type == ConversationType.GROUP
+        assert conv.scope_type == ScopeType.BUSINESS
+        mock_can_manage.assert_called_once()
+
+    @patch("apps.chat.services.ChatPolicy.can_manage_entity_chat", return_value=False)
+    def test_create_dm_in_business_scope_skips_can_manage_chat(
+        self, mock_can_manage, user, business
+    ):
+        """DM creation in business scope should NOT check can_manage_chat (DMs are not groups)."""
+        biz_owner = business.created_by
+        conv = ChatService.create_conversation(
+            scope_type=ScopeType.BUSINESS,
+            scope_id=business.id,
+            conversation_type=ConversationType.DIRECT,
+            participant_ids=[
+                {
+                    "participant_type": ParticipantType.USER,
+                    "participant_id": user.id,
+                }
+            ],
+            creator_type=ParticipantType.USER,
+            creator_id=biz_owner.id,
+            acting_user=biz_owner,
+        )
+        assert conv.conversation_type == ConversationType.DIRECT
+        # can_manage_entity_chat should NOT have been called for DM creation
 
 
 # =============================================================================
@@ -525,9 +598,7 @@ class TestEditMessage:
             sequence_number=1,
         )
         with pytest.raises(BusinessRuleViolation) as exc:
-            ChatService.edit_message(
-                message_id=msg.id, new_content="Back?", user=user
-            )
+            ChatService.edit_message(message_id=msg.id, new_content="Back?", user=user)
         assert exc.value.details["rule"] == "message_deleted"
 
     def test_edit_window_expired(self, user, dm_conversation):
@@ -559,9 +630,7 @@ class TestEditMessage:
             content="Original",
         )
         with pytest.raises(ValidationError):
-            ChatService.edit_message(
-                message_id=msg.id, new_content="", user=user
-            )
+            ChatService.edit_message(message_id=msg.id, new_content="", user=user)
 
 
 # =============================================================================
@@ -619,9 +688,7 @@ class TestDeleteMessage:
         with pytest.raises(PermissionDenied):
             ChatService.delete_message(message_id=msg.id, user=user_b)
 
-    def test_group_admin_can_delete_any_message(
-        self, user, user_b, group_conversation
-    ):
+    def test_group_admin_can_delete_any_message(self, user, user_b, group_conversation):
         """user is admin in group_conversation."""
         msg = ChatService.send_message(
             conversation_id=group_conversation.id,
@@ -709,9 +776,7 @@ class TestUpdateDeliveredWatermark:
 class TestAcceptRequest:
     def test_accept_pending_request(self, user_b, dm_with_request):
         """user_b has a pending request in dm_with_request."""
-        ChatService.accept_request(
-            conversation_id=dm_with_request.id, user=user_b
-        )
+        ChatService.accept_request(conversation_id=dm_with_request.id, user=user_b)
         cp = ConversationParticipant.objects.get(
             conversation=dm_with_request,
             participant_id=user_b.id,
@@ -722,16 +787,12 @@ class TestAcceptRequest:
     def test_accept_nonexistent_request_raises(self, user, dm_conversation):
         """user in dm_conversation has no pending request."""
         with pytest.raises(NotFound):
-            ChatService.accept_request(
-                conversation_id=dm_conversation.id, user=user
-            )
+            ChatService.accept_request(conversation_id=dm_conversation.id, user=user)
 
 
 class TestIgnoreRequest:
     def test_ignore_pending_request(self, user_b, dm_with_request):
-        ChatService.ignore_request(
-            conversation_id=dm_with_request.id, user=user_b
-        )
+        ChatService.ignore_request(conversation_id=dm_with_request.id, user=user_b)
         cp = ConversationParticipant.objects.get(
             conversation=dm_with_request,
             participant_id=user_b.id,
@@ -741,9 +802,7 @@ class TestIgnoreRequest:
 
     def test_ignore_nonexistent_request_raises(self, user, dm_conversation):
         with pytest.raises(NotFound):
-            ChatService.ignore_request(
-                conversation_id=dm_conversation.id, user=user
-            )
+            ChatService.ignore_request(conversation_id=dm_conversation.id, user=user)
 
 
 # =============================================================================
@@ -937,9 +996,7 @@ class TestLeaveConversation:
 
     def test_admin_succession(self, user, user_b, group_conversation):
         """When last admin leaves, oldest member is promoted."""
-        ChatService.leave_conversation(
-            conversation_id=group_conversation.id, user=user
-        )
+        ChatService.leave_conversation(conversation_id=group_conversation.id, user=user)
         # user_b or user_c should be promoted (whichever was added first)
         remaining_admins = ConversationParticipant.objects.filter(
             conversation=group_conversation,
@@ -1012,9 +1069,7 @@ class TestUnblockParticipant:
 
     def test_unblock_nonexistent_raises(self, user):
         with pytest.raises(NotFound):
-            ChatService.unblock_participant(
-                blocker=user, block_id=uuid.uuid4()
-            )
+            ChatService.unblock_participant(blocker=user, block_id=uuid.uuid4())
 
     def test_unblock_other_users_block_raises(self, user, user_b):
         block = ChatBlockFactory(blocker=user_b)
@@ -1112,6 +1167,33 @@ class TestDemoteFromAdmin:
                 participant_id=user.id,
                 user=user_b,
             )
+
+    def test_demote_sends_system_message(self, user, user_b, group_conversation):
+        """Demoting an admin should create a system message."""
+        ChatService.promote_to_admin(
+            conversation_id=group_conversation.id,
+            participant_id=user_b.id,
+            user=user,
+        )
+        # Count messages before demote
+        msg_count_before = Message.objects.filter(
+            conversation=group_conversation
+        ).count()
+
+        ChatService.demote_from_admin(
+            conversation_id=group_conversation.id,
+            participant_id=user_b.id,
+            user=user,
+        )
+
+        msgs = Message.objects.filter(
+            conversation=group_conversation,
+            content_type=MessageContentType.SYSTEM,
+        ).order_by("-sequence_number")
+        assert msgs.count() > 0
+        latest_system = msgs.first()
+        assert "was demoted from admin" in latest_system.content
+        assert str(user_b.id) in latest_system.content
 
 
 # =============================================================================

@@ -4,12 +4,17 @@ Notification Views
 API views for notification preferences and history.
 """
 
+from uuid import UUID
+
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.views import PermissionInjectMixin
+from apps.notifications.models import NotificationLog
+from apps.notifications.policies import NotificationPolicy
 from apps.notifications.selectors import (
     NotificationLogSelector,
     NotificationPreferenceSelector,
@@ -202,12 +207,21 @@ class PreferenceDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class NotificationHistoryView(APIView):
+class NotificationHistoryView(PermissionInjectMixin, APIView):
     """
-    GET: Get notification history for current user.
+    GET: Get notification history for current user, optionally filtered by scope.
+    Tier 1.5: injects _permissions for org-scoped requests.
     """
 
     permission_classes = [IsAuthenticated]
+    policy_class = NotificationPolicy
+
+    def _build_policy_kwargs(self):
+        return {
+            "user": self.request.user,
+            "scope_type": self._scope_type,
+            "scope_id": self._scope_id,
+        }
 
     @extend_schema(
         summary="Get notification history",
@@ -218,12 +232,16 @@ class NotificationHistoryView(APIView):
         - `notification_type`: Filter by type (e.g., 'welcome', 'new_login')
         - `status`: Filter by status ('pending', 'sent', 'failed', 'partial')
         - `limit`: Maximum results (default: 50, max: 100)
+        - `offset`: Number of results to skip (default: 0)
+        - `scope_type`: Filter by scope ('user', 'business', 'platform')
+        - `scope_id`: Filter by org UUID (required with business/platform scope)
 
         **Response includes:**
-        - Notification type and status
+        - Notification type, scope, and status
         - Channels used (email, push, SMS)
         - Channel-specific results (success/failure per channel)
         - Timestamp
+        - `_permissions` (only for org-scoped requests)
         """,
         tags=["Notifications"],
         parameters=[
@@ -248,6 +266,27 @@ class NotificationHistoryView(APIView):
                 description="Maximum results to return (default: 50, max: 100)",
                 required=False,
             ),
+            OpenApiParameter(
+                name="offset",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Number of results to skip (default: 0)",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="scope_type",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description="Filter by scope (user, business, platform)",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="scope_id",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description="Filter by org UUID (required with business/platform scope)",
+                required=False,
+            ),
         ],
         responses={
             200: OpenApiResponse(
@@ -258,23 +297,57 @@ class NotificationHistoryView(APIView):
         },
     )
     def get(self, request):
-        """
-        Get notification history.
-
-        Query params:
-        - notification_type: Filter by type
-        - status: Filter by status
-        - limit: Max results (default 50, max 100)
-        """
+        """Get notification history with optional scope filtering."""
         notification_type = request.query_params.get("notification_type")
+
+        # Validate status against valid choices
+        valid_statuses = {s.value for s in NotificationLog.Status}
         status_filter = request.query_params.get("status")
-        limit = min(int(request.query_params.get("limit", 50)), 100)
+        if status_filter and status_filter not in valid_statuses:
+            status_filter = None
+
+        # Parse and clamp limit (1-100, default 50)
+        try:
+            limit = min(max(int(request.query_params.get("limit", 50)), 1), 100)
+        except (ValueError, TypeError):
+            limit = 50
+
+        # Parse and clamp offset (>= 0, default 0)
+        try:
+            offset = max(int(request.query_params.get("offset", 0)), 0)
+        except (ValueError, TypeError):
+            offset = 0
+
+        # Parse scope params
+        scope_type = request.query_params.get("scope_type")
+        scope_id_str = request.query_params.get("scope_id")
+        scope_id = None
+        if scope_id_str:
+            try:
+                scope_id = UUID(scope_id_str)
+            except (ValueError, TypeError):
+                scope_id_str = None
+
+        # Store for PermissionInjectMixin
+        self._scope_type = scope_type or "user"
+        self._scope_id = scope_id
+        self._inject_permissions = scope_id is not None
+
+        # RBAC: if org-scoped, verify membership (return empty, not 403)
+        if scope_type and scope_type != "user" and scope_id:
+            if not NotificationPolicy.can_view_scoped_notifications(
+                user=request.user, scope_type=scope_type, scope_id=scope_id
+            ):
+                return Response({"notifications": [], "count": 0})
 
         notifications = NotificationLogSelector.get_user_history(
             user=request.user,
             notification_type=notification_type,
             status=status_filter,
             limit=limit,
+            offset=offset,
+            scope_type=scope_type,
+            scope_id=scope_id,
         )
 
         serializer = NotificationLogSerializer(notifications, many=True)
@@ -282,6 +355,37 @@ class NotificationHistoryView(APIView):
             {
                 "notifications": serializer.data,
                 "count": len(serializer.data),
+            }
+        )
+
+
+class NotificationScopesView(APIView):
+    """
+    GET: Get notification scopes summary for current user.
+    Returns distinct scopes with notification counts.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Get notification scopes summary",
+        description="""
+        Get distinct scopes where the user has notifications, with counts.
+        Used by the frontend to show per-org notification badges.
+        """,
+        tags=["Notifications"],
+        responses={
+            200: OpenApiResponse(description="Scopes with counts"),
+            401: OpenApiResponse(description="Not authenticated"),
+        },
+    )
+    def get(self, request):
+        """Get notification scopes with counts."""
+        scopes = NotificationLogSelector.get_user_notification_scopes(user=request.user)
+        return Response(
+            {
+                "scopes": list(scopes),
+                "count": len(scopes),
             }
         )
 

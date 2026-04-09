@@ -8,9 +8,16 @@ All write methods are @staticmethod, @transaction.atomic, keyword-only args.
 from uuid import UUID
 
 from django.db import transaction as db_transaction
+from django.db.models import Q
 from django.utils import timezone
 
-from apps.core.exceptions import BusinessRuleViolation, ConflictError, PermissionDenied
+from apps.core.exceptions import (
+    BusinessRuleViolation,
+    ConflictError,
+    FeatureDisabled,
+    PermissionDenied,
+)
+from apps.core.feature_config import feature_config
 from apps.core.observability import get_logger
 from apps.core.observability.audit import AuditService
 from apps.core.observability.audit.models import AuditLog
@@ -40,6 +47,40 @@ class FollowService:
         """
         Create a follow relationship. Reactivates if previously removed.
         """
+        # Feature gates — follows
+        if not feature_config.is_feature_enabled("user.network.follows"):
+            raise FeatureDisabled(feature="user.network.follows")
+
+        if followee_type == "business":
+            if not feature_config.is_feature_enabled("business.network.followers"):
+                raise FeatureDisabled(feature="business.network.followers")
+
+        # VG limit — per-user follow cap
+        _follow_count = Follow.objects.filter(
+            follower=follower,
+            status=FollowStatus.ACTIVE,
+        ).count()
+        feature_config.check_limit(
+            "user.network.max_follows",
+            _follow_count,
+            rule="max_follows_exceeded",
+            resource="Follow",
+        )
+
+        # VG limit — per-business follower cap (only for business followees)
+        if followee_type == "business":
+            _follower_count = Follow.objects.filter(
+                followee_type="business",
+                followee_id=followee_id,
+                status=FollowStatus.ACTIVE,
+            ).count()
+            feature_config.check_limit(
+                "business.network.max_followers",
+                _follower_count,
+                rule="max_followers_exceeded",
+                resource="Business follower",
+            )
+
         existing = Follow.objects.filter(
             follower=follower,
             followee_type=followee_type,
@@ -238,6 +279,26 @@ class ConnectionService:
         request=None,
     ) -> Connection:
         """Create a user↔user connection. Reactivates if disconnected."""
+        # Feature gate — user connections
+        if not feature_config.is_feature_enabled("user.network.connections"):
+            raise FeatureDisabled(feature="user.network.connections")
+
+        # VG limit — per-user connection cap
+        _conn_count = (
+            Connection.objects.filter(
+                connection_type=ConnectionType.USER_USER,
+                status=ConnectionStatus.ACTIVE,
+            )
+            .filter(Q(user_a_id=user_a_id) | Q(user_b_id=user_a_id))
+            .count()
+        )
+        feature_config.check_limit(
+            "user.network.max_connections",
+            _conn_count,
+            rule="max_connections_exceeded",
+            resource="Connection",
+        )
+
         ca, cb = ConnectionService._canonical_user_pair(user_a_id, user_b_id)
 
         existing = Connection.objects.filter(
@@ -324,6 +385,26 @@ class ConnectionService:
         request=None,
     ) -> Connection:
         """Create an account↔account connection. Reactivates if disconnected."""
+        # Feature gate — business connections
+        if not feature_config.is_feature_enabled("business.network.connections"):
+            raise FeatureDisabled(feature="business.network.connections")
+
+        # VG limit — per-business connection cap
+        _conn_count = (
+            Connection.objects.filter(
+                connection_type=ConnectionType.ACCOUNT_ACCOUNT,
+                status=ConnectionStatus.ACTIVE,
+            )
+            .filter(Q(account_a_id=a_id) | Q(account_b_id=a_id))
+            .count()
+        )
+        feature_config.check_limit(
+            "business.network.max_connections",
+            _conn_count,
+            rule="max_connections_exceeded",
+            resource="Account connection",
+        )
+
         ca_type, ca_id, cb_type, cb_id = ConnectionService._canonical_account_pair(
             a_type,
             a_id,

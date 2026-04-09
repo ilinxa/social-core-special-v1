@@ -18,16 +18,10 @@ from apps.chat.constants import (
     RequestStatus,
     ScopeType,
 )
-from apps.chat.models import (
-    ChatBlock,
-    Conversation,
-    ConversationParticipant,
-    Message,
-)
+from apps.chat.models import ChatBlock, Conversation, ConversationParticipant, Message
 from apps.chat.services import ChatService
 from apps.core.observability.audit.models import AuditLog
 from apps.users.tests.factories import UserFactory
-
 
 # =============================================================================
 # CONVERSATION AUDIT
@@ -37,12 +31,17 @@ from apps.users.tests.factories import UserFactory
 @pytest.mark.django_db
 class TestConversationAudit:
     def test_create_conversation_logs_audit(self, user, user_b):
-        with patch("apps.network.selectors.ConnectionSelector.is_connected", return_value=True):
+        with patch(
+            "apps.network.selectors.ConnectionSelector.is_connected", return_value=True
+        ):
             conversation = ChatService.create_conversation(
                 scope_type=ScopeType.GLOBAL,
                 conversation_type=ConversationType.DIRECT,
                 participant_ids=[
-                    {"participant_type": ParticipantType.USER, "participant_id": user_b.id}
+                    {
+                        "participant_type": ParticipantType.USER,
+                        "participant_id": user_b.id,
+                    }
                 ],
                 creator_type=ParticipantType.USER,
                 creator_id=user.id,

@@ -2885,6 +2885,229 @@
         "docs/descriptions/frontend/chat-system-frontend-features.md"
       ],
       "critical": null
+    },
+    {
+      "id": 93,
+      "title": "Feature Gate System — Phase 1 Foundation (config, exception, permission, tests)",
+      "category": "developing",
+      "tags": [
+        "backend",
+        "feature-gates",
+        "core",
+        "testing"
+      ],
+      "date": "2026-03-22",
+      "summary": "Implemented Phase 1 of the Feature Gate System: FeatureConfig singleton (JSON config loader with dot-notation traversal, lazy loading, 10 public methods), FeatureDisabled exception (HTTP 403, distinct from PermissionDenied), FeatureRequired DRF permission class factory, DEPLOYMENT_CONFIG_PATH setting, and session-scoped auto-use test fixture. 76 new tests covering all 10 test classes. Full suite: 4112 passed (SQLite), 4153 passed (PostgreSQL), 0 failures.",
+      "files_changed": [
+        "backend/apps/core/feature_config.py",
+        "backend/apps/core/exceptions/domain.py",
+        "backend/apps/core/exceptions/handler.py",
+        "backend/apps/core/exceptions/__init__.py",
+        "backend/apps/core/permissions/base.py",
+        "backend/apps/core/permissions/__init__.py",
+        "backend/backend_core/settings/base.py",
+        "backend/conftest.py",
+        "backend/apps/core/tests/test_feature_config.py"
+      ],
+      "related_doc": "docs/plans/backend/feature_gate_system/feature_gate_implementation_plan.md",
+      "critical": "Feature gate fixtures must live in root backend/conftest.py (not tests/conftest.py) — pytest conftest resolution only looks up the directory tree, not sideways. Sibling directories don't share fixtures."
+    },
+    {
+      "id": 94,
+      "title": "Feature Gate System — Phase 2 SG System Gates (URL restructure, task/handler/admin gating)",
+      "category": "developing",
+      "tags": [
+        "backend",
+        "feature-gates",
+        "urls",
+        "celery",
+        "testing"
+      ],
+      "date": "2026-03-22",
+      "summary": "Implemented Phase 2 (SG System Gates): Restructured monolithic backend_core/urls.py into urls/ package with coordinator pattern (10 files). GATED_GROUPS dict + get_enabled_groups() pure function for testable decision logic. Lazy imports — disabled group files never imported → natural 404. Gated 6 network outcome handlers behind systems.network check. Gated ChatConsumer WebSocket import in routing.py. Added conditional admin import to 5 apps.py ready() hooks (chat, network, explore, cms, forms). Added early-return guards to all 8 Celery tasks (4 transaction + 2 CMS + 2 chat). 27 new tests (15 decision logic + 10 group file content + 3 integration). Full suite: 4139 passed (SQLite, +1 pre-existing flaky), 4181 passed (PostgreSQL), 0 new failures.",
+      "files_changed": [
+        "backend/backend_core/urls/__init__.py",
+        "backend/backend_core/urls/base.py",
+        "backend/backend_core/urls/organization.py",
+        "backend/backend_core/urls/transaction.py",
+        "backend/backend_core/urls/forms.py",
+        "backend/backend_core/urls/cms.py",
+        "backend/backend_core/urls/explore.py",
+        "backend/backend_core/urls/network.py",
+        "backend/backend_core/urls/chat.py",
+        "backend/backend_core/urls/dev.py",
+        "backend/backend_core/routing.py",
+        "backend/apps/transaction/outcome_handlers.py",
+        "backend/apps/chat/apps.py",
+        "backend/apps/network/apps.py",
+        "backend/apps/explore/apps.py",
+        "backend/apps/cms/apps.py",
+        "backend/apps/forms/apps.py",
+        "backend/apps/transaction/tasks.py",
+        "backend/apps/cms/tasks.py",
+        "backend/apps/chat/tasks.py",
+        "backend/conftest.py",
+        "backend/apps/core/tests/test_url_groups.py",
+        "backend/apps/core/tests/test_sg_integration.py"
+      ],
+      "related_doc": "docs/plans/backend/feature_gate_system/feature_gate_implementation_plan.md",
+      "critical": "URL coordinator module-level assembly runs at import time. Test modules importing from backend_core.urls trigger this during collection — BEFORE session fixtures run. Fix: add pytest_configure(trylast=True) hook in root conftest.py to set feature config before test collection. Session fixture remains for safety + teardown."
+    },
+    {
+      "id": 95,
+      "title": "Feature Gate System — Phase 3 FG Module Gates (12 feature paths, 14 tests)",
+      "category": "developing",
+      "tags": [
+        "backend",
+        "feature-gates",
+        "permissions",
+        "views",
+        "testing"
+      ],
+      "date": "2026-03-22",
+      "summary": "Implemented Phase 3 (FG Module Gates): Added FeatureRequired DRF permission classes and method-level guards across 7 view files, covering 12 feature paths. Network views: 13 views gated (7 user.network.enabled + 6 business.network.enabled). Business views: method-level business.members.enabled on POST + static business.profile_visibility. Platform views: method-level platform.members.enabled on POST. Forms views: static user.forms on SystemFormTemplateView + dynamic mixin gate (_FORMS_GATE_PATHS dict) for business.forms.enabled/platform.forms via single insertion in get_membership_or_403(). CMS views: module-level _CmsGate constant shared by 17 admin views (platform.cms). Explore views: user.explore.can_explore on ExploreUserSearchView. User views: user.profile_visibility + user.can_create_business. 2 gates deferred to Phase 4 (business.transactions.enabled, business.cms — no view-level targets). 14 new tests across 12 test classes. Full suite: 4154 passed (SQLite), 4195 passed (PostgreSQL), 0 failures.",
+      "files_changed": [
+        "backend/apps/network/views.py",
+        "backend/apps/organization/business/views.py",
+        "backend/apps/organization/platform/views.py",
+        "backend/apps/forms/api/views.py",
+        "backend/apps/cms/api/views.py",
+        "backend/apps/explore/views.py",
+        "backend/apps/users/views.py",
+        "backend/apps/core/tests/test_fg_module_gates.py"
+      ],
+      "related_doc": "docs/plans/backend/feature_gate_system/feature_gate_implementation_plan.md",
+      "critical": "Error response envelope: FeatureDisabled responses are wrapped as response.data['error']['code'] and response.data['error']['details']['feature'], NOT response.data['code']. Method-level gates needed for mixed GET/POST views (BusinessListCreateView, PlatformAccountView) where GET should remain accessible. FormViewMixin dynamic gate: single insertion in get_membership_or_403() gates all 17+ account-scoped form views."
+    },
+    {
+      "id": 96,
+      "title": "Feature Gate System — Phase 4 FG Sub-Feature Gates (23 gates, 29 tests)",
+      "category": "developing",
+      "tags": [
+        "backend",
+        "feature-gates",
+        "services",
+        "selectors",
+        "testing"
+      ],
+      "date": "2026-03-22",
+      "summary": "Implemented Phase 4 (FG Sub-Feature Gates): Added granular service-layer feature checks across 7 files covering 23 sub-feature gates. Chat: 8 gates (entity participation, group, file_sharing, reactions, search). Network: 4 gates (follows, business followers, user connections, business connections). Transaction: 8 gates via gate maps for invitations + requests + helper method. RBAC: 1 dynamic gate (custom_roles per account_type). Explore: 4 gates (search_users, search_businesses, combined view graceful skip, is_discoverable). Forms: 1 early-return gate (transaction_mapping). 29 new tests. Full suite: 4183 passed (SQLite), 0 failures.",
+      "files_changed": [
+        "backend/apps/chat/services.py",
+        "backend/apps/chat/selectors.py",
+        "backend/apps/network/services.py",
+        "backend/apps/transaction/services.py",
+        "backend/apps/rbac/services.py",
+        "backend/apps/explore/views.py",
+        "backend/apps/explore/selectors.py",
+        "backend/apps/core/tests/test_fg_sub_feature_gates.py"
+      ],
+      "related_doc": "docs/plans/backend/feature_gate_system/feature_gate_implementation_plan.md",
+      "critical": "Transaction gate maps: _INVITATION_FEATURE_GATES and _REQUEST_FEATURE_GATES at module level map transaction_type to list[feature_path]. _check_sub_feature_gates() iterates ALL paths (first disabled wins). Explore sub-feature gates MUST be in views not selectors — ExploreCombinedView calls both selectors, so raising FeatureDisabled inside selectors would break the combined view. Instead, combined view uses graceful skip (empty results). business.forms.transaction_mapping uses early return (not raise) — skips validation silently when disabled. Teardown operations (unfollow, disconnect) are intentionally NOT gated."
+    },
+    {
+      "id": 97,
+      "title": "Feature Gate System — Phase 5 VG Limits (16 limits, 27 tests)",
+      "category": "developing",
+      "tags": [
+        "backend",
+        "feature-gates",
+        "vg-limits",
+        "services",
+        "testing"
+      ],
+      "date": "2026-03-22",
+      "summary": "Implemented Phase 5 (VG Limits): Added 16 numeric limit enforcement checks across 8 service files. Foundation: Extended BusinessRuleViolation with limit/current params, added check_limit() helper to FeatureConfig, added all 16 limit paths to _FULL_FEATURE_CONFIG (all 0 = unlimited). Deployment-wide: max_users in UserService, max_businesses + max_businesses_per_user in BusinessAccountService. User limits: max_memberships in RBACService, max_connections + max_follows in NetworkService, max_groups in ChatService, max_pending in TransactionService (both invitation and request). Business limits: max_roles in RBACService (handles both business and platform via account_type), max_groups in ChatService (business scope), max_followers + max_connections in NetworkService, max_forms in FormBuilderService. Wired effective_limit() for max_members at both enforcement sites (TransactionService._check_member_quota and RBACService.create_membership). 27 new tests covering all 16 limits + effective_limit wiring + check_limit helper + BusinessRuleViolation extension. Full suite: 4210 passed (SQLite), 0 failures.",
+      "files_changed": [
+        "backend/apps/core/exceptions/domain.py",
+        "backend/apps/core/feature_config.py",
+        "backend/conftest.py",
+        "backend/apps/users/services.py",
+        "backend/apps/organization/business/services.py",
+        "backend/apps/rbac/services.py",
+        "backend/apps/transaction/services.py",
+        "backend/apps/network/services.py",
+        "backend/apps/chat/services.py",
+        "backend/apps/forms/services.py",
+        "backend/apps/core/tests/test_vg_limits.py"
+      ],
+      "related_doc": "docs/plans/backend/feature_gate_system/feature_gate_implementation_plan.md",
+      "critical": "All limits use 0 = unlimited convention. check_limit() is the canonical one-liner for VG limit enforcement. effective_limit() resolves dual-source limits (config vs model) — returns the tighter of two, treating 0 as unlimited. max_members has TWO enforcement sites: _check_member_quota() (pre-check at transaction creation) and create_membership() (hard gate at RBAC layer). Both must use effective_limit(). Teardown operations (delete, remove, unfollow) are intentionally NOT gated by limits."
+    },
+    {
+      "id": 98,
+      "title": "Feature Gate System — Phase 6 VG Config Values (~30 values, 31 tests)",
+      "category": "developing",
+      "tags": [
+        "backend",
+        "feature-gates",
+        "vg-config-values",
+        "services",
+        "testing"
+      ],
+      "date": "2026-03-23",
+      "summary": "Implemented Phase 6 (VG Config Values): Replaced ~30 hardcoded constants and Django settings with deployment-config-driven values via feature_config.get_value(). Added 8 root-level config sections to _FULL_FEATURE_CONFIG in conftest.py (chat, cms, transaction, network, auth, notifications, explore, infra). Auth (7 values): lockout max_attempts + duration, session max_per_user + access/refresh lifetimes, verification expiry, password reset expiry. Chat (13 values): message max_length + edit_window + preview_length, group max_participants, request max_messages + expiry_days, attachment max_size_mb + max_per_message, heartbeat interval, presence TTL. CMS (2 values): version_throttle_seconds + max_versions_per_placement. Transaction (1 value): expiration_reminder_hours. Network (1 behavioral boolean): follow_approval_required overrides profile is_public. Explore (1 value): min_search_length drops short queries. Notifications (3 channel enables): email/push/sms deployment-level filtering. 31 new tests in test_vg_config_values.py. Full suite: 4241 passed (SQLite), 0 failures.",
+      "files_changed": [
+        "backend/conftest.py",
+        "backend/apps/auth/services/auth_service.py",
+        "backend/apps/auth/models.py",
+        "backend/apps/chat/services.py",
+        "backend/apps/chat/consumers.py",
+        "backend/apps/chat/presence.py",
+        "backend/apps/chat/tasks.py",
+        "backend/apps/cms/services.py",
+        "backend/apps/transaction/tasks.py",
+        "backend/apps/network/views.py",
+        "backend/apps/explore/views.py",
+        "backend/apps/notifications/services/notification_service.py",
+        "backend/apps/core/tests/test_vg_config_values.py"
+      ],
+      "related_doc": "docs/plans/backend/feature_gate_system/feature_gate_implementation_plan.md",
+      "critical": "Constants files stay unchanged (serve as documented defaults). Model field definitions and DRF startup settings are NOT wired — only runtime service-layer code. Behavioral booleans (network.follow_approval_required) override model: config True forces approval regardless of profile is_public. Notification channel filtering runs AFTER user preferences — deployment config is the ceiling. conftest push_enabled/sms_enabled MUST be True (all features ON baseline) or existing notification tests break."
+    },
+    {
+      "id": 99,
+      "title": "Feature Gate System — Final Verification + Production Bug Fix (BUG-010: lockout counter rollback)",
+      "category": "bug-fixing",
+      "tags": [
+        "backend",
+        "feature-gates",
+        "integration-tests",
+        "production-bug",
+        "auth",
+        "lockout"
+      ],
+      "date": "2026-03-23",
+      "summary": "Final verification of Feature Gate System: ran all 296 existing integration tests (no regressions), added 16 new Phase 13 tests covering lockout, session limit, network follow, explore search, and notifications. Discovered and fixed production bug BUG-010: @transaction.atomic on login() rolled back failed_login_attempts counter increment when InvalidCredentials was raised. Also created deployment_config.json (required by SG system gates for URL routing). Final result: 312 passed, 2 skipped, 0 failures. Total: 4241 unit + 312 integration = 4553 tests.",
+      "details": "BUG-010: auth_service.py login() was decorated with @transaction.atomic. When password verification failed, the code incremented user.failed_login_attempts and called user.save(), but then raised InvalidCredentials(). The exception caused Django to roll back the entire atomic block, discarding the counter increment. The counter never persisted — account lockout was completely broken in production. Fix: Removed @transaction.atomic from login() method. Pre-auth checks (lockout, password, active, verified) now run outside any transaction. Only the success path (session creation, token generation, audit logging) runs inside a `with transaction.atomic():` block. This ensures failed login counter persists on rollback-free path, while session+token creation remains atomic. 340 auth unit tests pass with fix. Phase 13 tests (16 new): 6 lockout (counter increment, lock after max, locked rejects correct password, unlock restores access, success resets counter, independent counters), 1 session limit (6 devices → max 5 sessions), 4 network follow (public follow, private follow needs approval, following list, stats), 3 explore (business search, combined search, tag suggestions), 2 notifications (history, configurable types). deployment_config.json: Required by SG URL coordinator at startup — without it, all gated systems return 404. Created with all systems enabled, all features ON, all limits 0 (unlimited).",
+      "files_changed": [
+        "backend/apps/auth/services/auth_service.py",
+        "backend/deployment_config.json",
+        "backend/tests/api_integration/conftest.py",
+        "backend/tests/api_integration/test_phase_13_feature_gates.py"
+      ],
+      "critical": "BUG-010: @transaction.atomic on login() silently broke account lockout — counter.save() was rolled back on every InvalidCredentials raise. Fix: move pre-auth checks outside atomic block. Also: deployment_config.json is REQUIRED for integration tests (SG system gates exclude URL groups at startup without it). Integration test DB must be DROP/CREATE + migrate (not flush) to re-run data migrations."
+    },
+    {
+      "id": 100,
+      "title": "Feature Gate System — Comprehensive Documentation (4 documents, CLAUDE.md mandates)",
+      "category": "documentation",
+      "tags": [
+        "backend",
+        "feature-gates",
+        "documentation",
+        "claude-md",
+        "deployment"
+      ],
+      "date": "2026-03-23",
+      "summary": "Created 4 documentation deliverables for the Feature Gate System. D1: Implementation Reference (feature-gate-system.md, ~950 lines) — comprehensive technical reference covering architecture, core module, 4 exception classes, DRF permission factory, all ~98 enforcement points with exact file:line references across 5 gate categories (SG/FG-Module/FG-Sub/VG-Limits/VG-Config), full 123-field config schema, 220 test inventory, BUG-010 documentation, and 7 design decisions. D2: Deployment Configuration Guide (deployment-configuration.md, ~500 lines) — how to configure deployments with 3 profiles (user-only/community/full), complete field reference tables, runtime change guide, validation checklist, troubleshooting. D3: Developer Integration Guide (feature-gate-developer-guide.md, ~400 lines) — step-by-step guides for adding each gate type (SG/FG-Module/FG-Sub/VG-Limit/VG-Config) with code examples from the actual codebase, test patterns, quick reference checklist, common mistakes. D4: CLAUDE.md additions (~85 lines) — two new mandatory sections (Feature Gate Integration with 6-point backend checklist + key rules, Deployment Configuration with config file reference).",
+      "files_changed": [
+        "docs/implementations/backend/feature-gate-system.md",
+        "docs/implementations/backend/feature-gate-developer-guide.md",
+        "docs/setup/deployment-configuration.md",
+        ".claude/CLAUDE.md"
+      ],
+      "critical": null
     }
   ]
 }

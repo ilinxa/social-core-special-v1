@@ -25,7 +25,7 @@ from rest_framework.views import APIView
 
 from apps.core.exceptions import PermissionDenied
 from apps.core.pagination import StandardPagination
-from apps.core.permissions import AllowAny, IsAuthenticated
+from apps.core.permissions import AllowAny, FeatureRequired, IsAuthenticated
 from apps.core.views import PermissionInjectMixin, RelationshipInjectMixin
 from apps.core.visibility.resolver import VisibilityResolver
 from apps.core.visibility.serializers import VisibilityOverrideInput
@@ -200,6 +200,12 @@ class BusinessListCreateView(APIView):
     )
     def post(self, request):
         """Create a new business."""
+        from apps.core.exceptions import FeatureDisabled
+        from apps.core.feature_config import feature_config
+
+        if not feature_config.is_feature_enabled("business.members.enabled"):
+            raise FeatureDisabled(feature="business.members.enabled")
+
         if not BusinessPolicy.can_create(user=request.user):
             raise PermissionDenied(
                 message="Business creation requires platform approval. "
@@ -741,7 +747,7 @@ class BusinessSuspendView(APIView):
 
         if not BusinessPolicy.can_suspend(user=request.user, business=business):
             raise PermissionDenied(
-                message="Only staff can suspend businesses",
+                message="You do not have permission to suspend businesses",
                 action="suspend",
                 resource="BusinessAccount",
             )
@@ -795,7 +801,7 @@ class BusinessReactivateView(APIView):
 
         if not BusinessPolicy.can_reactivate(user=request.user, business=business):
             raise PermissionDenied(
-                message="Only staff can reactivate businesses",
+                message="You do not have permission to reactivate businesses",
                 action="reactivate",
                 resource="BusinessAccount",
             )
@@ -872,7 +878,10 @@ class BusinessProfileVisibilityView(APIView):
         Update visibility overrides for T2 fields.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [
+        IsAuthenticated,
+        FeatureRequired("business.profile_visibility"),
+    ]
 
     REGISTRY_KEY = "business_profile"
 

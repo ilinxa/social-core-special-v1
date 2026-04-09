@@ -287,9 +287,10 @@ class TestCleanupOldNotificationLogs:
         assert deleted_count == 0
         assert NotificationLog.objects.filter(pk=log.pk).exists()
 
-    @override_settings(NOTIFICATION_LOG_RETENTION_DAYS=30)
-    def test_cleanup_respects_retention_setting(self):
-        """Uses NOTIFICATION_LOG_RETENTION_DAYS when configured (e.g. 30 days)."""
+    def test_cleanup_respects_retention_setting(self, feature_config_override):
+        """Uses notifications.log_retention_days from feature config."""
+        feature_config_override({"notifications": {"log_retention_days": 30}})
+
         old_log = NotificationLogFactory()
         old_date = timezone.now() - timedelta(days=31)
         NotificationLog.objects.filter(pk=old_log.pk).update(created_at=old_date)
@@ -303,3 +304,117 @@ class TestCleanupOldNotificationLogs:
         assert deleted_count == 1
         assert not NotificationLog.objects.filter(pk=old_log.pk).exists()
         assert NotificationLog.objects.filter(pk=recent_log.pk).exists()
+
+
+# =============================================================================
+# CHANNEL EXCEPTION HANDLING (BUG-4 regression tests)
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestDispatchChannelExceptionHandling:
+    """Verify channel.send() exceptions are captured, not propagated."""
+
+    @patch("apps.notifications.services.channels.get_channel")
+    def test_dispatch_channel_exception_captured_as_failed(self, mock_get_channel):
+        """If channel.send() raises, result is 'failed' and other channels proceed."""
+        email_channel = MagicMock()
+        email_channel.send.side_effect = ConnectionError("SMTP timeout")
+        push_channel = _mock_channel({"status": "sent"})
+
+        def channel_lookup(name):
+            return {"email": email_channel, "push": push_channel}.get(name)
+
+        mock_get_channel.side_effect = channel_lookup
+
+        log = NotificationLogFactory(channels=["email", "push"])
+
+        dispatch_notification_task(str(log.id))
+
+        log.refresh_from_db()
+        # Email failed via exception, push sent → PARTIAL
+        assert log.status == NotificationLog.Status.PARTIAL
+        assert log.channel_results["email"]["status"] == "failed"
+        assert "SMTP timeout" in log.channel_results["email"]["error"]
+        assert log.channel_results["push"]["status"] == "sent"
+
+    @patch("apps.notifications.services.channels.get_channel")
+    def test_dispatch_all_channels_raise_is_failed(self, mock_get_channel):
+        """If all channels raise exceptions, final status is FAILED."""
+        email_channel = MagicMock()
+        email_channel.send.side_effect = ConnectionError("SMTP down")
+        push_channel = MagicMock()
+        push_channel.send.side_effect = RuntimeError("Firebase error")
+
+        def channel_lookup(name):
+            return {"email": email_channel, "push": push_channel}.get(name)
+
+        mock_get_channel.side_effect = channel_lookup
+
+        log = NotificationLogFactory(channels=["email", "push"])
+
+        dispatch_notification_task(str(log.id))
+
+        log.refresh_from_db()
+        assert log.status == NotificationLog.Status.FAILED
+        assert log.channel_results["email"]["status"] == "failed"
+        assert log.channel_results["push"]["status"] == "failed"
+
+
+@pytest.mark.django_db
+class TestRetryChannelExceptionHandling:
+    """Verify retry task handles channel.send() exceptions."""
+
+    @patch("apps.notifications.services.channels.get_channel")
+    def test_retry_channel_exception_captured_as_failed(self, mock_get_channel):
+        """If channel.send() raises during retry, result is 'failed'."""
+        push_channel = MagicMock()
+        push_channel.send.side_effect = ConnectionError("Firebase timeout")
+
+        def channel_lookup(name):
+            return {"push": push_channel}.get(name)
+
+        mock_get_channel.side_effect = channel_lookup
+
+        log = PartialNotificationLogFactory(
+            channels=["email", "push"],
+            channel_results={
+                "email": {"status": "sent"},
+                "push": {"status": "failed", "error": "initial failure"},
+            },
+        )
+
+        retry_partial_notification_task(str(log.id))
+
+        log.refresh_from_db()
+        assert log.channel_results["push"]["status"] == "failed"
+        assert "Firebase timeout" in log.channel_results["push"]["error"]
+        # Email stays sent
+        assert log.channel_results["email"]["status"] == "sent"
+
+    @patch("apps.notifications.services.channels.get_channel")
+    def test_retry_exception_does_not_leave_retrying_status(self, mock_get_channel):
+        """After retry with exception, log ends up PARTIAL or FAILED, not RETRYING."""
+        push_channel = MagicMock()
+        push_channel.send.side_effect = RuntimeError("crash")
+
+        def channel_lookup(name):
+            return {"push": push_channel}.get(name)
+
+        mock_get_channel.side_effect = channel_lookup
+
+        log = PartialNotificationLogFactory(
+            channels=["email", "push"],
+            channel_results={
+                "email": {"status": "sent"},
+                "push": {"status": "failed"},
+            },
+        )
+
+        retry_partial_notification_task(str(log.id))
+
+        log.refresh_from_db()
+        # Must NOT be stuck in RETRYING
+        assert log.status != NotificationLog.Status.RETRYING
+        # email=sent + push=failed → PARTIAL
+        assert log.status == NotificationLog.Status.PARTIAL

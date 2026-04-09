@@ -28,10 +28,12 @@ from apps.core.constants import AccountType, MembershipStatus, PermissionScope
 from apps.core.exceptions import (
     BusinessRuleViolation,
     ConflictError,
+    FeatureDisabled,
     NotFound,
     PermissionDenied,
     ValidationError,
 )
+from apps.core.feature_config import feature_config
 from apps.core.observability import AuditService, get_logger
 from apps.core.observability.audit.models import AuditLog
 from apps.core.types import ActorContext
@@ -351,25 +353,45 @@ class RBACService:
         if account_type == AccountType.BUSINESS:
             from apps.organization.business.models import BusinessAccount
 
-            max_members = BusinessAccount.objects.values_list(
+            model_limit = BusinessAccount.objects.values_list(
                 "max_members",
                 flat=True,
             ).get(id=account_id)
         elif account_type == AccountType.PLATFORM:
             from apps.organization.platform.models import PlatformAccount
 
-            max_members = PlatformAccount.objects.values_list(
+            model_limit = PlatformAccount.objects.values_list(
                 "max_members",
                 flat=True,
             ).get(id=account_id)
         else:
-            max_members = 0
+            model_limit = 0
+
+        config_limit = feature_config.get_limit(
+            f"{account_type}.members.max_members", 0
+        )
+        max_members = feature_config.effective_limit(config_limit, model_limit)
 
         if max_members > 0 and active_count >= max_members:
             raise BusinessRuleViolation(
                 message=f"Account has reached its maximum member limit ({max_members})",
                 rule="member_quota_exceeded",
+                limit=max_members,
+                current=active_count,
             )
+
+        # VG limit — per-user membership cap
+        user_membership_count = Membership.objects.filter(
+            user=user,
+            status__in=[MembershipStatus.ACTIVE, MembershipStatus.PENDING_APPROVAL],
+            is_deleted=False,
+        ).count()
+        feature_config.check_limit(
+            "user.max_memberships",
+            user_membership_count,
+            rule="max_memberships_exceeded",
+            resource="Membership",
+        )
 
         # Check for existing membership
         existing = MembershipSelector.get_membership_for_user_account(
@@ -883,6 +905,77 @@ class RBACService:
 
         return (old_owner_membership, new_owner_membership)
 
+    @staticmethod
+    @transaction.atomic
+    def force_transfer_ownership(
+        *,
+        account_type: str,
+        account_id: UUID,
+        new_owner_user,
+        actor,
+        reason: str = "",
+        request=None,
+    ) -> Tuple[Membership, Membership]:
+        """
+        Governance-initiated forced ownership transfer.
+
+        Validates the new owner is an active member, then delegates
+        to the standard transfer_ownership() method. Logs with the
+        governance actor (not the new owner).
+
+        Args:
+            account_type: AccountType value
+            account_id: UUID of the account
+            new_owner_user: User who will become the new owner
+            actor: Governance user who initiated the transfer
+            reason: Optional reason for the forced transfer
+            request: HTTP request for audit context
+
+        Returns:
+            Tuple of (old_owner_membership, new_owner_membership)
+
+        Raises:
+            NotFound: If new owner is not an active member
+            BusinessRuleViolation: If new owner is already the owner
+        """
+        # Verify new owner is a member
+        new_membership = MembershipSelector.get_active_membership_for_user_account(
+            user=new_owner_user,
+            account_type=account_type,
+            account_id=account_id,
+        )
+        if not new_membership:
+            raise BusinessRuleViolation(
+                message="New owner must be an active member of the account",
+                rule="transfer_requires_membership",
+            )
+
+        # Verify not already owner
+        if new_membership.is_owner:
+            raise BusinessRuleViolation(
+                message="User is already the owner of this account",
+                rule="already_owner",
+            )
+
+        result = RBACService.transfer_ownership(
+            account_type=account_type,
+            account_id=account_id,
+            new_owner=new_owner_user,
+            transferred_by=actor,
+            request=request,
+        )
+
+        logger.info(
+            "rbac.ownership.forced_transfer",
+            account_type=account_type,
+            account_id=str(account_id),
+            new_owner_id=str(new_owner_user.id),
+            actor_id=str(actor.id),
+            reason=reason,
+        )
+
+        return result
+
     # =========================================================================
     # ROLE MANAGEMENT
     # =========================================================================
@@ -918,6 +1011,24 @@ class RBACService:
             PermissionDenied: If not authorized or invalid level
             ConflictError: If role name already exists
         """
+        # Feature gate — custom roles
+        _custom_role_path = f"{account_type}.members.custom_roles"
+        if not feature_config.is_feature_enabled(_custom_role_path):
+            raise FeatureDisabled(feature=_custom_role_path)
+
+        # VG limit — max custom roles per account
+        _role_count = Role.objects.filter(
+            account_type=account_type,
+            account_id=account_id,
+            is_system_role=False,
+        ).count()
+        feature_config.check_limit(
+            f"{account_type}.members.max_roles",
+            _role_count,
+            rule="max_roles_exceeded",
+            resource="Custom role",
+        )
+
         # Check permission first
         MembershipPolicy.authorize_action(
             actor_context=actor_context,

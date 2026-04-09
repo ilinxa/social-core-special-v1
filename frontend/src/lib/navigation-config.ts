@@ -10,6 +10,7 @@ import {
   ArrowLeftRight,
   BarChart3,
   Bell,
+  BookOpen,
   Building2,
   Compass,
   FileText,
@@ -19,8 +20,10 @@ import {
   Image,
   Key,
   LayoutDashboard,
+  MessageCircle,
   Newspaper,
   ScrollText,
+  Search,
   Settings,
   Shield,
   User,
@@ -49,6 +52,7 @@ export const NAV_CONFIG: NavContextConfig = {
           href: "/notifications",
           activeMatch: "prefix",
         },
+        { key: "chat", label: "Chat", icon: MessageCircle, href: "/chat", activeMatch: "prefix" },
         {
           key: "activity",
           label: "Activity",
@@ -100,6 +104,13 @@ export const NAV_CONFIG: NavContextConfig = {
           minMembers: 2,
           activeMatch: "prefix",
         },
+        {
+          key: "biz-chat",
+          label: "Chat",
+          icon: MessageCircle,
+          href: "/bconsole/{slug}/chat",
+          activeMatch: "prefix",
+        },
       ],
     },
     {
@@ -135,19 +146,11 @@ export const NAV_CONFIG: NavContextConfig = {
           activeMatch: "prefix",
         },
         {
-          key: "biz-content",
-          label: "Content",
+          key: "biz-cms-console",
+          label: "CMS Console",
           icon: Newspaper,
-          href: "/bconsole/{slug}/content",
+          href: "/cconsole/{slug}/sites",
           permission: "can_view_cms_content",
-          activeMatch: "prefix",
-        },
-        {
-          key: "biz-media",
-          label: "Media",
-          icon: Image,
-          href: "/bconsole/{slug}/media",
-          permission: "can_upload_cms_media",
           activeMatch: "prefix",
         },
       ],
@@ -204,6 +207,18 @@ export const NAV_CONFIG: NavContextConfig = {
       ],
     },
     {
+      label: "Communication",
+      items: [
+        {
+          key: "plat-chat",
+          label: "Chat",
+          icon: MessageCircle,
+          href: "/pconsole/chat",
+          activeMatch: "prefix",
+        },
+      ],
+    },
+    {
       label: "Management",
       items: [
         {
@@ -231,41 +246,12 @@ export const NAV_CONFIG: NavContextConfig = {
           minMembers: 2,
           activeMatch: "prefix",
         },
-      ],
-    },
-    {
-      label: "CMS",
-      items: [
         {
-          key: "plat-sites",
-          label: "Sites",
-          icon: Globe,
-          href: "/pconsole/cms/sites",
+          key: "plat-cms-console",
+          label: "CMS Console",
+          icon: Newspaper,
+          href: "/cconsole/sites",
           permission: "can_create_cms_site",
-          activeMatch: "prefix",
-        },
-        {
-          key: "plat-templates",
-          label: "Templates",
-          icon: FileText,
-          href: "/pconsole/cms/templates",
-          permission: "can_create_cms_template",
-          activeMatch: "prefix",
-        },
-        {
-          key: "plat-api-keys",
-          label: "API Keys",
-          icon: Key,
-          href: "/pconsole/cms/api-keys",
-          permission: "can_create_cms_api_key",
-          activeMatch: "prefix",
-        },
-        {
-          key: "plat-media",
-          label: "Media",
-          icon: Image,
-          href: "/pconsole/media",
-          permission: "can_upload_cms_media",
           activeMatch: "prefix",
         },
       ],
@@ -300,6 +286,179 @@ export const NAV_CONFIG: NavContextConfig = {
       ],
     },
   ],
+
+  // ===========================================================================
+  // GOVERNANCE CONSOLE
+  // ===========================================================================
+
+  governance: [
+    {
+      label: "Governance",
+      items: [
+        {
+          key: "gov-dashboard",
+          label: "Dashboard",
+          icon: LayoutDashboard,
+          href: "/gconsole/dashboard",
+          activeMatch: "exact",
+        },
+        {
+          key: "gov-businesses",
+          label: "Businesses",
+          icon: Building2,
+          href: "/gconsole/businesses",
+          permission: "can_view_businesses",
+          activeMatch: "prefix",
+        },
+        {
+          key: "gov-members",
+          label: "Members",
+          icon: Users,
+          href: "/gconsole/members",
+          permission: "can_view_members",
+          activeMatch: "prefix",
+        },
+        {
+          key: "gov-approved-creators",
+          label: "Approved Creators",
+          icon: Shield,
+          href: "/gconsole/approved-creators",
+          permission: "can_approve_business_creation",
+          activeMatch: "prefix",
+        },
+        {
+          key: "gov-audit",
+          label: "Audit Log",
+          icon: BarChart3,
+          href: "/gconsole/audit",
+          permission: "can_view_audit_logs",
+          activeMatch: "prefix",
+        },
+        {
+          key: "gov-transactions",
+          label: "Transactions",
+          icon: ArrowLeftRight,
+          href: "/gconsole/transactions",
+          permission: "can_view_all_transactions",
+          activeMatch: "prefix",
+        },
+      ],
+    },
+  ],
+
+  // ===========================================================================
+  // CMS CONSOLE — PLATFORM MODE
+  // ===========================================================================
+
+  cms_platform: [
+    {
+      label: "Content",
+      items: [
+        {
+          key: "cms-p-sites",
+          label: "Sites",
+          icon: Globe,
+          href: "/cconsole/sites",
+          permission: "can_create_cms_site",
+          activeMatch: "prefix",
+        },
+        {
+          key: "cms-p-templates",
+          label: "Templates",
+          icon: FileText,
+          href: "/cconsole/templates",
+          permission: "can_create_cms_template",
+          activeMatch: "prefix",
+        },
+        {
+          key: "cms-p-media",
+          label: "Media",
+          icon: Image,
+          href: "/cconsole/media",
+          permission: "can_upload_cms_media",
+          activeMatch: "prefix",
+        },
+        {
+          key: "cms-p-api-keys",
+          label: "API Keys",
+          icon: Key,
+          href: "/cconsole/api-keys",
+          permission: "can_create_cms_api_key",
+          activeMatch: "prefix",
+        },
+      ],
+    },
+    {
+      label: "Management",
+      items: [
+        {
+          key: "cms-p-businesses",
+          label: "Businesses",
+          icon: Building2,
+          href: "/cconsole/businesses",
+          permission: "can_manage_business_cms",
+          activeMatch: "prefix",
+        },
+      ],
+    },
+  ],
+
+  // ===========================================================================
+  // CMS CONSOLE — BUSINESS MODE
+  // ===========================================================================
+
+  cms_business: [
+    {
+      label: "Content",
+      items: [
+        {
+          key: "cms-b-sites",
+          label: "Sites",
+          icon: Globe,
+          href: "/cconsole/{slug}/sites",
+          permission: "can_view_cms_content",
+          activeMatch: "prefix",
+        },
+        {
+          key: "cms-b-media",
+          label: "Media",
+          icon: Image,
+          href: "/cconsole/{slug}/media",
+          permission: "can_upload_cms_media",
+          activeMatch: "prefix",
+        },
+        {
+          key: "cms-b-api-keys",
+          label: "API Keys",
+          icon: Key,
+          href: "/cconsole/{slug}/api-keys",
+          permission: "can_create_cms_api_key",
+          activeMatch: "prefix",
+        },
+      ],
+    },
+    {
+      label: "Templates",
+      items: [
+        {
+          key: "cms-b-catalog",
+          label: "Template Catalog",
+          icon: Search,
+          href: "/cconsole/{slug}/catalog",
+          permission: "can_activate_cms_template",
+          activeMatch: "prefix",
+        },
+        {
+          key: "cms-b-library",
+          label: "My Templates",
+          icon: BookOpen,
+          href: "/cconsole/{slug}/library",
+          permission: "can_activate_cms_template",
+          activeMatch: "prefix",
+        },
+      ],
+    },
+  ],
 };
 
 // =============================================================================
@@ -307,10 +466,13 @@ export const NAV_CONFIG: NavContextConfig = {
 // =============================================================================
 
 /**
- * Resolve {slug} placeholder in href for business context.
+ * Resolve {slug} placeholder in href for business or CMS business context.
  */
 export function resolveHref(href: string, context: NavContext): string {
   if (context.type === "business") {
+    return href.replace("{slug}", context.slug);
+  }
+  if (context.type === "cms" && context.mode === "business") {
     return href.replace("{slug}", context.slug);
   }
   return href;

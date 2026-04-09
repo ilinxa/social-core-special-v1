@@ -25,6 +25,7 @@ Key response operations:
 All methods use @staticmethod + @transaction.atomic with keyword-only args.
 Field values are validated against template schema and indexed for typed queries.
 """
+
 from typing import Any, Dict, List
 from uuid import UUID
 
@@ -78,6 +79,26 @@ class FormBuilderService:
                 message="System forms can only be created via migration",
                 field="owner_type",
             )
+
+        # VG limit — max forms per owner
+        if owner_type != OwnerType.SYSTEM:
+            from apps.core.feature_config import feature_config
+
+            _form_count = FormTemplate.objects.filter(
+                owner_type=owner_type,
+                owner_id=owner_id,
+                is_current=True,
+            ).count()
+            _limit_path = (
+                f"{owner_type}.forms.max_forms" if owner_type == "business" else None
+            )
+            if _limit_path:
+                feature_config.check_limit(
+                    _limit_path,
+                    _form_count,
+                    rule="max_forms_exceeded",
+                    resource="Form template",
+                )
 
         if not slug:
             slug = slugify(name)[:100]

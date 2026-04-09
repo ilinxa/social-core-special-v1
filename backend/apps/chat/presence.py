@@ -11,6 +11,7 @@ Pattern follows JTIBlacklist._get_redis() from apps/auth/blacklist.py.
 
 from django.conf import settings
 
+from apps.core.feature_config import feature_config
 from apps.core.observability import get_logger
 
 logger = get_logger(__name__)
@@ -34,9 +35,7 @@ class PresenceManager:
             try:
                 import redis
 
-                redis_url = getattr(
-                    settings, "REDIS_URL", "redis://localhost:6379/0"
-                )
+                redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
                 cls._redis = redis.from_url(redis_url)
                 cls._redis.ping()
             except Exception as e:
@@ -54,7 +53,9 @@ class PresenceManager:
         if ttl is None:
             from apps.chat.constants import WS_PRESENCE_TTL_SECONDS
 
-            ttl = WS_PRESENCE_TTL_SECONDS
+            ttl = feature_config.get_value(
+                "chat.presence.ttl_seconds", WS_PRESENCE_TTL_SECONDS
+            )
 
         redis_client = cls._get_redis()
         if redis_client == "unavailable":
@@ -121,9 +122,7 @@ class PresenceManager:
             for uid in user_ids:
                 pipe.exists(f"{cls.KEY_PREFIX}{uid}")
             results = pipe.execute()
-            return {
-                uid: bool(result) for uid, result in zip(user_ids, results)
-            }
+            return {uid: bool(result) for uid, result in zip(user_ids, results)}
         except Exception as e:
             logger.warning(
                 "chat.presence.batch_check_failed",

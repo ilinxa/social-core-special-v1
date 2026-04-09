@@ -37,9 +37,7 @@ from apps.chat.tasks import cleanup_orphan_attachments
 from apps.users.tests.factories import UserFactory
 
 
-def _make_image_file(
-    name="test.jpg", mime_type="image/jpeg", size=1024, ext="jpg"
-):
+def _make_image_file(name="test.jpg", mime_type="image/jpeg", size=1024, ext="jpg"):
     """Create a fake image file for upload testing."""
     # Minimal valid JPEG (smallest valid JPEG header)
     content = b"\xff\xd8\xff\xe0" + b"\x00" * (size - 4)
@@ -69,7 +67,10 @@ def _make_real_image(name="test.png", width=100, height=80):
 class TestUploadAttachment:
     def test_upload_image_jpeg(self, dm_conversation, user):
         file = _make_image_file("photo.jpg", "image/jpeg")
-        with patch("django.core.files.storage.default_storage.save", return_value="chat/fake/key.jpg"):
+        with patch(
+            "django.core.files.storage.default_storage.save",
+            return_value="chat/fake/key.jpg",
+        ):
             att = ChatService.upload_attachment(
                 conversation_id=dm_conversation.id,
                 user=user,
@@ -82,7 +83,10 @@ class TestUploadAttachment:
 
     def test_upload_image_png(self, dm_conversation, user):
         file = _make_image_file("photo.png", "image/png", ext="png")
-        with patch("django.core.files.storage.default_storage.save", return_value="chat/fake/key.png"):
+        with patch(
+            "django.core.files.storage.default_storage.save",
+            return_value="chat/fake/key.png",
+        ):
             att = ChatService.upload_attachment(
                 conversation_id=dm_conversation.id,
                 user=user,
@@ -92,7 +96,9 @@ class TestUploadAttachment:
 
     def test_upload_image_gif(self, dm_conversation, user):
         file = _make_image_file("anim.gif", "image/gif", ext="gif")
-        with patch("django.core.files.storage.default_storage.save", return_value="key.gif"):
+        with patch(
+            "django.core.files.storage.default_storage.save", return_value="key.gif"
+        ):
             att = ChatService.upload_attachment(
                 conversation_id=dm_conversation.id,
                 user=user,
@@ -102,7 +108,9 @@ class TestUploadAttachment:
 
     def test_upload_image_webp(self, dm_conversation, user):
         file = _make_image_file("pic.webp", "image/webp", ext="webp")
-        with patch("django.core.files.storage.default_storage.save", return_value="key.webp"):
+        with patch(
+            "django.core.files.storage.default_storage.save", return_value="key.webp"
+        ):
             att = ChatService.upload_attachment(
                 conversation_id=dm_conversation.id,
                 user=user,
@@ -157,7 +165,9 @@ class TestUploadAttachment:
 
     def test_upload_extracts_dimensions(self, dm_conversation, user):
         file = _make_real_image("pic.png", width=200, height=150)
-        with patch("django.core.files.storage.default_storage.save", return_value="key.png"):
+        with patch(
+            "django.core.files.storage.default_storage.save", return_value="key.png"
+        ):
             att = ChatService.upload_attachment(
                 conversation_id=dm_conversation.id,
                 user=user,
@@ -177,9 +187,16 @@ class TestAttachmentUploadView:
     def test_upload_via_api(self, authenticated_client, dm_conversation):
         url = f"/api/v1/chat/conversations/{dm_conversation.id}/upload/"
         file = _make_image_file()
-        with patch("django.core.files.storage.default_storage.save", return_value="key.jpg"):
-            with patch("django.core.files.storage.default_storage.url", return_value="/media/key.jpg"):
-                resp = authenticated_client.post(url, {"file": file}, format="multipart")
+        with patch(
+            "django.core.files.storage.default_storage.save", return_value="key.jpg"
+        ):
+            with patch(
+                "django.core.files.storage.default_storage.url",
+                return_value="/media/key.jpg",
+            ):
+                resp = authenticated_client.post(
+                    url, {"file": file}, format="multipart"
+                )
         assert resp.status_code == status.HTTP_201_CREATED
         assert "id" in resp.data
         assert resp.data["file_type"] == "image"
@@ -313,7 +330,10 @@ class TestMessageWithAttachments:
             )
 
     def test_send_rejects_too_many_attachments(self, dm_conversation, user):
-        atts = [self._create_orphan(dm_conversation, user) for _ in range(CHAT_MAX_ATTACHMENTS_PER_MESSAGE + 1)]
+        atts = [
+            self._create_orphan(dm_conversation, user)
+            for _ in range(CHAT_MAX_ATTACHMENTS_PER_MESSAGE + 1)
+        ]
         from apps.core.exceptions import ValidationError
 
         with pytest.raises(ValidationError):
@@ -334,7 +354,9 @@ class TestMessageWithAttachments:
 
 @pytest.mark.django_db
 class TestMessageOutputAttachments:
-    def test_message_output_includes_attachments(self, authenticated_client, dm_conversation, user):
+    def test_message_output_includes_attachments(
+        self, authenticated_client, dm_conversation, user
+    ):
         msg = Message.objects.create(
             conversation=dm_conversation,
             sender_type=ParticipantType.USER,
@@ -357,7 +379,10 @@ class TestMessageOutputAttachments:
         )
 
         url = f"/api/v1/chat/conversations/{dm_conversation.id}/messages/"
-        with patch("django.core.files.storage.default_storage.url", return_value="/media/chat/test/output.jpg"):
+        with patch(
+            "django.core.files.storage.default_storage.url",
+            return_value="/media/chat/test/output.jpg",
+        ):
             resp = authenticated_client.get(url)
 
         assert resp.status_code == status.HTTP_200_OK
@@ -383,7 +408,10 @@ class TestMessageOutputAttachments:
         )
         from apps.chat.serializers import AttachmentOutputSerializer
 
-        with patch("django.core.files.storage.default_storage.url", return_value="/media/chat/test/url.jpg"):
+        with patch(
+            "django.core.files.storage.default_storage.url",
+            return_value="/media/chat/test/url.jpg",
+        ):
             data = AttachmentOutputSerializer(att).data
         assert "/media/chat/test/url.jpg" in data["url"]
 
@@ -417,7 +445,10 @@ class TestWSSerializeAttachment:
 
         from apps.chat.ws_serializers import serialize_message
 
-        with patch("django.core.files.storage.default_storage.url", return_value="/media/ws.jpg"):
+        with patch(
+            "django.core.files.storage.default_storage.url",
+            return_value="/media/ws.jpg",
+        ):
             payload = serialize_message(msg)
 
         assert "attachments" in payload

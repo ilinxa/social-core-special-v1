@@ -25,6 +25,7 @@ Guards:
 
 All public methods use @staticmethod + @transaction.atomic with keyword-only args.
 """
+
 from datetime import timedelta
 from typing import Any, Dict
 from uuid import UUID
@@ -38,9 +39,11 @@ from apps.core.constants import AccountType, MembershipStatus
 from apps.core.exceptions import (
     BusinessRuleViolation,
     ConflictError,
+    FeatureDisabled,
     NotFound,
     ValidationError,
 )
+from apps.core.feature_config import feature_config
 from apps.core.observability import AuditService, get_logger
 from apps.core.observability.audit.models import AuditLog
 from apps.core.types import ActorContext
@@ -59,6 +62,30 @@ from apps.transaction.types import get_transaction_type
 
 User = get_user_model()
 logger = get_logger(__name__)
+
+# FG Sub-Feature Gate maps — transaction_type → list of required feature paths.
+# ALL paths must be enabled; first disabled path is reported in the error.
+_INVITATION_FEATURE_GATES: dict[str, list[str]] = {
+    "business_membership_invitation": ["business.members.invitations"],
+    "platform_membership_invitation": ["platform.members.invitations"],
+    "business_ownership_transfer": ["business.transactions.ownership_transfer"],
+    "platform_ownership_transfer": ["platform.transactions.ownership_transfer"],
+}
+
+_REQUEST_FEATURE_GATES: dict[str, list[str]] = {
+    "business_membership_request": ["business.members.requests"],
+    "platform_membership_request": ["platform.members.requests"],
+    "business_verification_request": [
+        "business.transactions.verification",
+        "platform.governance.business_verification",
+    ],
+    "business_creation_permission_request": [
+        "platform.governance.business_approval",
+    ],
+    "cms_activation_request": [
+        "business.cms.activation_request",
+    ],
+}
 
 
 def _resolve_actor(actor_context: ActorContext):
@@ -101,6 +128,26 @@ class TransactionService:
                 message=f"Transaction type {transaction_type} is disabled",
                 field="transaction_type",
             )
+
+        TransactionService._check_sub_feature_gates(
+            _INVITATION_FEATURE_GATES, transaction_type
+        )
+
+        # VG limit — per-user pending transaction cap
+        _pending_count = (
+            Transaction.objects.filter(
+                initiator_id=initiator_context.membership_id
+                or initiator_context.user_id,
+            )
+            .exclude(status__in=TERMINAL_STATES)
+            .count()
+        )
+        feature_config.check_limit(
+            "user.transactions.max_pending",
+            _pending_count,
+            rule="max_pending_exceeded",
+            resource="Pending transaction",
+        )
 
         TransactionPolicy.can_create_invitation(
             actor_context=initiator_context,
@@ -270,6 +317,25 @@ class TransactionService:
                 message=f"Transaction type {transaction_type} is disabled",
                 field="transaction_type",
             )
+
+        TransactionService._check_sub_feature_gates(
+            _REQUEST_FEATURE_GATES, transaction_type
+        )
+
+        # VG limit — per-user pending transaction cap
+        _pending_count = (
+            Transaction.objects.filter(
+                initiator_id=user_id,
+            )
+            .exclude(status__in=TERMINAL_STATES)
+            .count()
+        )
+        feature_config.check_limit(
+            "user.transactions.max_pending",
+            _pending_count,
+            rule="max_pending_exceeded",
+            resource="Pending transaction",
+        )
 
         user = User.objects.filter(id=user_id).first()
         if not user:
@@ -1031,7 +1097,7 @@ class TransactionService:
             from apps.organization.business.models import BusinessAccount
 
             try:
-                max_members = BusinessAccount.objects.values_list(
+                model_limit = BusinessAccount.objects.values_list(
                     "max_members",
                     flat=True,
                 ).get(id=account_id)
@@ -1041,7 +1107,7 @@ class TransactionService:
             from apps.organization.platform.models import PlatformAccount
 
             try:
-                max_members = PlatformAccount.objects.values_list(
+                model_limit = PlatformAccount.objects.values_list(
                     "max_members",
                     flat=True,
                 ).get(id=account_id)
@@ -1050,6 +1116,11 @@ class TransactionService:
         else:
             return
 
+        config_limit = feature_config.get_limit(
+            f"{account_type}.members.max_members", 0
+        )
+        max_members = feature_config.effective_limit(config_limit, model_limit)
+
         if max_members > 0 and total_committed >= max_members:
             raise BusinessRuleViolation(
                 message=(
@@ -1057,6 +1128,8 @@ class TransactionService:
                     f"Active members: {active_count}, pending invitations/requests: {pending_count}."
                 ),
                 rule="member_quota_exceeded",
+                limit=max_members,
+                current=total_committed,
             )
 
     @staticmethod
@@ -1231,6 +1304,16 @@ class TransactionService:
                 )
 
     @staticmethod
+    def _check_sub_feature_gates(gate_map, transaction_type):
+        """Check all sub-feature gates for a transaction type."""
+        paths = gate_map.get(transaction_type)
+        if not paths:
+            return
+        for path in paths:
+            if not feature_config.is_feature_enabled(path):
+                raise FeatureDisabled(feature=path)
+
+    @staticmethod
     def _validate_form_mapping_requirement(
         *,
         transaction_type,
@@ -1243,6 +1326,10 @@ class TransactionService:
         If the account has configured a required form mapping for this transaction type,
         the form_response_id must be provided at request creation time.
         """
+        # Feature gate — skip mapping validation if feature is disabled
+        if not feature_config.is_feature_enabled("business.forms.transaction_mapping"):
+            return
+
         from apps.transaction.models import TransactionFormMapping
 
         mapping = TransactionFormMapping.objects.filter(
@@ -1515,13 +1602,14 @@ class TransactionService:
                     "transaction_id": str(txn.id),
                     "transaction_type": txn.transaction_type,
                 },
+                scope_type=txn.context_type,
+                scope_id=txn.context_id,
             )
 
     @staticmethod
     def _notify_request_created(txn, NS):
-        """Notify approvers that a new request needs review."""
+        """Notify approvers that a new request needs review via send_to_org()."""
         from apps.organization.platform.models import PlatformAccount
-        from apps.rbac.selectors import MembershipSelector
         from apps.transaction.constants import ApproverPolicy
         from apps.transaction.types import get_transaction_type
 
@@ -1529,32 +1617,31 @@ class TransactionService:
         if not config.approval_permission:
             return
 
-        users = []
         if config.approver_policy == ApproverPolicy.PLATFORM_AUTHORITY:
             platform = PlatformAccount.objects.first()
             if platform:
-                users = MembershipSelector.get_users_with_permission(
-                    account_type="platform",
-                    account_id=platform.id,
-                    permission_code=config.approval_permission,
+                NS.send_to_org(
+                    scope_type="platform",
+                    scope_id=platform.id,
+                    notification_type="transaction_pending_approval",
+                    context={
+                        "transaction_id": str(txn.id),
+                        "transaction_type": txn.transaction_type,
+                    },
+                    recipient_permissions=[config.approval_permission],
                 )
         elif config.approver_policy == ApproverPolicy.ACCOUNT_AUTHORITY:
             if txn.context_id:
-                users = MembershipSelector.get_users_with_permission(
-                    account_type=txn.context_type,
-                    account_id=txn.context_id,
-                    permission_code=config.approval_permission,
+                NS.send_to_org(
+                    scope_type=txn.context_type,
+                    scope_id=txn.context_id,
+                    notification_type="transaction_pending_approval",
+                    context={
+                        "transaction_id": str(txn.id),
+                        "transaction_type": txn.transaction_type,
+                    },
+                    recipient_permissions=[config.approval_permission],
                 )
-
-        for user in users:
-            NS.send(
-                user=user,
-                notification_type="transaction_pending_approval",
-                context={
-                    "transaction_id": str(txn.id),
-                    "transaction_type": txn.transaction_type,
-                },
-            )
 
     @staticmethod
     def _notify_accepted(txn, NS):
@@ -1568,6 +1655,8 @@ class TransactionService:
                     "transaction_id": str(txn.id),
                     "transaction_type": txn.transaction_type,
                 },
+                scope_type=txn.context_type,
+                scope_id=txn.context_id,
             )
 
     @staticmethod
@@ -1582,6 +1671,8 @@ class TransactionService:
                     "transaction_id": str(txn.id),
                     "reason": txn.resolution_reason or "",
                 },
+                scope_type=txn.context_type,
+                scope_id=txn.context_id,
             )
 
     @staticmethod
@@ -1596,6 +1687,8 @@ class TransactionService:
                         "transaction_id": str(txn.id),
                         "transaction_type": txn.transaction_type,
                     },
+                    scope_type=txn.context_type,
+                    scope_id=txn.context_id,
                 )
 
     @staticmethod
@@ -1610,6 +1703,8 @@ class TransactionService:
                     "transaction_id": str(txn.id),
                     "transaction_type": txn.transaction_type,
                 },
+                scope_type=txn.context_type,
+                scope_id=txn.context_id,
             )
 
     @staticmethod
@@ -1624,6 +1719,8 @@ class TransactionService:
                     "transaction_id": str(txn.id),
                     "message": txn.info_requested_message or "",
                 },
+                scope_type=txn.context_type,
+                scope_id=txn.context_id,
             )
 
     @staticmethod

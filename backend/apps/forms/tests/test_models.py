@@ -136,9 +136,21 @@ class TestFormTemplate:
 
     def test_ordering_by_created_at_desc(self):
         """Default ordering returns newest forms first."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
         user = UserFactory()
         form_old = FormTemplateFactory(created_by=user)
         form_new = FormTemplateFactory(created_by=user)
+
+        # auto_now_add timestamps can be identical on SQLite (no sub-ms precision)
+        # Use .update() to set distinct timestamps
+        now = timezone.now()
+        FormTemplate.objects.filter(id=form_old.id).update(
+            created_at=now - timedelta(minutes=1)
+        )
+        FormTemplate.objects.filter(id=form_new.id).update(created_at=now)
 
         forms = list(
             FormTemplate.objects.filter(

@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.exceptions import NotFound, ValidationError
-from apps.core.permissions import IsAuthenticated
+from apps.core.permissions import FeatureRequired, IsAuthenticated
 from apps.core.views import PermissionInjectMixin, RelationshipInjectMixin
 from apps.core.visibility.resolver import VisibilityResolver
 from apps.core.visibility.serializers import VisibilityOverrideInput
@@ -531,7 +531,7 @@ class UserProfileVisibilityView(APIView):
         Update visibility overrides for T2 fields (empty for now — future-ready).
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("user.profile_visibility")]
 
     REGISTRY_KEY = "user_profile"
 
@@ -609,12 +609,14 @@ class ApprovedBusinessCreatorsListView(APIView):
     Requires platform membership with can_approve_business_creation permission.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("user.can_create_business")]
 
     @extend_schema(
         summary="List approved business creators",
         parameters=[
-            OpenApiParameter("search", str, description="Search by name/email/username"),
+            OpenApiParameter(
+                "search", str, description="Search by name/email/username"
+            ),
             OpenApiParameter("ordering", str, description="Sort: newest, name, email"),
             OpenApiParameter("page", int),
             OpenApiParameter("page_size", int),

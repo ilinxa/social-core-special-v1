@@ -513,6 +513,14 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 # ============================================
+# FEATURE GATE CONFIGURATION
+# ============================================
+# Path to deployment config JSON. Missing file → minimal deployment (all features off).
+DEPLOYMENT_CONFIG_PATH = os.getenv(
+    "DEPLOYMENT_CONFIG_PATH", str(BACKEND_DIR / "deployment_config.json")
+)
+
+# ============================================
 # OBSERVABILITY CONFIGURATION
 # ============================================
 # Audit log settings

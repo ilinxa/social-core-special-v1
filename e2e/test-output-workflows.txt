@@ -1,0 +1,71 @@
+=== E2E Global Setup ===
+  [1/8] Waiting for backend health...
+  [1/8] Backend healthy.
+  [1/8] Waiting for frontend...
+  [1/8] Frontend ready.
+  [2/8] Resetting E2E database (drop → create)...
+  [2/8] Database recreated.
+  [3/8] Running Django migrations...
+  [3/8] Migrations complete.
+  [4/8] Creating test users...
+  [4/8] Created 5 users.
+  [5/8] Setting up business owner...
+  [5/8] Business created: e2e-test-biz (max_members=10, open_member_request=true)
+  [5/8] Owner membership verified: 1 membership(s).
+  [6/8] Setting up platform admin...
+  [6/8] Platform configured.
+  [6/8] Platform owner membership created: e6e041bc-f173-468d-b51a-b35308695012
+  [6b/8] Seeding CMS templates...
+  [6b/8] CMS templates seeded (2 sections, 2 blocks).
+  [7/8] Setting up business member...
+  [7/8] Business member user ready (invitations tested in L1/L2).
+  [8/8] Saving storage states...
+  [8/8] Storage states saved.
+=== Global Setup Complete (17.3s) ===
+
+Running 37 tests using 2 workers
+
+  -   1 [workflows] › tests\workflows\audit-trail-verification.spec.ts:23:7 › W21: Audit Trail Verification › placeholder — actions generate audit trail entries
+  -   2 [workflows] › tests\workflows\business-creation-to-first-member.spec.ts:29:7 › W2: Business Creation → First Member › owner creates business, invites user, invitee accepts, member appears
+  ok  4 [workflows] › tests\workflows\auth-to-profile.spec.ts:20:7 › W1: Login → Home → Profile › user can login, view home, navigate to profile, and session persists (2.3s)
+  ok  3 [workflows] › tests\workflows\business-follow-to-join.spec.ts:29:7 › W6: Business Follow → Join › user follows business, requests to join, owner accepts, user becomes member (4.1s)
+  ok  5 [workflows] › tests\workflows\business-member-rbac-flow.spec.ts:32:7 › W10: Business Member RBAC Flow › member gets admin role assigned and gains elevated permissions (4.7s)
+  ok  6 [workflows] › tests\workflows\business-network-management.spec.ts:24:7 › W27: Business Network Management › owner sees followers in business network page (4.9s)
+  ok  7 [workflows] › tests\workflows\business-status-lifecycle.spec.ts:26:7 › W22: Business Status Lifecycle › business suspend and reactivate lifecycle (3.4s)
+  ok  8 [workflows] › tests\workflows\chat-conversation-lifecycle.spec.ts:30:7 › W7: Chat Conversation Lifecycle › user views, edits, and deletes messages in a conversation (4.0s)
+  ok 10 [workflows] › tests\workflows\cms-business-onboarding.spec.ts:30:7 › W-CMS-BIZ: Business CMS Onboarding › business onboarding: request → approve → create → publish → public (2.5s)
+  ok  9 [workflows] › tests\workflows\chat-request-dm-block-flow.spec.ts:32:7 › W25: Chat Request → DM → Block Flow › user A sends DM, user B accepts request, then blocks user A (5.4s)
+  -  12 [workflows] › tests\workflows\cms-content-versioning-workflow.spec.ts:28:7 › W-CMS-VER: CMS Content Versioning › edit → version history → rollback → publish with version tracking
+  ok 11 [workflows] › tests\workflows\cms-content-lifecycle.spec.ts:28:7 › W18: CMS Content Lifecycle › platform admin creates site, publishes page, then unpublishes (2.8s)
+  ok 13 [workflows] › tests\workflows\cms-cross-context-isolation.spec.ts:25:7 › W-CMS-ISO: CMS Cross-Context Isolation › two businesses cannot see each other CMS sites (2.7s)
+  ok 14 [workflows] › tests\workflows\cms-public-api-full-cycle.spec.ts:28:7 › W-CMS-PUB: CMS Public API Full Cycle › full public API lifecycle: publish → read → unpublish → revoke (968ms)
+  -  15 [workflows] › tests\workflows\cms-template-lifecycle.spec.ts:30:7 › W-CMS-TPL: CMS Template Lifecycle › activate → use → fail deactivate → delete → deactivate
+  ok 16 [workflows] › tests\workflows\entity-chat-business-context.spec.ts:32:7 › W16: Entity Chat Business Context › business owner sends message, external user receives it (3.8s)
+  ok 17 [workflows] › tests\workflows\explore-to-interaction.spec.ts:24:7 › W11: Explore → Interaction › user searches for business in explore, follows it (3.0s)
+  ok 19 [workflows] › tests\workflows\form-builder-complete-lifecycle.spec.ts:27:7 › W26: Form Builder Complete Lifecycle › template with all field types, response verified via API (1.8s)
+  ok 18 [workflows] › tests\workflows\feature-gate-degradation.spec.ts:17:7 › W28: Feature Gate Degradation › UI handles 403 from feature-gated endpoint gracefully (2.1s)
+  ok 21 [workflows] › tests\workflows\full-notification-lifecycle.spec.ts:24:7 › W24: Full Notification Lifecycle › register → history → scopes → preferences lifecycle (906ms)
+  ok 20 [workflows] › tests\workflows\form-template-lifecycle.spec.ts:28:7 › W19: Form Template Lifecycle › owner creates template, adds fields, publishes, and submits response (1.3s)
+  ok 22 [workflows] › tests\workflows\join-request-with-form.spec.ts:33:7 › W4: Join Request with Form › user submits join request with required form, owner sees pending_review (3.7s)
+  ok 23 [workflows] › tests\workflows\member-discipline-flow.spec.ts:24:7 › W20: Member Discipline Flow › owner suspends member, access denied, then reactivates, access restored (4.2s)
+  ok 25 [workflows] › tests\workflows\member-quota-enforcement.spec.ts:30:7 › W15: Member Quota Enforcement › quota prevents over-limit invitation, removal allows new invitation (4.7s)
+  ok 24 [workflows] › tests\workflows\member-invitation-full-cycle.spec.ts:32:7 › W3: Member Invitation Full Cycle › owner invites user, invitee sees and accepts, both verify membership (6.0s)
+  ok 27 [workflows] › tests\workflows\notification-preferences-roundtrip.spec.ts:23:7 › W-NOTIF-PREF: Notification Preferences Round-Trip › update → verify → reset → verify defaults restored (406ms)
+  ok 28 [workflows] › tests\workflows\notification-scope-isolation.spec.ts:25:7 › W-NOTIF-ISO: Notification Scope Isolation › non-member gets empty list for business scope (2.0s)
+  ok 29 [workflows] › tests\workflows\notification-triggered-actions.spec.ts:25:7 › W12: Notification Triggered Actions › actions trigger scoped notifications in history (1.9s)
+  ok 26 [workflows] › tests\workflows\network-follow-connect-flow.spec.ts:31:7 › W9: Network Follow + Connect Flow › user follows business, connects with owner, both see connection (5.4s)
+  ok 31 [workflows] › tests\workflows\oauth-registration-flow.spec.ts:60:7 › W23: OAuth Registration Flow › Google OAuth button exists on registration page too (234ms)
+  ok 32 [workflows] › tests\workflows\ownership-transfer-workflow.spec.ts:29:7 › W14: Ownership Transfer Workflow › owner transfers ownership to member, roles swap correctly (4.1s)
+  -  33 [workflows] › tests\workflows\platform-business-management.spec.ts:26:7 › W13: Platform Business Management › platform admin views business list and finds specific business
+  -  30 [workflows] › tests\workflows\oauth-registration-flow.spec.ts:20:7 › W23: OAuth Registration Flow › Google OAuth button redirects to accounts.google.com
+  ok 35 [workflows] › tests\workflows\registration-email-verification.spec.ts:71:7 › W17: Registration → Email Verification › verification code is generated in DB after registration (671ms)
+  ok 34 [workflows] › tests\workflows\registration-email-verification.spec.ts:20:7 › W17: Registration → Email Verification › user registers via UI, verifies email via API, and can login (1.4s)
+  ok 36 [workflows] › tests\workflows\transaction-form-approval-workflow.spec.ts:31:7 › W5: Transaction Approval Workflow › owner approves join request, user becomes active member (5.4s)
+  ok 37 [workflows] › tests\workflows\two-user-chat-realtime.spec.ts:30:7 › W8: Two-User Chat Real-time › two users exchange messages in real-time via WebSocket (5.2s)
+=== E2E Global Teardown ===
+  Tests complete. Docker stack remains running.
+  Run `make e2e-down` to stop the E2E stack.
+=== Teardown Done ===
+
+  6 skipped
+  31 passed (1.2m)

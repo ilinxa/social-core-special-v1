@@ -4,7 +4,7 @@ A social media advertising platform — monorepo with backend (Django REST API),
 
 ## Structure
 - `backend/` — Django 5.1 REST API (PostgreSQL, Redis, Celery)
-- `frontend/` — Next.js web client (planned)
+- `frontend/` — Next.js web client (Next.js 16, React 19, Tailwind v4)
 - `mobile/` — React Native Expo mobile app (planned)
 - `docker/` — Nginx config, helper scripts
 - `docker-compose.dev.yml` — Dev infrastructure (PostgreSQL + Redis)
@@ -29,6 +29,15 @@ A social media advertising platform — monorepo with backend (Django REST API),
 - `make test-api` — integration tests against Docker (PostgreSQL + Redis)
 - `make check` — lint + tests (run before finishing any task)
 
+## Pre-Commit Lint Rules
+- IMPORTANT: Before every commit, run `black .`, `isort .`, and `flake8 .` from the `backend/` directory.
+  CI (GitHub Actions) runs these checks and will fail if code is not formatted or has lint errors.
+- `black .` — auto-formats Python code
+- `isort .` — auto-sorts imports (compatible with black via pyproject.toml config)
+- `flake8 .` — checks for unused imports (F401), unused variables (F841), redefinitions (F811), import order (E402)
+- Fix all flake8 errors before committing — do NOT use `# noqa` unless there is a genuine reason
+- For frontend: run `npm run lint` from the `frontend/` directory before committing frontend changes
+
 ## Documentation & Progress
 - IMPORTANT: After each significant iteration, append a JSON entry to `progress/`.
   See `progress/README.md` for schema. Categories: planning, developing, testing,
@@ -36,59 +45,61 @@ A social media advertising platform — monorepo with backend (Django REST API),
 - IMPORTANT: For new features follow: Describe → Plan → Review → Implement → Test → Document.
   Docs live in `docs/{descriptions,plans,implementations}/{workspace}/`.
 
-## Compaction
-When compacting, preserve: exact file paths of all modified files, current
-migration state, and any error messages encountered during this session.
-
 ## Permission-Aware API Responses (Tier 1.5)
-- IMPORTANT: Every new app with detail views MUST integrate the Permission-Aware Responses system.
-  This embeds `_permissions` (evaluated RBAC booleans) into GET detail responses so the frontend
-  can gate UI elements (edit buttons, panels, danger zones) without extra API calls.
-- Reference implementation: `docs/plans/frontend/permission-aware-responses.md`
-
-### Backend Integration Checklist
-1. **Policy**: Add `get_viewer_permissions(*, ...)` staticmethod returning `dict[str, bool]`.
-   - For user+resource policies (like BusinessPolicy): return booleans directly.
-   - For exception-raising policies (like FormTemplatePolicy): use `_safe_check()` wrapper to convert exceptions to `False`.
-2. **Views**: Add `PermissionInjectMixin` (from `apps.core.views`) to detail views.
-   - Set `policy_class`, implement `_build_policy_kwargs()`, set `self._inject_permissions = True` in `get()`.
-   - Never set flag on list/paginated views, POST, or PATCH — GET detail only.
-3. **Tests**: Test `_permissions` presence in GET, absence in PATCH/POST/list responses, and correct boolean values per role.
-
-### Frontend Integration Checklist
-1. **Types**: Add a `<Resource>Permissions` type in the relevant types file, compose with `WithPermissions<T>` from `@/types/api`.
-2. **API**: Update `fetch<Resource>Api` return type to the `WithPerms` composed type. Update test mock data.
-3. **UI**: Use `<Can allowed={permissions.can_x}>` component (`@/components/common/Can`) to gate elements.
+- IMPORTANT: Every new app with detail views MUST embed `_permissions` into GET detail responses.
+  Reference: `docs/plans/frontend/permission-aware-responses.md`
+- Backend: Add `get_viewer_permissions()` staticmethod to Policy → add `PermissionInjectMixin` +
+  set `self._inject_permissions = True` in `get()` on detail views only (never list/POST/PATCH).
+- Frontend: Add `<Resource>Permissions` type → compose with `WithPermissions<T>` from `@/types/api`
+  → gate UI elements with `<Can allowed={permissions.can_x}>` (`@/components/common/Can`).
 
 ## Explore / Search Integration (adding a new searchable entity)
 - Reference implementation: `apps/explore/` (backend), `features/explore/` (frontend)
 - Existing entities: **Business** (public, 11 filters) and **User** (auth-required, 5 filters)
+- Backend: `ExploreSelector.search_<entity>()` (FTS `SearchVector` + `TrigramSimilarity` fallback,
+  `Greatest()` combined, filter `> 0.01`) → slim serializer → `APIView` + `StandardPagination` view
+  with `_extract_<entity>_params()` helper (`_parse_csv`, `_parse_bool`, `_parse_int`) → URL.
+  View tests mock selector (SQLite-safe). Selector tests need `requires_postgres` marker.
+- Frontend: types in `types/explore.ts` → `search<Entity>Api()` → queryKey → `useInfinite<Entity>Search()`
+  (useInfiniteQuery + `getNextPage()`) → infinite scroll content (`useInView` → `fetchNextPage()`) →
+  card component → filters component (reuse `CountrySelect`, `CityCombobox`, `TagInput`; enum values
+  MUST match backend `TextChoices` exactly) → `FilterPanel` active-filter badge → `ExplorePage` tab
+  with URL-synced params via `useMemo` + `updateUrl`.
 
-### Backend Checklist
-1. **Selector**: Add `ExploreSelector.search_<entity>()` in `apps/explore/selectors.py`.
-   - FTS: `SearchVector` (weighted A/B/C) + `SearchQuery(q, search_type="websearch")` for relevance.
-   - Trigram: `TrigramSimilarity` on name fields as typo-tolerant fallback (scaled `* 0.5`).
-   - Combined: `Greatest(fts_rank, trigram_rank)`, filter `search_rank > 0.01`.
-   - Filters: exact match, `__in` (CSV lists), `__contains` with OR reduce (tags/JSON arrays), range (`__gte`/`__lte`), bool.
-   - Ordering: `relevance` (default), `name`, `newest`.
-2. **Serializer**: Slim output serializer in `apps/explore/serializers.py` — only public-facing fields.
-3. **View**: `APIView` + `StandardPagination` in `apps/explore/views.py`. Use `_extract_<entity>_params()` helper.
-   - Parse CSV → `_parse_csv()`, bools → `_parse_bool()`, ints → `_parse_int()`.
-4. **URL**: Add path in `apps/explore/urls.py`.
-5. **Tests**: View tests mock `ExploreSelector` (SQLite-safe). Selector tests need `requires_postgres` marker.
+## Feature Gate Integration (adding gates to new features)
+- IMPORTANT: Every new backend app or feature MUST integrate with the Feature Gate System.
+  This ensures the platform can be deployed in minimal (user-only), community (user+platform),
+  or full (SaaS) configurations without code changes.
+- Reference: `docs/implementations/backend/feature-gate-developer-guide.md`
+- Core module: `apps/core/feature_config.py` (singleton, 10 public methods)
 
-### Frontend Checklist
-1. **Types**: Add `Explore<Entity>`, `Explore<Entity>Profile`, `<Entity>SearchParams` in `types/explore.ts`.
-2. **API**: Add `search<Entity>Api()` in `features/explore/api/explore-api.ts`.
-3. **Query key**: Add to `queryKeys.explore` in `lib/query-keys.ts`.
-4. **Hook**: Add `useInfinite<Entity>Search()` in `features/explore/hooks/use-explore-queries.ts` — uses `useInfiniteQuery` + `getNextPage()` helper.
-5. **Content component**: Infinite scroll pattern — `useInView` from `react-intersection-observer` triggers `fetchNextPage()`.
-6. **Card component**: Display card for search results.
-7. **Filters component**: Horizontal flex-wrap inside `rounded-lg border bg-muted/40 p-4`.
-   - Reuse: `CountrySelect`, `CityCombobox` (static `cities.json`), `TagInput` (autocomplete from `/explore/tags/`).
-   - Enum values MUST match backend `TextChoices` exactly (e.g., `CompanySize`, `BusinessType`).
-8. **FilterPanel**: Add active-filter detection for the indicator badge.
-9. **ExplorePage**: Add tab, read URL params in `useMemo`, wire filter `onChange` → `updateUrl`.
+### Checklist
+1. **System Gate (SG)** — new app/system: URL group `backend_core/urls/<system>.py` → register in
+   `GATED_GROUPS` in `__init__.py` → guard Celery tasks + outcome handlers + admin `ready()` →
+   add `systems.<name>: true` to both `deployment_config.json` AND `backend/conftest.py` `_FULL_FEATURE_CONFIG`.
+2. **Module Gate (FG)** — toggle-able endpoint: `permission_classes = [IsAuthenticated, FeatureRequired("path")]`
+   (static) or set + `self.check_permissions(self.request)` (method-level) → add to both config files.
+3. **Sub-Feature Gate (FG)** — service-layer toggle: `if not feature_config.is_feature_enabled("path"): raise FeatureDisabled(feature="name")` → add to both config files.
+4. **Limits (VG)** — numeric caps: `feature_config.check_limit("path", count, rule=..., resource=...)`
+   or `FeatureConfig.effective_limit(config_limit, model_limit)` for dual-source → add to both config files (default 0 = unlimited).
+5. **Config Values (VG)** — tunable constants: `feature_config.get_value("path", default)` → add to both config files.
+6. **Tests**: `feature_config_override` fixture to disable gate → assert 403 / `FeatureDisabled` / `BusinessRuleViolation`.
+
+### Key Rules
+- `FeatureRequired("path")` returns a CLASS, not instance — this is a DRF requirement
+- `is_system_enabled()` and `is_feature_enabled()` default to `False` (minimal deployment)
+- `get_limit()` default 0 = unlimited. `get_value()` always needs explicit default
+- SG gates are fixed at startup (URL registration). FG/VG can change at runtime via `reload()`
+- ALWAYS add new paths to BOTH `deployment_config.json` AND `_FULL_FEATURE_CONFIG` in `backend/conftest.py`
+- Test fixtures live in root `backend/conftest.py`, NOT in `backend/tests/conftest.py`
+
+## Deployment Configuration
+- IMPORTANT: The platform deployment is controlled by `deployment_config.json` (path set via `DEPLOYMENT_CONFIG_PATH` in settings).
+  Missing file defaults to most restrictive state (user-only, all systems OFF). Always provide a config file.
+- Reference: `docs/setup/deployment-configuration.md`
+- Full annotated example: `docs/descriptions/backend/deployment_config_full_example.json`
+- Three org modes: `"full"` (business + platform), `"user_and_platform"`, `"user_only"`
+- When adding new features, update both `deployment_config.json` (dev default) and `docs/descriptions/backend/deployment_config_full_example.json` (annotated reference)
 
 ## Skills Mandates
 - IMPORTANT: Use `project-documentation` skill for all feature documentation and progress tracking.

@@ -24,6 +24,7 @@ from factory.django import DjangoModelFactory
 from apps.auth.models import (
     DeviceSession,
     EmailVerificationToken,
+    GovernanceOTPToken,
     OAuthConnection,
     PasswordResetToken,
     RefreshToken,
@@ -222,3 +223,44 @@ class AppleOAuthConnectionFactory(OAuthConnectionFactory):
             "email_verified": True,
         }
     )
+
+
+# =============================================================================
+# GOVERNANCE OTP TOKEN FACTORY
+# =============================================================================
+
+
+class GovernanceOTPTokenFactory(DjangoModelFactory):
+    """Factory for GovernanceOTPToken."""
+
+    class Meta:
+        model = GovernanceOTPToken
+
+    user = factory.SubFactory(UserFactory)
+    code = factory.LazyFunction(
+        lambda: "".join(secrets.choice("0123456789") for _ in range(6))
+    )
+    email = factory.LazyAttribute(lambda obj: obj.user.email)
+    expires_at = factory.LazyFunction(lambda: timezone.now() + timedelta(minutes=5))
+    is_used = False
+    used_at = None
+    attempts = 0
+
+
+class ExpiredGovernanceOTPFactory(GovernanceOTPTokenFactory):
+    """Factory for expired governance OTP tokens."""
+
+    expires_at = factory.LazyFunction(lambda: timezone.now() - timedelta(hours=1))
+
+
+class UsedGovernanceOTPFactory(GovernanceOTPTokenFactory):
+    """Factory for used governance OTP tokens."""
+
+    is_used = True
+    used_at = factory.LazyFunction(timezone.now)
+
+
+class MaxAttemptsGovernanceOTPFactory(GovernanceOTPTokenFactory):
+    """Factory for governance OTP tokens with max attempts reached."""
+
+    attempts = 5

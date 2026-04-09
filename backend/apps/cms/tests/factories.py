@@ -6,6 +6,7 @@ import factory
 from apps.cms.constants import BlockPlacementStatus, ContentVersionAction, PageStatus
 from apps.cms.models import (
     BlockTemplate,
+    BlockTemplateActivation,
     CMSApiKey,
     ContentVersion,
     MediaFile,
@@ -14,6 +15,7 @@ from apps.cms.models import (
     PageSectionPlacement,
     SectionBlockPlacement,
     SectionTemplate,
+    SectionTemplateActivation,
     Site,
 )
 from apps.core.constants import OwnerType
@@ -161,6 +163,28 @@ class MediaFileFactory(factory.django.DjangoModelFactory):
     is_tombstoned = False
     created_by = factory.SubFactory(UserFactory)
     updated_by = factory.LazyAttribute(lambda obj: obj.created_by)
+
+
+class SectionTemplateActivationFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = SectionTemplateActivation
+
+    template = factory.SubFactory(SectionTemplateFactory)
+    org_type = OwnerType.BUSINESS
+    org_id = factory.LazyFunction(uuid.uuid4)
+    is_active = True
+    activated_by = factory.SubFactory(UserFactory)
+
+
+class BlockTemplateActivationFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = BlockTemplateActivation
+
+    template = factory.SubFactory(BlockTemplateFactory)
+    org_type = OwnerType.BUSINESS
+    org_id = factory.LazyFunction(uuid.uuid4)
+    is_active = True
+    activated_by = factory.SubFactory(UserFactory)
 
 
 class CMSApiKeyFactory(factory.django.DjangoModelFactory):

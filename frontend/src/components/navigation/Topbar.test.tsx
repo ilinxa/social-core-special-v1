@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { User } from "@/types";
 import { useAuthStore } from "@/stores/auth-store";
+import { renderWithProviders } from "@/test/utils";
 
 import { Topbar } from "./Topbar";
 
@@ -98,21 +99,21 @@ describe("Topbar", () => {
 
   describe("public variant", () => {
     it("shows Sign In and Register links when not authenticated", () => {
-      render(<Topbar variant="public" />);
+      renderWithProviders(<Topbar variant="public" />);
 
       expect(screen.getByRole("link", { name: /sign in/i })).toHaveAttribute("href", "/login");
       expect(screen.getByRole("link", { name: /register/i })).toHaveAttribute("href", "/register");
     });
 
     it("shows the app name linking to root", () => {
-      render(<Topbar variant="public" />);
+      renderWithProviders(<Topbar variant="public" />);
 
       const brand = screen.getByRole("link", { name: /socialmedia adv/i });
       expect(brand).toHaveAttribute("href", "/");
     });
 
     it("shows About and Contact nav links", () => {
-      render(<Topbar variant="public" />);
+      renderWithProviders(<Topbar variant="public" />);
 
       expect(screen.getByRole("link", { name: /about/i })).toHaveAttribute("href", "/about");
       expect(screen.getByRole("link", { name: /contact/i })).toHaveAttribute("href", "/contact");
@@ -125,7 +126,7 @@ describe("Topbar", () => {
         isInitialized: true,
       });
 
-      render(<Topbar variant="public" />);
+      renderWithProviders(<Topbar variant="public" />);
 
       expect(screen.getByRole("link", { name: /go to app/i })).toHaveAttribute("href", "/home");
       // Sign In / Register should NOT be shown
@@ -141,12 +142,9 @@ describe("Topbar", () => {
         isInitialized: true,
       });
 
-      render(<Topbar variant="authenticated" />);
+      renderWithProviders(<Topbar variant="authenticated" />);
 
-      // The avatar trigger is a button containing the avatar fallback text
-      const avatarButton = screen.getByRole("button");
-      expect(avatarButton).toBeInTheDocument();
-      // Fallback initials should be "JD" (John Doe)
+      // The avatar trigger contains the avatar fallback text "JD" (John Doe)
       expect(screen.getByText("JD")).toBeInTheDocument();
     });
 
@@ -157,7 +155,7 @@ describe("Topbar", () => {
         isInitialized: true,
       });
 
-      render(<Topbar variant="authenticated" />);
+      renderWithProviders(<Topbar variant="authenticated" />);
 
       const brand = screen.getByRole("link", { name: /socialmedia adv/i });
       expect(brand).toHaveAttribute("href", "/home");

@@ -1,0 +1,201 @@
+# =============================================================================
+# E2E Tests — PR & Main Branch
+# =============================================================================
+# PR:   L1 Smoke tests only (<5 min budget, must pass to merge)
+# Main: L1 Smoke + L2 Workflows (<20 min budget, alert on failure)
+# =============================================================================
+
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'e2e/**'
+      - '.github/workflows/e2e.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'e2e/**'
+      - '.github/workflows/e2e.yml'
+
+# Cancel in-progress runs for the same PR/branch
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # E2E Docker stack ports (isolated from dev)
+  E2E_BASE_URL: http://localhost:3001
+  E2E_API_URL: http://localhost:8001/api/v1
+  E2E_WS_URL: ws://localhost:8001/ws
+  E2E_DB_HOST: localhost
+  E2E_DB_PORT: "5433"
+  E2E_DB_NAME: backend_core_e2e_db
+  E2E_DB_USER: django_user
+  E2E_DB_PASSWORD: django_password
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # L1 Smoke Tests (runs on PR and Main)
+  # ---------------------------------------------------------------------------
+  smoke-tests:
+    name: L1 Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start E2E Docker stack
+        run: |
+          docker compose -f e2e/docker/docker-compose.e2e.yml \
+            -f e2e/docker/docker-compose.ci.yml \
+            up -d --build
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8001/health/ > /dev/null 2>&1; then
+              echo "Backend healthy"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 5
+          done
+          echo "Backend failed to start"
+          docker compose -f e2e/docker/docker-compose.e2e.yml logs backend-e2e
+          exit 1
+
+      - name: Wait for frontend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3001/ > /dev/null 2>&1; then
+              echo "Frontend healthy"
+              exit 0
+            fi
+            echo "Waiting for frontend... ($i/30)"
+            sleep 5
+          done
+          echo "Frontend failed to start"
+          docker compose -f e2e/docker/docker-compose.e2e.yml logs frontend-e2e
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install E2E dependencies
+        run: cd e2e && npm ci
+
+      - name: Install Playwright browsers
+        run: cd e2e && npx playwright install --with-deps chromium
+
+      - name: Run L1 Smoke Tests (Desktop)
+        run: cd e2e && npx playwright test --project=smoke-desktop
+        env:
+          CI: true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-report-${{ github.event.pull_request.number || github.run_number }}
+          path: |
+            e2e/reports/
+            e2e/test-results/
+          retention-days: 14
+
+      - name: Stop E2E stack
+        if: always()
+        run: |
+          docker compose -f e2e/docker/docker-compose.e2e.yml \
+            -f e2e/docker/docker-compose.ci.yml \
+            down -v
+
+  # ---------------------------------------------------------------------------
+  # L2 Workflow Tests (runs only on Main/Develop push)
+  # ---------------------------------------------------------------------------
+  workflow-tests:
+    name: L2 Workflow Tests
+    runs-on: ubuntu-latest
+    needs: smoke-tests
+    if: github.event_name == 'push'
+    timeout-minutes: 22
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start E2E Docker stack
+        run: |
+          docker compose -f e2e/docker/docker-compose.e2e.yml \
+            -f e2e/docker/docker-compose.ci.yml \
+            up -d --build
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8001/health/ > /dev/null 2>&1; then
+              echo "Backend healthy"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 5
+          done
+          echo "Backend failed to start"
+          docker compose -f e2e/docker/docker-compose.e2e.yml logs backend-e2e
+          exit 1
+
+      - name: Wait for frontend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3001/ > /dev/null 2>&1; then
+              echo "Frontend healthy"
+              exit 0
+            fi
+            echo "Waiting for frontend... ($i/30)"
+            sleep 5
+          done
+          echo "Frontend failed to start"
+          docker compose -f e2e/docker/docker-compose.e2e.yml logs frontend-e2e
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install E2E dependencies
+        run: cd e2e && npm ci
+
+      - name: Install Playwright browsers
+        run: cd e2e && npx playwright install --with-deps chromium
+
+      - name: Run L2 Workflow Tests
+        run: cd e2e && npx playwright test --project=workflows
+        env:
+          CI: true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-workflow-report-${{ github.run_number }}
+          path: |
+            e2e/reports/
+            e2e/test-results/
+          retention-days: 14
+
+      - name: Stop E2E stack
+        if: always()
+        run: |
+          docker compose -f e2e/docker/docker-compose.e2e.yml \
+            -f e2e/docker/docker-compose.ci.yml \
+            down -v

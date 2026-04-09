@@ -48,9 +48,7 @@ class TestValidateScopeEligibility:
     def test_entity_global_scope_with_permission(self, user):
         """Entity in global scope — user must have can_manage_chat."""
         biz_id = uuid.uuid4()
-        with patch.object(
-            ChatPolicy, "can_manage_entity_chat", return_value=True
-        ):
+        with patch.object(ChatPolicy, "can_manage_entity_chat", return_value=True):
             ChatPolicy.validate_scope_eligibility(
                 user=user,
                 participant_type=ParticipantType.BUSINESS,
@@ -61,9 +59,7 @@ class TestValidateScopeEligibility:
 
     def test_entity_global_scope_without_permission(self, user):
         biz_id = uuid.uuid4()
-        with patch.object(
-            ChatPolicy, "can_manage_entity_chat", return_value=False
-        ):
+        with patch.object(ChatPolicy, "can_manage_entity_chat", return_value=False):
             with pytest.raises(PermissionDenied):
                 ChatPolicy.validate_scope_eligibility(
                     user=user,
@@ -185,7 +181,9 @@ class TestCanManageEntityChat:
         )
 
     @patch("apps.rbac.selectors.PermissionSelector.get_permissions_for_membership")
-    @patch("apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account")
+    @patch(
+        "apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account"
+    )
     def test_member_with_permission(self, mock_membership, mock_perms, user):
         mock_membership.return_value = MagicMock()
         mock_perms.return_value = [("can_manage_chat", "business")]
@@ -196,7 +194,9 @@ class TestCanManageEntityChat:
         )
 
     @patch("apps.rbac.selectors.PermissionSelector.get_permissions_for_membership")
-    @patch("apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account")
+    @patch(
+        "apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account"
+    )
     def test_member_without_permission(self, mock_membership, mock_perms, user):
         mock_membership.return_value = MagicMock()
         mock_perms.return_value = [("can_edit_business", "business")]
@@ -206,7 +206,9 @@ class TestCanManageEntityChat:
             account_id=uuid.uuid4(),
         )
 
-    @patch("apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account")
+    @patch(
+        "apps.rbac.selectors.MembershipSelector.get_active_membership_for_user_account"
+    )
     def test_non_member(self, mock_membership, user):
         mock_membership.return_value = None
         assert not ChatPolicy.can_manage_entity_chat(
@@ -223,9 +225,7 @@ class TestCanManageEntityChat:
 
 class TestCanManageGroup:
     def test_admin_can_manage(self, user, group_conversation):
-        assert ChatPolicy.can_manage_group(
-            user=user, conversation=group_conversation
-        )
+        assert ChatPolicy.can_manage_group(user=user, conversation=group_conversation)
 
     def test_member_cannot_manage(self, user_b, group_conversation):
         assert not ChatPolicy.can_manage_group(
@@ -233,9 +233,7 @@ class TestCanManageGroup:
         )
 
     def test_dm_returns_false(self, user, dm_conversation):
-        assert not ChatPolicy.can_manage_group(
-            user=user, conversation=dm_conversation
-        )
+        assert not ChatPolicy.can_manage_group(user=user, conversation=dm_conversation)
 
     def test_nonparticipant_cannot_manage(self, user_c):
         conv = ConversationFactory(
@@ -290,9 +288,7 @@ class TestCanSendMessage:
             participant_type=ParticipantType.BUSINESS,
             participant_id=biz_id,
         )
-        with patch.object(
-            ChatPolicy, "can_manage_entity_chat", return_value=True
-        ):
+        with patch.object(ChatPolicy, "can_manage_entity_chat", return_value=True):
             assert ChatPolicy.can_send_message(
                 user=user,
                 conversation=conv,
@@ -308,9 +304,7 @@ class TestCanSendMessage:
             participant_type=ParticipantType.BUSINESS,
             participant_id=biz_id,
         )
-        with patch.object(
-            ChatPolicy, "can_manage_entity_chat", return_value=False
-        ):
+        with patch.object(ChatPolicy, "can_manage_entity_chat", return_value=False):
             assert not ChatPolicy.can_send_message(
                 user=user,
                 conversation=conv,
@@ -356,9 +350,7 @@ class TestCanDeleteMessage:
             acting_user_id=user.id,
             sequence_number=1,
         )
-        assert ChatPolicy.can_delete_message(
-            user=user, message=msg, conversation=conv
-        )
+        assert ChatPolicy.can_delete_message(user=user, message=msg, conversation=conv)
 
     def test_group_admin_can_delete_any(self, user, user_b, group_conversation):
         msg = MessageFactory(
@@ -426,9 +418,7 @@ class TestGetViewerPermissions:
 
     def test_nonparticipant_permissions(self, user_c):
         conv = ConversationFactory()
-        perms = ChatPolicy.get_viewer_permissions(
-            user=user_c, conversation=conv
-        )
+        perms = ChatPolicy.get_viewer_permissions(user=user_c, conversation=conv)
         assert perms["can_send_message"] is False
         assert perms["can_view_messages"] is False
         assert perms["can_leave"] is False

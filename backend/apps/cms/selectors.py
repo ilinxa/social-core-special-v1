@@ -9,9 +9,10 @@ from uuid import UUID
 
 from django.db.models import Prefetch, QuerySet
 
-from apps.cms.constants import PageStatus
+from apps.cms.constants import TEMPLATE_ELIGIBILITY, PageStatus
 from apps.cms.models import (
     BlockTemplate,
+    BlockTemplateActivation,
     CMSApiKey,
     ContentVersion,
     MediaFile,
@@ -21,6 +22,7 @@ from apps.cms.models import (
     PageSectionPlacement,
     SectionBlockPlacement,
     SectionTemplate,
+    SectionTemplateActivation,
     Site,
 )
 from apps.core.exceptions import NotFound
@@ -147,22 +149,142 @@ class CMSTemplateSelector:
         return template
 
     @staticmethod
+    def get_section_template_by_id(*, template_id: UUID) -> SectionTemplate:
+        template = SectionTemplate.objects.filter(id=template_id).first()
+        if not template:
+            raise NotFound(resource="SectionTemplate", resource_id=template_id)
+        return template
+
+    @staticmethod
     def list_section_templates(
-        *, section_type: str | None = None
+        *,
+        section_type: str | None = None,
+        org_type_filter: str | None = None,
     ) -> QuerySet[SectionTemplate]:
         qs = SectionTemplate.objects.all()
         if section_type:
             qs = qs.filter(section_type=section_type)
+        if org_type_filter:
+            eligible = TEMPLATE_ELIGIBILITY.get(org_type_filter, set())
+            qs = qs.filter(org_type__in=eligible)
         return qs
 
     @staticmethod
     def list_block_templates(
-        *, block_type: str | None = None
+        *,
+        block_type: str | None = None,
+        org_type_filter: str | None = None,
     ) -> QuerySet[BlockTemplate]:
         qs = BlockTemplate.objects.all()
         if block_type:
             qs = qs.filter(block_type=block_type)
+        if org_type_filter:
+            eligible = TEMPLATE_ELIGIBILITY.get(org_type_filter, set())
+            qs = qs.filter(org_type__in=eligible)
         return qs
+
+
+class CMSTemplateActivationSelector:
+    """Read-only queries for template activations."""
+
+    @staticmethod
+    def list_available_section_templates(
+        *, org_type: str, org_id: UUID
+    ) -> QuerySet[SectionTemplate]:
+        """Templates eligible for this org type that are NOT yet activated."""
+        eligible_org_types = TEMPLATE_ELIGIBILITY.get(org_type, set())
+        activated_ids = SectionTemplateActivation.objects.filter(
+            org_type=org_type, org_id=org_id
+        ).values_list("template_id", flat=True)
+        return SectionTemplate.objects.filter(org_type__in=eligible_org_types).exclude(
+            id__in=activated_ids
+        )
+
+    @staticmethod
+    def list_available_block_templates(
+        *, org_type: str, org_id: UUID
+    ) -> QuerySet[BlockTemplate]:
+        """Templates eligible for this org type that are NOT yet activated."""
+        eligible_org_types = TEMPLATE_ELIGIBILITY.get(org_type, set())
+        activated_ids = BlockTemplateActivation.objects.filter(
+            org_type=org_type, org_id=org_id
+        ).values_list("template_id", flat=True)
+        return BlockTemplate.objects.filter(org_type__in=eligible_org_types).exclude(
+            id__in=activated_ids
+        )
+
+    @staticmethod
+    def list_activated_section_templates(
+        *, org_type: str, org_id: UUID
+    ) -> QuerySet[SectionTemplateActivation]:
+        """Active section template activations for an org."""
+        return (
+            SectionTemplateActivation.objects.filter(
+                org_type=org_type, org_id=org_id, is_active=True
+            )
+            .select_related("template")
+            .order_by("template__name")
+        )
+
+    @staticmethod
+    def list_activated_block_templates(
+        *, org_type: str, org_id: UUID
+    ) -> QuerySet[BlockTemplateActivation]:
+        """Active block template activations for an org."""
+        return (
+            BlockTemplateActivation.objects.filter(
+                org_type=org_type, org_id=org_id, is_active=True
+            )
+            .select_related("template")
+            .order_by("template__name")
+        )
+
+    @staticmethod
+    def get_section_activation(*, activation_id: UUID) -> SectionTemplateActivation:
+        activation = (
+            SectionTemplateActivation.objects.select_related("template")
+            .filter(id=activation_id)
+            .first()
+        )
+        if not activation:
+            raise NotFound(
+                resource="SectionTemplateActivation", resource_id=activation_id
+            )
+        return activation
+
+    @staticmethod
+    def get_block_activation(*, activation_id: UUID) -> BlockTemplateActivation:
+        activation = (
+            BlockTemplateActivation.objects.select_related("template")
+            .filter(id=activation_id)
+            .first()
+        )
+        if not activation:
+            raise NotFound(
+                resource="BlockTemplateActivation", resource_id=activation_id
+            )
+        return activation
+
+    @staticmethod
+    def is_template_activated(
+        *,
+        template_id: UUID,
+        template_type: str,
+        org_type: str,
+        org_id: UUID,
+    ) -> bool:
+        """Check if a specific template is activated for this org."""
+        model = (
+            SectionTemplateActivation
+            if template_type == "section"
+            else BlockTemplateActivation
+        )
+        return model.objects.filter(
+            template_id=template_id,
+            org_type=org_type,
+            org_id=org_id,
+            is_active=True,
+        ).exists()
 
 
 class CMSBlockPlacementSelector:

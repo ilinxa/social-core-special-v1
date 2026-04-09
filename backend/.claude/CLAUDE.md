@@ -63,13 +63,19 @@ verify no unexpected migration was generated.
 ## Apps
 | App | Purpose |
 |-----|---------|
-| core | Base models (TimeStampedModel, UUIDModel), pagination, permissions, observability middleware |
+| core | Base models (TimeStampedModel, UUIDModel), pagination, permissions, observability, feature gates |
 | users | User profiles, avatar uploads |
 | auth | JWT (15min access / 7day refresh), OAuth (Google/Apple), device sessions |
 | email | Templates, AWS SES/SNS webhooks, tracking |
-| notifications | Multi-channel: email, push, in-app |
+| notifications | Multi-channel: email, push, in-app; scoped preferences; org-broadcast |
 | organization | Multi-tenant platform + business accounts, profiles, lifecycle management |
 | rbac | Roles (level-based hierarchy), permissions, memberships, policy-based authorization |
+| transaction | State machine: invitations, requests, approvals, ownership transfers (14 types) |
+| forms | Dynamic form builder, versioned templates, form-transaction integration |
+| network | Follow + connection system, polymorphic (user/business/platform) |
+| chat | Real-time messaging: 20 REST endpoints + WebSocket (ChatConsumer), scope isolation |
+| cms | Content management: draft/publish, API key auth, media management |
+| explore | FTS + trigram search, 5 endpoints, SuggestedTag autocomplete |
 
 ## API
 - Base: `/api/v1/` — URL path versioning

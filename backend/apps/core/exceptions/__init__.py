@@ -10,6 +10,7 @@ Exception Hierarchy:
     DomainException (base)
     ├── NotFound (404)
     ├── PermissionDenied (403)
+    ├── FeatureDisabled (403)
     ├── ValidationError (400)
     ├── ConflictError (409)
     ├── AuthenticationError (401)
@@ -35,6 +36,7 @@ from apps.core.exceptions.domain import (  # Base exception; Resource exceptions
     BusinessRuleViolation,
     ConflictError,
     DomainException,
+    FeatureDisabled,
     InvalidCredentials,
     NotFound,
     OAuthError,
@@ -57,6 +59,8 @@ __all__ = [
     "PermissionDenied",
     "ValidationError",
     "ConflictError",
+    # Feature gate exceptions
+    "FeatureDisabled",
     # Authentication exceptions
     "AuthenticationError",
     "InvalidCredentials",

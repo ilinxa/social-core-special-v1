@@ -159,6 +159,16 @@ class UserService:
                     conflict_type="duplicate",
                 )
 
+        # VG limit — deployment-wide user cap
+        from apps.core.feature_config import feature_config
+
+        feature_config.check_limit(
+            "limits.max_users",
+            User.objects.filter(is_active=True).count(),
+            rule="max_users_exceeded",
+            resource="User",
+        )
+
         # Validate password strength
         password_errors = validate_password_strength(password)
         if password_errors:

@@ -7,9 +7,10 @@ Usage:
     from apps.core.permissions import IsAuthenticated, IsOwner
 """
 
-from apps.core.permissions.base import (  # Authentication; Staff/Admin; Ownership; Verification; Utility
+from apps.core.permissions.base import (  # Authentication; Staff/Admin; Ownership; Verification; Utility; Feature Gates
     AllowAny,
     DenyAll,
+    FeatureRequired,
     IsAuthenticated,
     IsAuthenticatedOrReadOnly,
     IsOwner,
@@ -20,6 +21,7 @@ from apps.core.permissions.base import (  # Authentication; Staff/Admin; Ownersh
     IsSuperuser,
     IsVerified,
 )
+from apps.core.permissions.governance import GovernanceTokenRequired
 
 __all__ = [
     # Authentication
@@ -38,4 +40,8 @@ __all__ = [
     # Utility
     "DenyAll",
     "AllowAny",
+    # Feature Gates
+    "FeatureRequired",
+    # Governance
+    "GovernanceTokenRequired",
 ]

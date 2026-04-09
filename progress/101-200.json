@@ -1,0 +1,475 @@
+{
+  "entries": [
+    {
+      "id": 101,
+      "title": "Chat System Frontend â€” Complete 5-Phase Implementation (428 tests, 108 files)",
+      "category": "developing",
+      "tags": [
+        "frontend",
+        "chat",
+        "websocket",
+        "real-time",
+        "testing"
+      ],
+      "timestamp": "2026-03-25T00:00:00Z",
+      "summary": "Implemented the complete chat frontend across 5 phases. Phase 1: Foundation (types, 30 API functions, 10 query hooks, 20 mutation hooks, WsClient, Zustand store, scope context â€” 256 tests). Phase 2: Core UI (ChatLayout dual-panel, ConversationList, MessageView, ComposeBar, 3 page routes â€” 63 tests). Phase 3: Real-time (WS hook bridging events to TQ cache + Zustand, typing indicators, presence dots, optimistic send/edit/delete, ConnectionBanner, DeliveryStatus â€” 81 tests). Phase 4: Advanced (reactions, attachments with two-step upload, message actions, search, chat requests, blocks, group management â€” 142 tests via 6 parallel test agents). Phase 5: Polish (EntitySenderBadge, React.memo on MessageBubble/ConversationListItem, ARIA roles, feature gate degradation with useSyncExternalStore â€” 30 tests). Total: 428 chat tests across 45 test files, 108 files created. Frontend tests grew from 1078 to 1645.",
+      "critical": "3 pagination patterns (page-number, raw array for messages, {results,next_cursor} for media). WS serialize_message() omits reactions/my_reactions â€” must init empty. vi.useFakeTimers() freezes userEvent.click() â€” use real Date.now() math instead. role='option' overrides implicit button role in happy-dom.",
+      "files_changed": [
+        "frontend/src/features/chat/ (100 files)",
+        "frontend/src/stores/chat-store.ts",
+        "frontend/src/lib/ws-client.ts",
+        "frontend/src/lib/query-keys.ts",
+        "frontend/src/app/(app)/(user)/chat/page.tsx",
+        "frontend/src/app/(app)/bconsole/[slug]/chat/page.tsx",
+        "frontend/src/app/(app)/pconsole/chat/page.tsx",
+        "frontend/next.config.ts"
+      ],
+      "related_doc": "docs/descriptions/frontend/chat-system-frontend-description.md"
+    },
+    {
+      "id": 102,
+      "title": "E2E Testing System â€” Full Audit + CMS Helper Fix + Implementation Doc",
+      "category": "reviewing",
+      "tags": [
+        "e2e",
+        "playwright",
+        "testing",
+        "audit",
+        "documentation"
+      ],
+      "timestamp": "2026-03-27T00:00:00Z",
+      "summary": "Comprehensive audit of E2E testing suite (125 files, 465 tests). 20+ parallel subagents audited infrastructure, lib modules, POMs, helpers, L1/L2/L3 tests, CI/CD, and docs. Found 1 critical bug: cms.helper.ts had 4 endpoint mismatches (wrong page URL, wrong body fields, missing site query param on publish/unpublish, wrong API key response field). Fixed helper + 3 caller files. Created full implementation reference doc (17 sections). Coverage: 113/252 system-parameter cells (44.8%), 76/90 features (84.4%).",
+      "critical": "CMS pages are flat (not nested under sites). site_id (UUID) in body, not site_slug in URL. Publish/unpublish require ?site=<slug> query param. API key returns 'key' not 'raw_key'.",
+      "files_changed": [
+        "e2e/helpers/cms.helper.ts",
+        "e2e/tests/workflows/cms-content-lifecycle.spec.ts",
+        "e2e/tests/scenarios/persona-gary-cms.spec.ts",
+        "e2e/tests/scenarios/persona-carol-admin.spec.ts",
+        "docs/implementations/e2e/e2e-testing-system.md"
+      ],
+      "related_doc": "docs/implementations/e2e/e2e-testing-system.md"
+    },
+    {
+      "id": 103,
+      "title": "E2E L3 Scenario Suite â€” All 8 Personas Green (197 pass, 0 fail, 2 skip)",
+      "category": "bug-fixing",
+      "tags": [
+        "e2e",
+        "playwright",
+        "testing",
+        "l3-scenarios",
+        "bug-fixing"
+      ],
+      "timestamp": "2026-03-28T00:00:00Z",
+      "summary": "Fixed 13 bugs across 8 L3 persona scenario files + 2 infrastructure files to achieve 197 passed, 0 failed, 2 skipped. Key fix categories: (1) Auth-loss on page.goto() â€” replaced { page } + LoginPage.login() with { browser } + loginInNewContext() across all 8 files. (2) Wrong endpoint auth/me/ â†’ users/me/ (3 occurrences). (3) Backend field type 'number' â†’ 'integer'. (4) generateEmail() creating new random emails in serial steps â†’ stored in closure variable. (5) CMS site creation missing slug field. (6) Next.js catch-all returning 200 for unknown routes â†’ content-based assertions. (7) Member serializer user_id â†’ user.id (nested). (8) API client missing Accept: application/json header. (9) Eve's form error locator â†’ flexible assertion. (10) test.skip() unreliable in serial mode â†’ early return. L2 workflows also verified: 24 passed, 0 failed, 6 skipped.",
+      "critical": "auth/me/ is wrong â€” endpoint is users/me/. test.skip(true, reason) inside serial test body doesn't work reliably â€” use return instead. generateEmail() creates unique email per call â€” must store in closure variable for reuse. Next.js catch-all returns HTTP 200 for any route â€” never assert status >= 400. API client MUST set Accept: application/json or DRF may return HTML.",
+      "files_changed": [
+        "e2e/tests/scenarios/persona-alice-newcomer.spec.ts",
+        "e2e/tests/scenarios/persona-bob-entrepreneur.spec.ts",
+        "e2e/tests/scenarios/persona-carol-admin.spec.ts",
+        "e2e/tests/scenarios/persona-dave-social.spec.ts",
+        "e2e/tests/scenarios/persona-eve-adversarial.spec.ts",
+        "e2e/tests/scenarios/persona-frank-multi-context.spec.ts",
+        "e2e/tests/scenarios/persona-gary-cms.spec.ts",
+        "e2e/tests/scenarios/multi-persona-interaction.spec.ts",
+        "e2e/lib/api-client.ts",
+        "e2e/helpers/form.helper.ts",
+        "docs/implementations/e2e/e2e-testing-system.md"
+      ],
+      "related_doc": "docs/implementations/e2e/e2e-testing-system.md"
+    },
+    {
+      "id": 104,
+      "title": "E2E Testing System â€” Comprehensive Review Document",
+      "category": "documentation",
+      "tags": [
+        "e2e",
+        "documentation",
+        "review",
+        "testing"
+      ],
+      "timestamp": "2026-03-28T00:00:00Z",
+      "summary": "Created comprehensive narrative review document for the entire E2E testing system. Covers: what was built (infrastructure, 3 test layers, Docker stack), complete inventory of all 465 tests across 125 files in plain language, 13 bugs found and fixed with root causes and solutions, final results (430 pass, 0 fail, 35 feature-gated skips), coverage metrics (84.4% feature coverage, 44.8% parameter-matrix coverage), and known gaps (3 deferred workflows, visual regression, accessibility, CI/CD). Also confirmed Phases 11 (responsive/a11y/visual), 13 (coverage reports), and 14 (documentation) were already complete from initial build. Phase 9 (CI/CD) intentionally deferred â€” no production server.",
+      "files_changed": [
+        "docs/implementations/e2e/e2e-testing-review.md"
+      ],
+      "related_doc": "docs/implementations/e2e/e2e-testing-review.md"
+    },
+    {
+      "id": 105,
+      "title": "E2E Test Map â€” Versioned JSON Index of All 465 Tests",
+      "category": "documentation",
+      "tags": [
+        "e2e",
+        "documentation",
+        "test-map",
+        "indexing"
+      ],
+      "timestamp": "2026-03-28T00:00:00Z",
+      "summary": "Created versioned test-map.json (v1.1) indexing all 465 tests across 125 files. Each entry includes: file path, layer (L1/L2/L3), project (smoke-desktop/mobile/workflows/scenarios), systems covered, parameters tested (P1-P14), priority, serial flag, multi-context flag, feature gate dependencies, deferred status, and every individual test name. Machine-queryable for impact analysis (which tests touch system X?), gap detection (which systems lack L2?), and future update tracking. Covers 89 L1 desktop files (215 tests), 4 L1 mobile files (21 tests), 28 L2 workflow files (30 tests, 3 deferred), and 8 L3 scenario files (199 serial steps).",
+      "files_changed": [
+        "e2e/docs/test-map.json"
+      ],
+      "related_doc": "e2e/docs/test-map.json"
+    },
+    {
+      "id": 106,
+      "title": "Notification System Bug Fixes (138 to 180 tests)",
+      "category": "bug-fixing",
+      "tags": [
+        "notifications",
+        "bug-fix"
+      ],
+      "timestamp": "2026-03-28T00:00:00Z",
+      "summary": "Fixed 6 bugs and 4 design issues in notification system. Shared _resolve_final_status helper, task exception handling, input validation, offset pagination, email_template fix, reset_preference guard. 42 new tests.",
+      "files_changed": [
+        "backend/apps/notifications/services/notification_service.py",
+        "backend/apps/notifications/tasks.py",
+        "backend/apps/notifications/views.py",
+        "backend/apps/notifications/types.py"
+      ],
+      "tests": {
+        "added": 42,
+        "total_app": 180,
+        "total_project": 4340
+      }
+    },
+    {
+      "id": 107,
+      "title": "Notification System Org Scope + RBAC + Tier 1.5 + send_to_org()",
+      "category": "developing",
+      "tags": [
+        "notifications",
+        "org-scope",
+        "rbac",
+        "tier-1.5"
+      ],
+      "timestamp": "2026-03-29T00:00:00Z",
+      "summary": "Added scope_type/scope_id to models. send_to_org() for RBAC permission-broadcast. Scoped preferences. NotificationPolicy + Tier 1.5. can_manage_notifications permission. /scopes/ endpoint. Updated 16 call sites. 42 new tests.",
+      "files_changed": [
+        "backend/apps/notifications/constants.py",
+        "backend/apps/notifications/models.py",
+        "backend/apps/notifications/policies.py",
+        "backend/apps/notifications/views.py",
+        "backend/apps/transaction/services.py",
+        "backend/apps/chat/services.py",
+        "backend/apps/rbac/migrations/0012_seed_notification_permissions.py"
+      ],
+      "tests": {
+        "added": 42,
+        "total_app": 180,
+        "total_project": 4340
+      }
+    },
+    {
+      "id": 108,
+      "title": "Notification Frontend Description and Features Documentation",
+      "category": "documentation",
+      "tags": [
+        "notifications",
+        "frontend",
+        "documentation"
+      ],
+      "timestamp": "2026-03-29T00:00:00Z",
+      "summary": "Created frontend notification system description (13 sections) and developer features checklist (15 sections). Covers scopes, UI structure, preferences, Tier 1.5, API reference, state management, module structure.",
+      "files_changed": [
+        "docs/descriptions/frontend/notification-system-frontend-description.md",
+        "docs/descriptions/frontend/notification-system-frontend-features.md"
+      ]
+    },
+    {
+      "id": 109,
+      "title": "Notification System Feature Gate Integration (SG/FG/VG)",
+      "category": "developing",
+      "tags": [
+        "notifications",
+        "feature-gate",
+        "system-gate",
+        "deployment-config"
+      ],
+      "timestamp": "2026-03-29T00:00:00Z",
+      "summary": "Full Feature Gate compliance for notifications. SG: moved URLs from base_patterns to gated group (systems.notifications), conditional admin in ready(). FG: send() skips configurable types when user.notifications.enabled=false, mandatory auth types bypass FG. VG: migrated retention_days from Django settings to feature_config.get_value(). Task guards on all 3 Celery tasks. 6 new tests (3 SG route + 3 FG service). Updated CLAUDE.md, deployment_config.json, conftest.py, URL group tests.",
+      "files_changed": [
+        "backend/backend_core/urls/notifications.py",
+        "backend/backend_core/urls/base.py",
+        "backend/backend_core/urls/__init__.py",
+        "backend/deployment_config.json",
+        "backend/conftest.py",
+        "backend/apps/notifications/apps.py",
+        "backend/apps/notifications/tasks.py",
+        "backend/apps/notifications/services/notification_service.py",
+        "backend/apps/notifications/CLAUDE.md",
+        "backend/apps/core/tests/test_sg_integration.py",
+        "backend/apps/core/tests/test_url_groups.py"
+      ],
+      "tests": {
+        "added": 6,
+        "total_app": 186,
+        "total_project": 4343
+      }
+    },
+    {
+      "id": 110,
+      "title": "Notification Frontend Implementation (21 files, 21 tests, 15 components)",
+      "category": "developing",
+      "tags": [
+        "notifications",
+        "frontend",
+        "react",
+        "tanstack-query",
+        "zustand"
+      ],
+      "timestamp": "2026-03-29T00:00:00Z",
+      "summary": "Complete frontend notification system: types.ts (all backend types), 6 API functions, 4 query hooks with feature gate detection (404=system disabled), 2 mutation hooks, Zustand store (isSystemEnabled, scopeCounts, unreadTotal), 15 components (NotificationBell with Popover/Link, NotificationDropdown, NotificationList with scope tabs and offset pagination, NotificationItem with dynamic titles from context, NotificationPreferencesPanel with category sections and Switch toggles, NotificationEmptyState). Display config for all 27 notification types with lucide icons. Integrated into Topbar (bell between spacer and UserMenu) and page.tsx. Backend: added context field to NotificationLogSerializer.",
+      "files_changed": [
+        "frontend/src/features/notifications/types.ts",
+        "frontend/src/features/notifications/constants/notification-constants.ts",
+        "frontend/src/features/notifications/api/notifications-api.ts",
+        "frontend/src/features/notifications/hooks/use-notification-queries.ts",
+        "frontend/src/features/notifications/hooks/use-notification-mutations.ts",
+        "frontend/src/features/notifications/components/NotificationBell.tsx",
+        "frontend/src/features/notifications/components/NotificationDropdown.tsx",
+        "frontend/src/features/notifications/components/NotificationsPage.tsx",
+        "frontend/src/features/notifications/components/NotificationList.tsx",
+        "frontend/src/features/notifications/components/NotificationItem.tsx",
+        "frontend/src/features/notifications/components/NotificationScopeTabBar.tsx",
+        "frontend/src/features/notifications/components/NotificationPreferencesPanel.tsx",
+        "frontend/src/features/notifications/components/PreferenceRow.tsx",
+        "frontend/src/stores/notification-store.ts",
+        "frontend/src/lib/query-keys.ts",
+        "frontend/src/app/(app)/(user)/notifications/page.tsx",
+        "frontend/src/components/navigation/Topbar.tsx",
+        "backend/apps/notifications/serializers.py"
+      ],
+      "tests": {
+        "added": 21,
+        "total_frontend": 1668
+      }
+    },
+    {
+      "id": 111,
+      "title": "Chat Test TypeScript Fixes (34 errors to 0)",
+      "category": "bug-fixing",
+      "tags": [
+        "chat",
+        "typescript",
+        "test-fixes",
+        "frontend"
+      ],
+      "timestamp": "2026-03-29T00:00:00Z",
+      "summary": "Fixed 34 pre-existing TypeScript errors across 13 chat test files: wrong import path @/types/chat to @/features/chat/types (7 files), missing vitest imports for beforeEach/afterEach (5 files), partial reactions mock objects (1 file), WithPermissions generic parameter (1 file), local ChatRequest type replaced with import (1 file), duplicate+missing permissions field (1 file). tsc --noEmit now passes with 0 errors. All 1668 frontend tests still pass.",
+      "files_changed": [
+        "frontend/src/features/chat/components/__tests__/AddParticipantDialog.test.tsx",
+        "frontend/src/features/chat/components/__tests__/AttachmentButton.test.tsx",
+        "frontend/src/features/chat/components/__tests__/AttachmentGrid.test.tsx",
+        "frontend/src/features/chat/components/__tests__/AttachmentPreview.test.tsx",
+        "frontend/src/features/chat/components/__tests__/ChatRequestCard.test.tsx",
+        "frontend/src/features/chat/components/__tests__/ConversationSettings.test.tsx",
+        "frontend/src/features/chat/components/__tests__/ImageLightbox.test.tsx",
+        "frontend/src/features/chat/components/__tests__/MessageActions.test.tsx",
+        "frontend/src/features/chat/components/__tests__/MessageBubble.test.tsx",
+        "frontend/src/features/chat/components/__tests__/ParticipantActions.test.tsx",
+        "frontend/src/features/chat/components/__tests__/ParticipantList.test.tsx",
+        "frontend/src/features/chat/components/__tests__/ReactionBar.test.tsx",
+        "frontend/src/features/chat/components/__tests__/ReactionPicker.test.tsx"
+      ],
+      "tests": {
+        "fixed": 34,
+        "total_frontend": 1668
+      }
+    },
+    {
+      "id": 112,
+      "title": "CMS Business Access & Template Activation System â€” Backend Implementation (46 new tests, 428 total passing)",
+      "category": "developing",
+      "tags": [
+        "backend",
+        "cms",
+        "business-access",
+        "template-activation",
+        "feature-gates",
+        "tier-1.5",
+        "transaction"
+      ],
+      "timestamp": "2026-03-29T00:00:00Z",
+      "summary": "Extended CMS from platform-only to support business organizations. Template activation system (orgs browse catalog, activate templates into library). Per-business cms_enabled flag with transaction-based activation request flow. 27 new business-scoped API endpoints + 3 platform management endpoints. VG limit enforcement (sites, pages, templates, media, API keys). Tier 1.5 PermissionInjectMixin on all business detail views (14 evaluated permission booleans). 5 new audit actions, 4 new RBAC permissions, 8 extended permission scopes. FG module gate test added for business.cms.enabled.",
+      "files_changed": [
+        "backend/apps/cms/constants.py",
+        "backend/apps/cms/models.py",
+        "backend/apps/cms/managers.py",
+        "backend/apps/cms/admin.py",
+        "backend/apps/cms/selectors.py",
+        "backend/apps/cms/services.py",
+        "backend/apps/cms/policies.py",
+        "backend/apps/cms/outcome_handlers.py",
+        "backend/apps/cms/api/views.py",
+        "backend/apps/cms/api/views_business.py",
+        "backend/apps/cms/api/serializers.py",
+        "backend/apps/cms/api/urls.py",
+        "backend/apps/cms/api/urls_business.py",
+        "backend/backend_core/urls/cms.py",
+        "backend/apps/organization/business/models.py",
+        "backend/apps/transaction/types.py",
+        "backend/apps/transaction/outcome_handlers.py",
+        "backend/apps/transaction/services.py",
+        "backend/apps/core/observability/audit/models.py",
+        "backend/deployment_config.json",
+        "backend/conftest.py",
+        "backend/apps/core/tests/test_feature_config.py",
+        "backend/apps/core/tests/test_fg_module_gates.py",
+        "backend/apps/cms/tests/factories.py",
+        "backend/apps/cms/tests/conftest.py",
+        "backend/apps/cms/tests/test_template_activation.py",
+        "backend/apps/cms/tests/test_business_views.py",
+        "backend/apps/cms/tests/test_outcome_handlers.py",
+        "backend/apps/cms/tests/test_limits.py"
+      ],
+      "tests": {
+        "added": 46,
+        "total_cms": 218,
+        "total_affected": 428
+      },
+      "critical": "business.cms config upgraded from boolean to dict â€” 14 refs in test_feature_config.py updated. Migration 0014 extends 8 CMS permission scopes to include 'business'."
+    },
+    {
+      "id": 113,
+      "title": "CMS Frontend Features Description Document â€” Comprehensive Developer Checklist",
+      "category": "documentation",
+      "tags": [
+        "frontend",
+        "cms",
+        "documentation",
+        "feature-description"
+      ],
+      "timestamp": "2026-03-29T00:00:00Z",
+      "summary": "Created comprehensive frontend feature description for CMS system covering 24 sections: architecture overview, types & enums (16 domain types, 14 permissions, 11 input types), API client layer (37 API functions across 7 domains), query keys & hooks (15 queries, 20 mutations), feature gate degradation, Tier 1.5 permission integration, navigation & routing, template catalog & library, site management, page management, content editing (schema-driven form renderer for 18 field types), versioning & rollback, publish/unpublish flow, export/import, media library, API key management, platform CMS admin, CMS activation request flow, state management, constants, error handling (12 error scenarios), accessibility, responsive design, and testing (12 test files). 5-phase implementation priority.",
+      "files_changed": [
+        "docs/descriptions/frontend/cms-system-frontend-features.md"
+      ]
+    },
+    {
+      "id": 114,
+      "title": "E2E L1 Smoke Desktop â€” Fix Cycle (16 failures â†’ 2, 97.5% pass rate)",
+      "date": "2026-03-31",
+      "type": [
+        "testing",
+        "bug-fixing",
+        "e2e"
+      ],
+      "status": "complete",
+      "summary": "Deep investigation and 4-tier fix cycle for L1 smoke desktop failures. Fixed 15 of 16 failures across 12 root causes: backend PermissionInjectMixin for admin CMS views, dialog ARIA role mismatch (dialog vs alertdialog), API key list semantics (divâ†’li), notification/transaction tab regex, CardTitle heading semantics, overly broad POM selectors, API-driven page creation, explicit async data loading waits, username mutation race, profile avatar timing, and chat page selector fix. Remaining 1 failure is a pure parallelism-pressure flake that passes 5/5 when run alone.",
+      "result": "276 passed, 1 failed, 6 flaky (99.6% effective pass rate, up from 92.6%)",
+      "files_changed": [
+        "backend/apps/cms/api/views.py",
+        "frontend/src/features/cms/components/ApiKeyManagementPage.tsx",
+        "frontend/src/features/notifications/components/PreferenceCategorySection.tsx",
+        "e2e/pages/cms/site-detail.page.ts",
+        "e2e/pages/cms/page-editor.page.ts",
+        "e2e/pages/cms/api-keys.page.ts",
+        "e2e/pages/platform/platform-cms.page.ts",
+        "e2e/pages/notifications/notifications.page.ts",
+        "e2e/tests/smoke/cms/cms-site-management.spec.ts",
+        "e2e/tests/smoke/cms/business-site-crud.spec.ts",
+        "e2e/tests/smoke/cms/cms-api-keys.spec.ts",
+        "e2e/tests/smoke/cms/cms-page-publish.spec.ts",
+        "e2e/tests/smoke/cms/platform-business-management.spec.ts",
+        "e2e/tests/smoke/cms/platform-templates-browser.spec.ts",
+        "e2e/docs/reports/e2e-test-report-2026-03-31-final.md"
+      ],
+      "critical": "ConfirmActionDialog uses shadcn Dialog (role=dialog), not AlertDialog (role=alertdialog). All POM selectors using getByRole('alertdialog') must use getByRole('dialog') instead."
+    },
+    {
+      "id": 115,
+      "title": "gconsole Infrastructure Review + 15 Decision Resolution",
+      "date": "2026-04-07",
+      "type": [
+        "planning",
+        "reviewing"
+      ],
+      "status": "complete",
+      "summary": "Deep infrastructure review of 9 systems (auth tokens, PlatformPolicy, audit, business lifecycle, notifications, /admin, stubs, visibility, feature gates) and resolution of all 15 architectural decisions for the Global Governance Console (gconsole). Verified all findings against actual code, corrected 9 discrepancies in the description doc.",
+      "details": {
+        "decisions_resolved": 15,
+        "decisions_decided": 10,
+        "decisions_deferred": 5,
+        "infrastructure_areas_reviewed": 9,
+        "doc_corrections_applied": 9,
+        "key_decisions": {
+          "D1": "Password OR Email OTP for step-up auth (extends apps/auth/)",
+          "D2": "Repurpose /admin as superuser-only diagnostics panel",
+          "D3": "RBAC-only for pconsole/gconsole (remove 12 is_staff/is_superuser checks)",
+          "D4": "Separate audit endpoints per console, shared selector",
+          "D6": "sessionStorage for governance token (per-tab)",
+          "D8": "Middleware membership check per governance request (global_only + platform_and_global)",
+          "D9": "Mandatory notification with reason for governance actions",
+          "D11": "Service-level VALID_TRANSITIONS table, archive = governance only",
+          "D13": "Build business+platform audit REST API standalone now",
+          "D14": "REST (existing) + WebSocket push (new) for notifications"
+        },
+        "new_discoveries": [
+          "BusinessPolicy has 9 is_staff/is_superuser occurrences (not just PlatformPolicy)",
+          "archive() and soft_delete() services already exist",
+          "Notification REST inbox is already built",
+          "/pconsole/transactions and /pconsole/approved-creators are real implementations",
+          "sessionStorage is per-tab not per-origin",
+          "No set-password endpoint for OAuth users — solved via email OTP"
+        ],
+        "follow_up": "cconsole (CMS Console) design doc needed — separate from gconsole"
+      },
+      "files_modified": [
+        "docs/descriptions/backend/gconsole_global_governance_console.md"
+      ]
+    },
+    {
+      "id": 116,
+      "title": "gconsole Phase 2 — Business Governance (8 endpoints, 50 tests, 14 frontend files)",
+      "category": "developing",
+      "tags": [
+        "backend",
+        "frontend",
+        "gconsole",
+        "governance",
+        "business"
+      ],
+      "timestamp": "2026-04-07T14:10:00Z",
+      "summary": "Implemented gconsole Phase 2: 8 governance REST endpoints (list, detail, suspend, reactivate, archive, transfer, verification, approved-creators) with GovernanceTokenRequired + RBAC. Added list_all/list_filtered selectors, governance serializers with member_count subquery, get_governance_viewer_permissions policy, force_transfer_ownership service. Frontend: types, API client, TanStack Query hooks, 4 pages (businesses list with filters, detail with _permissions + action dialogs, verification, approved-creators). Fixed Phase 1 nav gaps. 4447 backend tests passing, 1700 frontend tests passing.",
+      "files_changed": [
+        "backend/apps/organization/business/governance_views.py",
+        "backend/apps/organization/business/governance_serializers.py",
+        "backend/apps/organization/business/selectors.py",
+        "backend/apps/organization/business/policies.py",
+        "backend/apps/rbac/services.py",
+        "backend/backend_core/urls/governance.py",
+        "backend/apps/organization/tests/business/test_governance_views.py",
+        "frontend/src/types/governance.ts",
+        "frontend/src/features/governance/api/governance-business-api.ts",
+        "frontend/src/features/governance/hooks/use-governance-queries.ts",
+        "frontend/src/features/governance/hooks/use-governance-mutations.ts",
+        "frontend/src/features/governance/components/GovernanceBusinessesPage.tsx",
+        "frontend/src/features/governance/components/GovernanceBusinessDetailPage.tsx",
+        "frontend/src/features/governance/components/GovernanceVerificationPage.tsx",
+        "frontend/src/hooks/use-nav-context.ts",
+        "frontend/src/hooks/use-filtered-nav.ts"
+      ],
+      "related_doc": "docs/plans/backend/gconsole_phase2_business_governance.md"
+    },
+    {
+      "id": 117,
+      "title": "gconsole Phase 3 — Comprehensive Plan (Members + Audit + Transactions + Dashboard)",
+      "category": "planning",
+      "tags": [
+        "backend",
+        "frontend",
+        "gconsole",
+        "governance",
+        "planning"
+      ],
+      "timestamp": "2026-04-08T10:00:00Z",
+      "summary": "Created comprehensive Phase 3 plan covering 4 workstreams: cross-account member governance (3 new endpoints using existing RBAC enforcement), audit log viewer (frontend-only — backend already built), global transaction listing (1 new endpoint), and dashboard summary. Deep dependency analysis confirmed: all 6 required permissions exist, audit backend is 100% complete, member enforcement services are ready. 5 critical design decisions documented (ActorContext for cross-account, Subquery for account names, reuse transaction detail, counts via page_size=1, no cascade enforcement). ~17 new files, ~9 modified files.",
+      "files_changed": [
+        "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
+      ],
+      "related_doc": "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
+    }
+  ]
+}

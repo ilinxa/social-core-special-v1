@@ -21,6 +21,7 @@ from django.db.models import FloatField, Q, QuerySet, Value
 from django.db.models.functions import Coalesce, Greatest
 
 from apps.core.constants import BusinessStatus, VerificationStatus
+from apps.core.feature_config import feature_config
 from apps.explore.models import SuggestedTag
 from apps.organization.business.models import BusinessAccount
 from apps.users.models import User
@@ -164,6 +165,10 @@ class ExploreSelector:
         are included; the view layer applies visibility filtering.
         """
         qs = User.objects.filter(is_active=True).select_related("profile")
+
+        # Feature gate — user discoverability
+        if not feature_config.is_feature_enabled("user.explore.is_discoverable"):
+            return qs.none()
 
         # --- Text search ---
         if query and query.strip():

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Check, ChevronsUpDown, Globe, Plus, User } from "lucide-react";
+import { Building2, Check, ChevronsUpDown, Globe, Newspaper, Plus, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -33,7 +33,27 @@ export function AccountSwitcher() {
   const platformMembership = usePlatformMembership();
   const setMemberships = useMembershipStore((s) => s.setMemberships);
 
+  // Build CMS active item when inside cconsole
+  const cmsActiveItem: SwitcherItem | null =
+    context.type === "cms"
+      ? {
+          key: context.mode === "platform" ? "cms-platform" : `cms-biz-${context.slug}`,
+          label:
+            context.mode === "platform"
+              ? "Platform CMS"
+              : `${context.accountName} CMS`,
+          icon: Newspaper,
+          href:
+            context.mode === "platform"
+              ? "/cconsole/sites"
+              : `/cconsole/${context.slug}/sites`,
+          isActive: true,
+        }
+      : null;
+
   const items: SwitcherItem[] = [
+    // CMS active context (shown first when inside cconsole)
+    ...(cmsActiveItem ? [cmsActiveItem] : []),
     {
       key: "personal",
       label: "Personal",

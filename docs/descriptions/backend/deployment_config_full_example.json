@@ -24,7 +24,9 @@
     "network": true,
     "chat": false,
     "cms": true,
-    "explore": true
+    "explore": true,
+    "notifications": true,
+    "governance": true
   },
 
   "limits": {
@@ -280,6 +282,16 @@
       "google": true,
       "apple": true,
       "state_ttl": 600
+    },
+
+    "governance": {
+      "token_lifetime": 1800,
+      "allow_password_stepup": true,
+      "allow_email_otp_stepup": true,
+      "otp_code_length": 6,
+      "otp_expiry_seconds": 300,
+      "otp_max_attempts": 5,
+      "lockout_shared": true
     }
   },
 

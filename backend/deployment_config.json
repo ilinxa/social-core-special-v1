@@ -1,0 +1,207 @@
+{
+  "org_mode": "full",
+  "systems": {
+    "transaction": true,
+    "forms": true,
+    "network": true,
+    "chat": true,
+    "cms": true,
+    "explore": true,
+    "notifications": true,
+    "governance": true
+  },
+  "limits": {
+    "max_users": 0,
+    "max_businesses": 0,
+    "max_businesses_per_user": 0
+  },
+  "user": {
+    "can_create_business": true,
+    "can_be_member": true,
+    "profile_visibility": true,
+    "profile_default_public": true,
+    "max_memberships": 0,
+    "forms": true,
+    "network": {
+      "enabled": true,
+      "connections": true,
+      "follows": true,
+      "max_connections": 0,
+      "max_follows": 0
+    },
+    "chat": {
+      "enabled": true,
+      "group": true,
+      "file_sharing": true,
+      "reactions": true,
+      "search": true,
+      "max_groups": 0
+    },
+    "explore": {
+      "can_explore": true,
+      "search_users": true,
+      "search_businesses": true,
+      "is_discoverable": true
+    },
+    "transactions": {
+      "enabled": true,
+      "max_pending": 0
+    },
+    "notifications": {
+      "enabled": true
+    }
+  },
+  "business": {
+    "members": {
+      "enabled": true,
+      "invitations": true,
+      "requests": true,
+      "custom_roles": true,
+      "max_members": 0,
+      "max_roles": 0
+    },
+    "chat": {
+      "enabled": true,
+      "entity": true,
+      "group": true,
+      "file_sharing": true,
+      "max_groups": 0
+    },
+    "network": {
+      "enabled": true,
+      "followers": true,
+      "connections": true,
+      "max_followers": 0,
+      "max_connections": 0
+    },
+    "forms": {
+      "enabled": true,
+      "transaction_mapping": true,
+      "max_forms": 0
+    },
+    "cms": {
+      "enabled": true,
+      "activation_request": true,
+      "max_sites": 0,
+      "max_pages_per_site": 0,
+      "max_api_keys_per_site": 0,
+      "max_active_block_templates": 0,
+      "max_active_section_templates": 0,
+      "max_media_files": 0,
+      "max_media_file_size_mb": 10,
+      "api_key_rate_limit": 60
+    },
+    "profile_visibility": true,
+    "profile_default_public": true,
+    "transactions": {
+      "enabled": true,
+      "verification": true,
+      "ownership_transfer": true
+    },
+    "notifications": {
+      "enabled": true
+    }
+  },
+  "platform": {
+    "members": {
+      "enabled": true,
+      "invitations": true,
+      "requests": true,
+      "custom_roles": true,
+      "max_members": 0,
+      "max_roles": 0
+    },
+    "chat": {
+      "enabled": true,
+      "entity": true
+    },
+    "network": true,
+    "forms": true,
+    "cms": true,
+    "governance": {
+      "business_approval": true,
+      "business_verification": true,
+      "approved_creators": true,
+      "global_moderation": true
+    },
+    "transactions": {
+      "ownership_transfer": true
+    },
+    "notifications": {
+      "enabled": true
+    }
+  },
+  "chat": {
+    "messages": {
+      "max_length": 5000,
+      "edit_window_minutes": 15,
+      "preview_length": 200
+    },
+    "groups": {"max_participants": 100},
+    "requests": {"enabled": true, "max_messages": 3, "expiry_days": 30},
+    "attachments": {
+      "max_per_message": 10,
+      "max_image_size_mb": 10,
+      "allowed_image_types": ["jpeg", "png", "gif", "webp"]
+    },
+    "rate_limits": {
+      "messages_per_minute": 30,
+      "conversations_per_hour": 5,
+      "requests_per_hour": 10
+    },
+    "presence": {"ttl_seconds": 30, "heartbeat_interval_seconds": 20},
+    "reactions": {"types": ["like", "heart", "laugh", "wow", "sad", "angry"]}
+  },
+  "cms": {
+    "max_versions_per_placement": 50,
+    "max_folder_depth": 5,
+    "version_throttle_seconds": 30,
+    "api_key_rate_limit": 60,
+    "allowed_media_types": ["jpeg", "png", "gif", "webp", "svg", "pdf", "mp4", "webm", "mp3", "ogg"]
+  },
+  "transaction": {
+    "default_expiry_days": 30,
+    "resubmission_cooldown_days": 7,
+    "expiration_reminder_hours": 48
+  },
+  "network": {
+    "follow_approval_required": false,
+    "connection_approval_required": true
+  },
+  "auth": {
+    "signup": {"email_password": true, "email_verification_required": true},
+    "verification": {"method": "both", "code_length": 6, "expiry_minutes": 15},
+    "password_reset": {"method": "link", "expiry_minutes": 60},
+    "sessions": {
+      "max_per_user": 5,
+      "access_token_lifetime": 900,
+      "refresh_token_lifetime": 604800
+    },
+    "lockout": {"max_failed_attempts": 10, "duration": 900},
+    "oauth": {"google": true, "apple": true, "state_ttl": 600},
+    "governance": {
+      "token_lifetime": 1800,
+      "allow_password_stepup": true,
+      "allow_email_otp_stepup": true,
+      "otp_code_length": 6,
+      "otp_expiry_seconds": 300,
+      "otp_max_attempts": 5,
+      "lockout_shared": true
+    }
+  },
+  "notifications": {
+    "log_retention_days": 90,
+    "email_enabled": true,
+    "push_enabled": true,
+    "sms_enabled": true
+  },
+  "explore": {
+    "results_per_page": 20,
+    "min_search_length": 2,
+    "suggested_tags_enabled": true
+  },
+  "infra": {
+    "audit_log_retention_days": 730,
+    "email_log_retention_days": 90
+  }
+}

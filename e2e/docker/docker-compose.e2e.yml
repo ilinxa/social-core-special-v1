@@ -1,0 +1,117 @@
+# =============================================================================
+# E2E Test Infrastructure — Isolated Docker Stack
+# =============================================================================
+# Completely separate from the dev stack (different ports, different DB).
+# Start: make e2e-up | Stop: make e2e-down | Reset: make e2e-reset
+#
+# Ports:  PG=5433  Redis=6380  Backend=8001  Frontend=3001
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL (E2E-isolated)
+  # ---------------------------------------------------------------------------
+  postgres-e2e:
+    image: postgres:17-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: backend_core_e2e_db
+      POSTGRES_USER: django_user
+      POSTGRES_PASSWORD: django_password
+    volumes:
+      - postgres_e2e_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U django_user -d backend_core_e2e_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - e2e_network
+
+  # ---------------------------------------------------------------------------
+  # Redis (E2E-isolated)
+  # ---------------------------------------------------------------------------
+  redis-e2e:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - e2e_network
+
+  # ---------------------------------------------------------------------------
+  # Backend — Daphne ASGI (WebSocket support)
+  # ---------------------------------------------------------------------------
+  backend-e2e:
+    build:
+      context: ../..
+      dockerfile: e2e/docker/Dockerfile.backend
+    ports:
+      - "8001:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: backend_core.settings.local_docker
+      POSTGRES_HOST: postgres-e2e
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: backend_core_e2e_db
+      POSTGRES_USER: django_user
+      POSTGRES_PASSWORD: django_password
+      REDIS_HOST: redis-e2e
+      REDIS_PORT: "6379"
+      REDIS_URL: redis://redis-e2e:6379/0
+      CELERY_TASK_ALWAYS_EAGER: "True"
+      DEPLOYMENT_CONFIG_PATH: /app/deployment_config.json
+      ALLOWED_HOSTS: "backend-e2e"
+    volumes:
+      - e2e_media:/app/media
+    depends_on:
+      postgres-e2e:
+        condition: service_healthy
+      redis-e2e:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')\""]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+    networks:
+      - e2e_network
+
+  # ---------------------------------------------------------------------------
+  # Frontend — Next.js Production Build
+  # ---------------------------------------------------------------------------
+  frontend-e2e:
+    build:
+      context: ../..
+      dockerfile: e2e/docker/Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8001
+    ports:
+      - "3001:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8001
+      BACKEND_URL: http://backend-e2e:8000
+    depends_on:
+      backend-e2e:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - e2e_network
+
+volumes:
+  postgres_e2e_data:
+  e2e_media:
+
+networks:
+  e2e_network:
+    driver: bridge

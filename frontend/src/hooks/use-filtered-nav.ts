@@ -12,25 +12,75 @@ import type { NavSection } from "@/types/navigation";
  *
  * - Personal context: all items (no permission gating)
  * - Business/Platform: items filtered by the user's membership permissions
+ * - CMS: items filtered by the corresponding membership (platform or business)
  * - Empty sections are removed
  */
 export function useFilteredNav(): NavSection[] {
   const context = useNavContext();
   const memberships = useMembershipStore(useShallow((s) => s.memberships));
 
-  const sections = NAV_CONFIG[context.type];
+  // Derive config key — CMS context maps to cms_platform or cms_business
+  const configKey: keyof typeof NAV_CONFIG =
+    context.type === "cms" ? `cms_${context.mode}` : context.type;
+  const sections = NAV_CONFIG[configKey];
 
   if (context.type === "personal") {
     return sections;
   }
 
-  const membership =
-    context.type === "business"
-      ? memberships.find(
-          (m) =>
-            m.account_type === "business" && m.account_slug === context.slug && m.status === "active",
-        )
-      : memberships.find((m) => m.account_type === "platform" && m.status === "active");
+  if (context.type === "governance") {
+    // Filter governance nav items by the user's platform membership permissions.
+    // The governance user's authority comes from global-scoped platform permissions.
+    const platformMembership = memberships.find(
+      (m) => m.account_type === "platform" && m.status === "active",
+    );
+
+    if (!platformMembership) {
+      // No platform membership — show only non-permissioned items (dashboard)
+      return sections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) => !item.permission),
+        }))
+        .filter((section) => section.items.length > 0);
+    }
+
+    const permCodes = new Set(platformMembership.permissions.map((p) => p.code));
+
+    return sections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter(
+          (item) => !item.permission || permCodes.has(item.permission),
+        ),
+      }))
+      .filter((section) => section.items.length > 0);
+  }
+
+  // CMS context: resolve the correct membership based on mode
+  // Business/Platform context: resolve membership directly
+  let membership;
+  if (context.type === "cms") {
+    membership =
+      context.mode === "business"
+        ? memberships.find(
+            (m) =>
+              m.account_type === "business" &&
+              m.account_slug === context.slug &&
+              m.status === "active",
+          )
+        : memberships.find((m) => m.account_type === "platform" && m.status === "active");
+  } else {
+    membership =
+      context.type === "business"
+        ? memberships.find(
+            (m) =>
+              m.account_type === "business" &&
+              m.account_slug === context.slug &&
+              m.status === "active",
+          )
+        : memberships.find((m) => m.account_type === "platform" && m.status === "active");
+  }
 
   if (!membership) {
     return [];

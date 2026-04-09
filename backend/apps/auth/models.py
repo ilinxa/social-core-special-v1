@@ -25,6 +25,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from apps.core.feature_config import feature_config
 from apps.core.models import TimeStampedModel, UUIDModel
 
 # =============================================================================
@@ -314,12 +315,14 @@ class EmailVerificationToken(TimeStampedModel):
         # Invalidate existing tokens
         cls.objects.filter(user=user, is_used=False).update(is_used=True)
 
-        # Token expires in 15 minutes
+        expiry_minutes = feature_config.get_value(
+            "auth.verification.expiry_minutes", 15
+        )
         return cls.objects.create(
             user=user,
             email=email or user.email,
             code=cls.generate_code(),
-            expires_at=timezone.now() + timedelta(minutes=15),
+            expires_at=timezone.now() + timedelta(minutes=expiry_minutes),
         )
 
     def mark_used(self) -> None:
@@ -390,15 +393,120 @@ class PasswordResetToken(TimeStampedModel):
         # Invalidate existing tokens
         cls.objects.filter(user=user, is_used=False).update(is_used=True)
 
-        # Token expires in 1 hour
+        expiry_minutes = feature_config.get_value(
+            "auth.password_reset.expiry_minutes", 60
+        )
         return cls.objects.create(
             user=user,
-            expires_at=timezone.now() + timedelta(hours=1),
+            expires_at=timezone.now() + timedelta(minutes=expiry_minutes),
             ip_address=ip_address,
         )
 
     def mark_used(self) -> None:
         """Mark token as used."""
+        self.is_used = True
+        self.used_at = timezone.now()
+        self.save(update_fields=["is_used", "used_at"])
+
+
+# =============================================================================
+# GOVERNANCE OTP TOKEN
+# =============================================================================
+
+
+class GovernanceOTPToken(TimeStampedModel):
+    """
+    Short-lived OTP tokens for governance console step-up authentication.
+
+    Used when a user with global permissions needs to access the gconsole.
+    Supports email-based 6-digit code verification as an alternative to
+    password re-entry.
+
+    Constraints:
+        - Only one active (unused, unexpired) OTP per user
+        - Max attempts tracked to prevent brute-force
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="governance_otp_tokens",
+    )
+
+    code = models.CharField(max_length=6, db_index=True)
+    email = models.EmailField()
+    expires_at = models.DateTimeField()
+
+    is_used = models.BooleanField(default=False, db_index=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = "auth_governance_otp"
+        verbose_name = "governance OTP token"
+        verbose_name_plural = "governance OTP tokens"
+        indexes = [
+            models.Index(fields=["user", "is_used", "expires_at"]),
+            models.Index(fields=["code", "email", "is_used"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(is_used=False),
+                name="one_active_governance_otp_per_user",
+            ),
+        ]
+
+    def __str__(self):
+        return f"GovernanceOTP({self.user_id}, {'used' if self.is_used else 'pending'})"
+
+    @property
+    def is_valid(self) -> bool:
+        """Check if OTP is valid (not used and not expired)."""
+        return not self.is_used and self.expires_at > timezone.now()
+
+    @property
+    def is_max_attempts_reached(self) -> bool:
+        """Check if max verification attempts have been exceeded."""
+        max_attempts = feature_config.get_value(
+            "auth.governance.otp_max_attempts", 5
+        )
+        return self.attempts >= max_attempts
+
+    @staticmethod
+    def generate_code(length: int = None) -> str:
+        """Generate a random numeric OTP code."""
+        code_length = length or feature_config.get_value(
+            "auth.governance.otp_code_length", 6
+        )
+        return "".join(secrets.choice("0123456789") for _ in range(code_length))
+
+    @classmethod
+    def create_for_user(cls, user) -> "GovernanceOTPToken":
+        """
+        Create governance OTP for user.
+
+        Invalidates any existing active OTPs first.
+        """
+        cls.objects.filter(user=user, is_used=False).update(is_used=True)
+
+        expiry_seconds = feature_config.get_value(
+            "auth.governance.otp_expiry_seconds", 300
+        )
+        return cls.objects.create(
+            user=user,
+            email=user.email,
+            code=cls.generate_code(),
+            expires_at=timezone.now() + timedelta(seconds=expiry_seconds),
+        )
+
+    def increment_attempts(self) -> None:
+        """Increment failed verification attempts."""
+        self.attempts += 1
+        self.save(update_fields=["attempts"])
+
+    def mark_used(self) -> None:
+        """Mark OTP as used."""
         self.is_used = True
         self.used_at = timezone.now()
         self.save(update_fields=["is_used", "used_at"])

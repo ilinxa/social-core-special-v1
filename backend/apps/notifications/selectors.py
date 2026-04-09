@@ -4,7 +4,7 @@ Notification Selectors
 Read-only queries for notifications.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Union
 from uuid import UUID
 
 from django.db.models import QuerySet
@@ -30,6 +30,9 @@ class NotificationLogSelector:
         notification_type: str | None = None,
         status: str | None = None,
         limit: int = 50,
+        offset: int = 0,
+        scope_type: str | None = None,
+        scope_id: UUID | None = None,
     ) -> QuerySet[NotificationLog]:
         """
         Get notification history for a user.
@@ -39,6 +42,9 @@ class NotificationLogSelector:
             notification_type: Filter by type (optional)
             status: Filter by status (optional)
             limit: Max records to return
+            offset: Number of records to skip
+            scope_type: Filter by scope type (optional)
+            scope_id: Filter by scope ID (optional)
 
         Returns:
             QuerySet of NotificationLog ordered by created_at desc
@@ -51,7 +57,25 @@ class NotificationLogSelector:
         if status:
             qs = qs.filter(status=status)
 
-        return qs.order_by("-created_at")[:limit]
+        if scope_type:
+            qs = qs.filter(scope_type=scope_type)
+
+        if scope_id:
+            qs = qs.filter(scope_id=scope_id)
+
+        return qs.order_by("-created_at")[offset : offset + limit]
+
+    @staticmethod
+    def get_user_notification_scopes(*, user) -> QuerySet:
+        """Distinct scopes where user has notifications, with counts."""
+        from django.db.models import Count
+
+        return (
+            NotificationLog.objects.filter(user=user)
+            .values("scope_type", "scope_id")
+            .annotate(count=Count("id"))
+            .order_by("scope_type")
+        )
 
     @staticmethod
     def get_pending_count(*, user) -> int:
@@ -114,7 +138,9 @@ class NotificationPreferenceSelector:
         return result
 
     @staticmethod
-    def get_users_with_channel_enabled(*, notification_type: str, channel: str) -> List:
+    def get_users_with_channel_enabled(
+        *, notification_type: str, channel: str
+    ) -> Union[QuerySet, List]:
         """
         Get users who have a specific channel enabled for a notification type.
 
@@ -146,21 +172,17 @@ class NotificationPreferenceSelector:
         channel_enum = Channel(channel)
         is_default_enabled = channel_enum in type_config.default_channels
 
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+
         if is_default_enabled:
             # Return all users except those who explicitly disabled
-            from django.contrib.auth import get_user_model
-
-            User = get_user_model()
-            return list(
-                User.objects.filter(is_active=True).exclude(id__in=disabled_users)
-            )
+            return User.objects.filter(is_active=True).exclude(id__in=disabled_users)
         else:
             # Return only users who explicitly enabled
             enabled_users = NotificationPreference.objects.filter(
                 notification_type=notification_type, **{f"{channel}_enabled": True}
             ).values_list("user_id", flat=True)
 
-            from django.contrib.auth import get_user_model
-
-            User = get_user_model()
-            return list(User.objects.filter(id__in=enabled_users, is_active=True))
+            return User.objects.filter(id__in=enabled_users, is_active=True)

@@ -777,3 +777,498 @@ class TestNotificationServiceBulk:
         assert users[0].id in successful_user_ids
         assert users[2].id in successful_user_ids
         assert users[1].id not in successful_user_ids
+
+
+# =============================================================================
+# _resolve_final_status (shared helper)
+# =============================================================================
+
+
+class TestResolveFinalStatus:
+    """Unit tests for _resolve_final_status helper."""
+
+    def test_empty_results_is_sent(self):
+        """Empty channel_results (no channels dispatched) → SENT."""
+        from apps.notifications.services.notification_service import (
+            _resolve_final_status,
+        )
+
+        assert _resolve_final_status({}) == NotificationLog.Status.SENT
+
+    def test_all_sent_is_sent(self):
+        """All channels sent → SENT."""
+        from apps.notifications.services.notification_service import (
+            _resolve_final_status,
+        )
+
+        results = {
+            "email": {"status": "sent"},
+            "push": {"status": "sent"},
+        }
+        assert _resolve_final_status(results) == NotificationLog.Status.SENT
+
+    def test_all_failed_is_failed(self):
+        """All channels failed → FAILED."""
+        from apps.notifications.services.notification_service import (
+            _resolve_final_status,
+        )
+
+        results = {
+            "email": {"status": "failed"},
+            "push": {"status": "failed"},
+        }
+        assert _resolve_final_status(results) == NotificationLog.Status.FAILED
+
+    def test_mixed_sent_and_failed_is_partial(self):
+        """Some sent, some failed → PARTIAL."""
+        from apps.notifications.services.notification_service import (
+            _resolve_final_status,
+        )
+
+        results = {
+            "email": {"status": "sent"},
+            "push": {"status": "failed"},
+        }
+        assert _resolve_final_status(results) == NotificationLog.Status.PARTIAL
+
+    def test_sent_plus_skipped_is_sent(self):
+        """Sent + skipped → SENT (skipped channels are excluded)."""
+        from apps.notifications.services.notification_service import (
+            _resolve_final_status,
+        )
+
+        results = {
+            "email": {"status": "sent"},
+            "push": {"status": "skipped", "reason": "Not configured"},
+        }
+        assert _resolve_final_status(results) == NotificationLog.Status.SENT
+
+    def test_failed_plus_skipped_is_failed(self):
+        """Failed + skipped → FAILED (skipped excluded, only failed remains)."""
+        from apps.notifications.services.notification_service import (
+            _resolve_final_status,
+        )
+
+        results = {
+            "email": {"status": "failed", "error": "smtp"},
+            "push": {"status": "skipped", "reason": "Not configured"},
+        }
+        assert _resolve_final_status(results) == NotificationLog.Status.FAILED
+
+    def test_all_skipped_is_sent(self):
+        """All channels skipped → SENT (no effective channels)."""
+        from apps.notifications.services.notification_service import (
+            _resolve_final_status,
+        )
+
+        results = {
+            "email": {"status": "skipped"},
+            "push": {"status": "skipped"},
+        }
+        assert _resolve_final_status(results) == NotificationLog.Status.SENT
+
+    def test_sent_failed_skipped_is_partial(self):
+        """Mixed sent + failed + skipped → PARTIAL."""
+        from apps.notifications.services.notification_service import (
+            _resolve_final_status,
+        )
+
+        results = {
+            "email": {"status": "sent"},
+            "push": {"status": "failed"},
+            "sms": {"status": "skipped"},
+        }
+        assert _resolve_final_status(results) == NotificationLog.Status.PARTIAL
+
+
+# =============================================================================
+# _dispatch_now — skipped channel handling (BUG-1 regression tests)
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestDispatchNowSkippedChannels:
+    """Verify _dispatch_now correctly handles 'skipped' channel results."""
+
+    def test_dispatch_now_sent_plus_skipped_is_sent(self, user):
+        """email=sent + push=skipped → final status SENT (not PARTIAL)."""
+        log = NotificationLogFactory(
+            user=user,
+            channels=["email", "push"],
+            context={},
+        )
+
+        mock_email = MagicMock()
+        mock_email.send.return_value = {"status": "sent"}
+        mock_push = MagicMock()
+        mock_push.send.return_value = {"status": "skipped", "reason": "Not configured"}
+
+        def fake_get_channel(name):
+            return {"email": mock_email, "push": mock_push}.get(name)
+
+        with patch(
+            "apps.notifications.services.channels.get_channel",
+            side_effect=fake_get_channel,
+        ):
+            NotificationService._dispatch_now(log)
+
+        log.refresh_from_db()
+        assert log.status == NotificationLog.Status.SENT
+
+    def test_dispatch_now_failed_plus_skipped_is_failed(self, user):
+        """email=failed + push=skipped → final status FAILED (not PARTIAL)."""
+        log = NotificationLogFactory(
+            user=user,
+            channels=["email", "push"],
+            context={},
+        )
+
+        mock_email = MagicMock()
+        mock_email.send.return_value = {"status": "failed", "error": "smtp error"}
+        mock_push = MagicMock()
+        mock_push.send.return_value = {"status": "skipped", "reason": "Not configured"}
+
+        def fake_get_channel(name):
+            return {"email": mock_email, "push": mock_push}.get(name)
+
+        with patch(
+            "apps.notifications.services.channels.get_channel",
+            side_effect=fake_get_channel,
+        ):
+            NotificationService._dispatch_now(log)
+
+        log.refresh_from_db()
+        assert log.status == NotificationLog.Status.FAILED
+
+    def test_dispatch_now_all_channels_return_skipped_is_sent(self, user):
+        """Both channels return skipped dict → SENT (distinct from None/unknown)."""
+        log = NotificationLogFactory(
+            user=user,
+            channels=["email", "push"],
+            context={},
+        )
+
+        mock_email = MagicMock()
+        mock_email.send.return_value = {"status": "skipped", "reason": "No template"}
+        mock_push = MagicMock()
+        mock_push.send.return_value = {"status": "skipped", "reason": "Not configured"}
+
+        def fake_get_channel(name):
+            return {"email": mock_email, "push": mock_push}.get(name)
+
+        with patch(
+            "apps.notifications.services.channels.get_channel",
+            side_effect=fake_get_channel,
+        ):
+            NotificationService._dispatch_now(log)
+
+        log.refresh_from_db()
+        assert log.status == NotificationLog.Status.SENT
+
+
+# =============================================================================
+# PreferenceService.reset_preference — non-configurable guard (BUG-6)
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestPreferenceServiceResetNonConfigurable:
+    """Verify reset_preference rejects non-configurable types."""
+
+    def test_reset_non_configurable_raises_validation_error(self, user):
+        """Resetting a non-configurable type (verify_email) raises ValidationError."""
+        with pytest.raises(ValidationError):
+            PreferenceService.reset_preference(
+                user=user, notification_type="verify_email"
+            )
+
+
+# =============================================================================
+# send() with scope
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestNotificationServiceSendScope:
+    """Tests for scope params on send()."""
+
+    @patch("apps.notifications.tasks.dispatch_notification_task.delay")
+    @patch(
+        "apps.notifications.services.notification_service.PreferenceService.get_enabled_channels",
+        return_value=["email"],
+    )
+    def test_send_with_scope_creates_scoped_log(self, mock_ch, mock_task, user):
+        """send() with scope params creates a scoped NotificationLog."""
+        import uuid
+
+        biz_id = uuid.uuid4()
+        log = NotificationService.send(
+            user=user,
+            notification_type="welcome",
+            context={},
+            scope_type="business",
+            scope_id=biz_id,
+        )
+
+        assert log.scope_type == "business"
+        assert log.scope_id == biz_id
+
+    @patch("apps.notifications.tasks.dispatch_notification_task.delay")
+    @patch(
+        "apps.notifications.services.notification_service.PreferenceService.get_enabled_channels",
+        return_value=["email"],
+    )
+    def test_send_without_scope_defaults_to_user(self, mock_ch, mock_task, user):
+        """send() without scope params defaults to scope_type='user'."""
+        log = NotificationService.send(
+            user=user,
+            notification_type="welcome",
+            context={},
+        )
+
+        assert log.scope_type == "user"
+        assert log.scope_id is None
+
+    def test_send_org_scope_without_id_raises(self, user):
+        """send() with scope_type='business' but no scope_id raises ValidationError."""
+        with pytest.raises(ValidationError):
+            NotificationService.send(
+                user=user,
+                notification_type="welcome",
+                context={},
+                scope_type="business",
+                scope_id=None,
+            )
+
+
+# =============================================================================
+# send_to_org()
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestNotificationServiceSendToOrg:
+    """Tests for send_to_org() permission-broadcast method."""
+
+    @patch("apps.notifications.tasks.dispatch_notification_task.delay")
+    @patch("apps.rbac.selectors.MembershipSelector.get_owner_membership")
+    @patch("apps.rbac.selectors.MembershipSelector.get_users_with_permission")
+    @patch(
+        "apps.notifications.services.notification_service.PreferenceService.get_enabled_channels",
+        return_value=["email"],
+    )
+    def test_resolves_recipients_by_permission(
+        self, mock_ch, mock_get_users, mock_get_owner, mock_task
+    ):
+        """send_to_org resolves members with matching permissions."""
+        import uuid
+
+        user_a = UserFactory()
+        user_b = UserFactory()
+        mock_get_users.return_value = [user_a, user_b]
+        mock_get_owner.return_value = None
+
+        biz_id = uuid.uuid4()
+        logs = NotificationService.send_to_org(
+            scope_type="business",
+            scope_id=biz_id,
+            notification_type="transaction_pending_approval",
+            context={"transaction_id": "t1", "transaction_type": "test"},
+            recipient_permissions=["can_approve_membership_request"],
+        )
+
+        assert len(logs) == 2
+        log_user_ids = {log.user_id for log in logs}
+        assert user_a.id in log_user_ids
+        assert user_b.id in log_user_ids
+        # All logs should be scoped
+        for log in logs:
+            assert log.scope_type == "business"
+            assert log.scope_id == biz_id
+
+    @patch("apps.notifications.tasks.dispatch_notification_task.delay")
+    @patch("apps.rbac.selectors.MembershipSelector.get_owner_membership")
+    @patch("apps.rbac.selectors.MembershipSelector.get_users_with_permission")
+    @patch(
+        "apps.notifications.services.notification_service.PreferenceService.get_enabled_channels",
+        return_value=["email"],
+    )
+    def test_includes_owner(self, mock_ch, mock_get_users, mock_get_owner, mock_task):
+        """send_to_org always includes the org owner."""
+        import uuid
+        from unittest.mock import MagicMock
+
+        owner = UserFactory()
+        owner_membership = MagicMock()
+        owner_membership.user_id = owner.id
+        mock_get_users.return_value = []  # No permission holders
+        mock_get_owner.return_value = owner_membership
+
+        logs = NotificationService.send_to_org(
+            scope_type="business",
+            scope_id=uuid.uuid4(),
+            notification_type="transaction_pending_approval",
+            context={"transaction_id": "t1", "transaction_type": "test"},
+            recipient_permissions=["can_approve_membership_request"],
+        )
+
+        assert len(logs) == 1
+        assert logs[0].user_id == owner.id
+
+    @patch("apps.notifications.tasks.dispatch_notification_task.delay")
+    @patch("apps.rbac.selectors.MembershipSelector.get_owner_membership")
+    @patch("apps.rbac.selectors.MembershipSelector.get_users_with_permission")
+    @patch(
+        "apps.notifications.services.notification_service.PreferenceService.get_enabled_channels",
+        return_value=["email"],
+    )
+    def test_excludes_user_ids(
+        self, mock_ch, mock_get_users, mock_get_owner, mock_task
+    ):
+        """send_to_org respects exclude_user_ids."""
+        import uuid
+
+        user_a = UserFactory()
+        user_b = UserFactory()
+        mock_get_users.return_value = [user_a, user_b]
+        mock_get_owner.return_value = None
+
+        logs = NotificationService.send_to_org(
+            scope_type="business",
+            scope_id=uuid.uuid4(),
+            notification_type="transaction_pending_approval",
+            context={"transaction_id": "t1", "transaction_type": "test"},
+            recipient_permissions=["can_approve_membership_request"],
+            exclude_user_ids=[user_a.id],
+        )
+
+        assert len(logs) == 1
+        assert logs[0].user_id == user_b.id
+
+    def test_rejects_non_broadcastable_type(self):
+        """send_to_org raises for types without default_recipient_permissions."""
+        import uuid
+
+        with pytest.raises(ValidationError):
+            NotificationService.send_to_org(
+                scope_type="business",
+                scope_id=uuid.uuid4(),
+                notification_type="welcome",  # not org_broadcastable
+                context={},
+                # No recipient_permissions, and type has None
+            )
+
+    def test_rejects_user_scope(self):
+        """send_to_org raises for scope_type='user'."""
+        import uuid
+
+        with pytest.raises(ValidationError):
+            NotificationService.send_to_org(
+                scope_type="user",
+                scope_id=uuid.uuid4(),
+                notification_type="transaction_pending_approval",
+                context={"transaction_id": "t1", "transaction_type": "test"},
+                recipient_permissions=["can_approve_membership_request"],
+            )
+
+    @patch("apps.notifications.tasks.dispatch_notification_task.delay")
+    @patch("apps.rbac.selectors.MembershipSelector.get_owner_membership")
+    @patch("apps.rbac.selectors.MembershipSelector.get_users_with_permission")
+    @patch(
+        "apps.notifications.services.notification_service.PreferenceService.get_enabled_channels",
+        return_value=["email"],
+    )
+    def test_uses_type_config_default_permissions(
+        self, mock_ch, mock_get_users, mock_get_owner, mock_task
+    ):
+        """send_to_org uses default_recipient_permissions when caller omits permissions."""
+        import uuid
+
+        user_a = UserFactory()
+        mock_get_users.return_value = [user_a]
+        mock_get_owner.return_value = None
+
+        # transaction_pending_approval has default_recipient_permissions
+        logs = NotificationService.send_to_org(
+            scope_type="business",
+            scope_id=uuid.uuid4(),
+            notification_type="transaction_pending_approval",
+            context={"transaction_id": "t1", "transaction_type": "test"},
+            # No recipient_permissions — uses type config default
+        )
+
+        assert len(logs) == 1
+        mock_get_users.assert_called_once()
+
+    @patch("apps.rbac.selectors.MembershipSelector.get_owner_membership")
+    @patch("apps.rbac.selectors.MembershipSelector.get_users_with_permission")
+    def test_no_recipients_returns_empty(self, mock_get_users, mock_get_owner):
+        """send_to_org returns empty list when no recipients found."""
+        import uuid
+
+        mock_get_users.return_value = []
+        mock_get_owner.return_value = None
+
+        logs = NotificationService.send_to_org(
+            scope_type="business",
+            scope_id=uuid.uuid4(),
+            notification_type="transaction_pending_approval",
+            context={"transaction_id": "t1", "transaction_type": "test"},
+        )
+
+        assert logs == []
+
+
+# =============================================================================
+# Feature Gate integration tests
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestNotificationServiceFeatureGate:
+    """Tests for feature gate checks in send() and send_to_org()."""
+
+    def test_send_skips_when_fg_disabled(self, user, feature_config_override):
+        """send() returns None for configurable types when FG is disabled."""
+        feature_config_override({"user": {"notifications": {"enabled": False}}})
+
+        result = NotificationService.send(
+            user=user,
+            notification_type="new_login",  # user_configurable=True
+            context={"device": "Chrome", "location": "", "time": "now"},
+        )
+
+        assert result is None
+
+    @patch("apps.notifications.tasks.dispatch_notification_task.delay")
+    def test_send_allows_mandatory_when_fg_disabled(
+        self, mock_task, user, feature_config_override
+    ):
+        """send() still sends mandatory types (verify_email) when FG is disabled."""
+        feature_config_override({"user": {"notifications": {"enabled": False}}})
+
+        result = NotificationService.send(
+            user=user,
+            notification_type="verify_email",  # user_configurable=False
+            context={"verification_link": "https://x.com/v", "code": "123456"},
+            force_channels=["email"],
+        )
+
+        # Should NOT be None — mandatory types bypass FG
+        assert result is not None
+        assert result.notification_type == "verify_email"
+
+    def test_send_to_org_skips_when_fg_disabled(self, feature_config_override):
+        """send_to_org() returns [] when FG is disabled."""
+        import uuid
+
+        feature_config_override({"user": {"notifications": {"enabled": False}}})
+
+        result = NotificationService.send_to_org(
+            scope_type="business",
+            scope_id=uuid.uuid4(),
+            notification_type="transaction_pending_approval",
+            context={"transaction_id": "t1", "transaction_type": "test"},
+        )
+
+        assert result == []

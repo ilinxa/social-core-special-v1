@@ -318,3 +318,31 @@ class ErrorSerializer(serializers.Serializer):
     message = serializers.CharField()
     code = serializers.CharField()
     details = serializers.DictField(required=False)
+
+
+# =============================================================================
+# GOVERNANCE STEP-UP AUTH
+# =============================================================================
+
+
+class GovernancePasswordAuthSerializer(serializers.Serializer):
+    """Governance step-up auth via password re-entry."""
+
+    password = serializers.CharField(write_only=True, help_text="Current password")
+
+
+class GovernanceOTPVerifySerializer(serializers.Serializer):
+    """Governance step-up auth via email OTP code."""
+
+    code = serializers.CharField(
+        max_length=6, min_length=6, help_text="6-digit OTP code"
+    )
+
+
+class GovernanceTokenResponseSerializer(serializers.Serializer):
+    """Governance token response (no refresh token)."""
+
+    access = serializers.CharField(help_text="Governance-scoped JWT")
+    expires_in = serializers.IntegerField(
+        help_text="Token lifetime in seconds"
+    )

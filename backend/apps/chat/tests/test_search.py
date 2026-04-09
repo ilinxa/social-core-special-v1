@@ -125,7 +125,9 @@ class TestSearchMessagesSelector:
         assert len(results) == 1
         assert results[0].content == "Global payment info"
 
-    def test_search_respects_conversation_filter(self, dm_conversation, group_conversation, user, user_b):
+    def test_search_respects_conversation_filter(
+        self, dm_conversation, group_conversation, user, user_b
+    ):
         _create_message(dm_conversation, user, "Payment in DM", 1)
         _create_message(group_conversation, user, "Payment in group", 1)
 
@@ -246,7 +248,9 @@ class TestMessageSearchView:
         # Empty query returns empty list directly
         assert resp.data == []
 
-    def test_search_no_match_returns_empty(self, authenticated_client, dm_conversation, user):
+    def test_search_no_match_returns_empty(
+        self, authenticated_client, dm_conversation, user
+    ):
         _create_message(dm_conversation, user, "Hello", 1)
 
         resp = authenticated_client.get(self.URL, {"q": "xyz123"})
@@ -257,7 +261,9 @@ class TestMessageSearchView:
         resp = api_client.get(self.URL, {"q": "test"})
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_search_with_scope_filter(self, authenticated_client, dm_conversation, user):
+    def test_search_with_scope_filter(
+        self, authenticated_client, dm_conversation, user
+    ):
         _create_message(dm_conversation, user, "Scoped message", 1)
 
         resp = authenticated_client.get(

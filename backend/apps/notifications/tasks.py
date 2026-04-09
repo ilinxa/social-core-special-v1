@@ -27,8 +27,13 @@ def dispatch_notification_task(self, log_id: str):
 
     Uses select_for_update to prevent duplicate dispatches from concurrent workers.
     """
+    from apps.core.feature_config import feature_config
     from apps.notifications.models import NotificationLog
     from apps.notifications.services.channels import get_channel
+
+    if not feature_config.is_system_enabled("notifications"):
+        logger.info("notification.task.dispatch.skipped", reason="system_disabled")
+        return
 
     # Idempotent dispatch: acquire lock and check status
     with transaction.atomic():
@@ -62,14 +67,23 @@ def dispatch_notification_task(self, log_id: str):
 
         channel = get_channel(channel_name)
         if channel:
-            result = channel.send(
-                user=log.user,
-                notification_type=log.notification_type,
-                context=log.context,
-            )
+            try:
+                result = channel.send(
+                    user=log.user,
+                    notification_type=log.notification_type,
+                    context=log.context,
+                )
+            except Exception as e:
+                logger.error(
+                    "notification.dispatch.channel.error",
+                    log_id=str(log.id),
+                    channel=channel_name,
+                    error=str(e),
+                )
+                result = {"status": "failed", "error": str(e)}
             channel_results[channel_name] = result
 
-            status_label = "sent" if result.get("status") == "sent" else "result"
+            status_label = "sent" if result.get("status") == "sent" else "failed"
             logger.info(
                 f"notification.channel.{status_label}",
                 log_id=str(log.id),
@@ -77,21 +91,10 @@ def dispatch_notification_task(self, log_id: str):
                 status=result.get("status"),
             )
 
-    # Determine final status
-    statuses = [r.get("status") for r in channel_results.values()]
+    # Determine final status (shared helper filters "skipped" channels)
+    from apps.notifications.services.notification_service import _resolve_final_status
 
-    # Consider 'skipped' as successful (channel not available)
-    effective_statuses = [s for s in statuses if s != "skipped"]
-
-    if not effective_statuses:
-        # All channels skipped
-        final_status = NotificationLog.Status.SENT
-    elif all(s == "sent" for s in effective_statuses):
-        final_status = NotificationLog.Status.SENT
-    elif any(s == "sent" for s in effective_statuses):
-        final_status = NotificationLog.Status.PARTIAL
-    else:
-        final_status = NotificationLog.Status.FAILED
+    final_status = _resolve_final_status(channel_results)
 
     # Update log
     log.channel_results = channel_results
@@ -117,8 +120,13 @@ def retry_partial_notification_task(self, log_id: str):
     """
     Retry only failed channels for a partial notification.
     """
+    from apps.core.feature_config import feature_config
     from apps.notifications.models import NotificationLog
     from apps.notifications.services.channels import get_channel
+
+    if not feature_config.is_system_enabled("notifications"):
+        logger.info("notification.task.retry.skipped", reason="system_disabled")
+        return
 
     with transaction.atomic():
         log = NotificationLog.objects.select_for_update().filter(id=log_id).first()
@@ -141,11 +149,21 @@ def retry_partial_notification_task(self, log_id: str):
 
         channel = get_channel(channel_name)
         if channel:
-            result = channel.send(
-                user=log.user,
-                notification_type=log.notification_type,
-                context=log.context,
-            )
+            try:
+                result = channel.send(
+                    user=log.user,
+                    notification_type=log.notification_type,
+                    context=log.context,
+                )
+            except Exception as e:
+                logger.error(
+                    "notification.retry.channel.error",
+                    log_id=str(log.id),
+                    channel=channel_name,
+                    error=str(e),
+                    retry_count=log.retry_count,
+                )
+                result = {"status": "failed", "error": str(e)}
             channel_results[channel_name] = result
 
             logger.info(
@@ -156,16 +174,10 @@ def retry_partial_notification_task(self, log_id: str):
                 retry_count=log.retry_count,
             )
 
-    # Update final status
-    statuses = [r.get("status") for r in channel_results.values()]
-    effective_statuses = [s for s in statuses if s != "skipped"]
+    # Determine final status (shared helper filters "skipped" channels)
+    from apps.notifications.services.notification_service import _resolve_final_status
 
-    if not effective_statuses or all(s == "sent" for s in effective_statuses):
-        final_status = NotificationLog.Status.SENT
-    elif any(s == "sent" for s in effective_statuses):
-        final_status = NotificationLog.Status.PARTIAL  # Still partial
-    else:
-        final_status = NotificationLog.Status.FAILED
+    final_status = _resolve_final_status(channel_results)
 
     log.channel_results = channel_results
     log.status = final_status
@@ -186,12 +198,16 @@ def cleanup_old_notification_logs():
     """
     from datetime import timedelta
 
-    from django.conf import settings
     from django.utils import timezone
 
+    from apps.core.feature_config import feature_config
     from apps.notifications.models import NotificationLog
 
-    retention_days = getattr(settings, "NOTIFICATION_LOG_RETENTION_DAYS", 90)
+    if not feature_config.is_system_enabled("notifications"):
+        logger.info("notification.task.cleanup.skipped", reason="system_disabled")
+        return 0
+
+    retention_days = feature_config.get_value("notifications.log_retention_days", 90)
     cutoff = timezone.now() - timedelta(days=retention_days)
 
     deleted_count, _ = NotificationLog.objects.filter(created_at__lt=cutoff).delete()

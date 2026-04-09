@@ -16,6 +16,7 @@ class NotificationPreferenceAdmin(admin.ModelAdmin):
     list_display = [
         "user",
         "notification_type",
+        "scope_type",
         "email_enabled",
         "push_enabled",
         "sms_enabled",
@@ -23,6 +24,7 @@ class NotificationPreferenceAdmin(admin.ModelAdmin):
     ]
     list_filter = [
         "notification_type",
+        "scope_type",
         "email_enabled",
         "push_enabled",
         "sms_enabled",
@@ -35,7 +37,7 @@ class NotificationPreferenceAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related("user")
 
     fieldsets = (
-        (None, {"fields": ("user", "notification_type")}),
+        (None, {"fields": ("user", "notification_type", "scope_type", "scope_id")}),
         (
             "Channel Preferences",
             {"fields": ("email_enabled", "push_enabled", "sms_enabled")},
@@ -55,6 +57,7 @@ class NotificationLogAdmin(admin.ModelAdmin):
         "short_id",
         "user",
         "notification_type",
+        "scope_type",
         "channels_display",
         "status",
         "retry_count",
@@ -63,6 +66,7 @@ class NotificationLogAdmin(admin.ModelAdmin):
     list_filter = [
         "status",
         "notification_type",
+        "scope_type",
         "created_at",
     ]
     search_fields = ["user__email", "id"]
@@ -71,6 +75,8 @@ class NotificationLogAdmin(admin.ModelAdmin):
         "id",
         "user",
         "notification_type",
+        "scope_type",
+        "scope_id",
         "channels",
         "context",
         "channel_results",
@@ -83,7 +89,19 @@ class NotificationLogAdmin(admin.ModelAdmin):
     date_hierarchy = "created_at"
 
     fieldsets = (
-        (None, {"fields": ("id", "user", "notification_type", "status")}),
+        (
+            None,
+            {
+                "fields": (
+                    "id",
+                    "user",
+                    "notification_type",
+                    "scope_type",
+                    "scope_id",
+                    "status",
+                )
+            },
+        ),
         ("Channels", {"fields": ("channels", "channel_results")}),
         ("Context", {"fields": ("context",), "classes": ("collapse",)}),
         (

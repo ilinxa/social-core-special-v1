@@ -84,6 +84,7 @@ STATUS_CODE_MAP = {
     "account_locked": status.HTTP_401_UNAUTHORIZED,
     # 403 Forbidden - Authorization failures
     "permission_denied": status.HTTP_403_FORBIDDEN,
+    "feature_disabled": status.HTTP_403_FORBIDDEN,
     # 404 Not Found - Resource not found
     "not_found": status.HTTP_404_NOT_FOUND,
     # 409 Conflict - Resource conflicts

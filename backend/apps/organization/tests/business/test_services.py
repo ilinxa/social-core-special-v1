@@ -55,6 +55,20 @@ class TestBusinessAccountService:
 
         assert business.profile.display_name == "Test Co"
 
+    @pytest.mark.parametrize("reserved_slug", ["sites", "templates", "media", "api-keys", "businesses", "dashboard"])
+    def test_create_business_reserved_slug_raises_error(self, user, reserved_slug):
+        """Test that creating business with a reserved slug raises ConflictError."""
+        with pytest.raises(ConflictError) as exc_info:
+            BusinessAccountService.create_business(
+                owner=user,
+                legal_name="Reserved Slug Co",
+                country="US",
+                slug=reserved_slug,
+            )
+
+        assert "reserved" in str(exc_info.value.message)
+        assert exc_info.value.conflict_type == "slug_reserved"
+
     def test_create_business_duplicate_slug_raises_error(
         self, business_account_factory, user
     ):

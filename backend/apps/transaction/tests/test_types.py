@@ -36,7 +36,10 @@ ALL_TYPE_IDS = [
     "business_creation_permission_request",
     "business_connection_request",
     "business_platform_connection_request",
+    "cms_activation_request",
     "user_connection_request",
+    "business_suspension_appeal",
+    "membership_enforcement_appeal",
 ]
 
 INVITATION_TYPES = [
@@ -57,13 +60,16 @@ REQUEST_TYPES = [
     "business_connection_request",
     "business_platform_connection_request",
     "user_connection_request",
+    "cms_activation_request",
+    "business_suspension_appeal",
+    "membership_enforcement_appeal",
 ]
 
 
 class TestTransactionTypesRegistry:
 
     def test_all_types_registered(self):
-        assert len(TRANSACTION_TYPES) == 14
+        assert len(TRANSACTION_TYPES) == 17
 
     @pytest.mark.parametrize("type_id", ALL_TYPE_IDS)
     def test_type_is_registered(self, type_id):
@@ -152,7 +158,12 @@ class TestOwnerOnlyTypes:
         [
             t
             for t in ALL_TYPE_IDS
-            if t not in ("platform_ownership_transfer", "business_ownership_transfer")
+            if t
+            not in (
+                "platform_ownership_transfer",
+                "business_ownership_transfer",
+                "cms_activation_request",
+            )
         ],
     )
     def test_non_ownership_transfer_types_are_not_owner_only(self, type_id):

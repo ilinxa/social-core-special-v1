@@ -116,6 +116,38 @@ class BusinessAccountSelector:
             )
 
     @staticmethod
+    def list_all(*, include_deleted: bool = False) -> QuerySet[BusinessAccount]:
+        """All businesses (governance view). Optionally include soft-deleted."""
+        manager = (
+            BusinessAccount.all_objects if include_deleted else BusinessAccount.objects
+        )
+        return manager.select_related("profile").order_by("-created_at")
+
+    @staticmethod
+    def list_filtered(
+        *,
+        status: str | None = None,
+        verification_status: str | None = None,
+        business_type: str | None = None,
+        country: str | None = None,
+        search: str | None = None,
+        include_deleted: bool = False,
+    ) -> QuerySet[BusinessAccount]:
+        """Filtered list for governance. Supports status, verification, type, country, search."""
+        qs = BusinessAccountSelector.list_all(include_deleted=include_deleted)
+        if status:
+            qs = qs.filter(status=status)
+        if verification_status:
+            qs = qs.filter(verification_status=verification_status)
+        if business_type:
+            qs = qs.filter(business_type=business_type)
+        if country:
+            qs = qs.filter(country=country)
+        if search:
+            qs = qs.filter(legal_name__icontains=search)
+        return qs
+
+    @staticmethod
     def list_active() -> QuerySet[BusinessAccount]:
         """Get all active businesses."""
         return BusinessAccount.objects.active().select_related("profile")

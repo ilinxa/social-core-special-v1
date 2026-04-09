@@ -164,7 +164,7 @@ PERMISSIONS: List[tuple] = [
         "Approve Business Creation",
         "Approve new business account creation requests",
         "platform",
-        ["platform_only"],
+        ["platform_only", "global_only"],
     ),
     # =========================================================================
     # VISIBILITY PERMISSIONS

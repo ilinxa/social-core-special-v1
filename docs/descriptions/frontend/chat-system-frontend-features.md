@@ -81,4 +81,4 @@
   last_message: {
     id: string;
     sender_type: string;
-    sender_id: string;we
+    sender_id: string;

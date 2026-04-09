@@ -80,19 +80,23 @@ CHAT_RATE_LIMIT_CONVERSATIONS_PER_HOUR = 5
 CHAT_RATE_LIMIT_REQUESTS_PER_HOUR = 10
 
 # Image attachment settings
-CHAT_ALLOWED_IMAGE_TYPES = frozenset({
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-})
-CHAT_ALLOWED_IMAGE_EXTENSIONS = frozenset({
-    "jpg",
-    "jpeg",
-    "png",
-    "gif",
-    "webp",
-})
+CHAT_ALLOWED_IMAGE_TYPES = frozenset(
+    {
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+    }
+)
+CHAT_ALLOWED_IMAGE_EXTENSIONS = frozenset(
+    {
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "webp",
+    }
+)
 CHAT_MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
 CHAT_MAX_ATTACHMENTS_PER_MESSAGE = 10
 CHAT_ATTACHMENT_ORPHAN_TTL_HOURS = 24

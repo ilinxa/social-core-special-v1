@@ -17,10 +17,11 @@ from django.core.serializers.json import DjangoJSONEncoder
 
 from apps.auth.consumers import AuthenticatedConsumer
 from apps.chat.constants import (
-    ParticipantType,
     WS_HEARTBEAT_INTERVAL_SECONDS,
     WS_MAX_PRESENCE_SUBSCRIPTIONS,
+    ParticipantType,
 )
+from apps.core.feature_config import feature_config
 from apps.core.observability import get_logger
 
 logger = get_logger(__name__)
@@ -72,9 +73,7 @@ class ChatConsumer(AuthenticatedConsumer):
         user_id = str(user.id)
 
         # Join personal user group
-        await self.channel_layer.group_add(
-            f"user_{user_id}", self.channel_name
-        )
+        await self.channel_layer.group_add(f"user_{user_id}", self.channel_name)
 
         # Join all conversation groups
         conversation_ids = await self._get_user_conversation_ids(user.id)
@@ -85,9 +84,7 @@ class ChatConsumer(AuthenticatedConsumer):
 
         # Set presence online and start heartbeat
         await self._set_presence_online(user.id)
-        self._heartbeat_task = asyncio.ensure_future(
-            self._heartbeat_loop(user.id)
-        )
+        self._heartbeat_task = asyncio.ensure_future(self._heartbeat_loop(user.id))
 
         logger.info(
             "chat.ws.connected",
@@ -117,15 +114,11 @@ class ChatConsumer(AuthenticatedConsumer):
 
         # Leave presence subscription groups
         for uid in self._presence_subscriptions:
-            await self.channel_layer.group_discard(
-                f"presence_{uid}", self.channel_name
-            )
+            await self.channel_layer.group_discard(f"presence_{uid}", self.channel_name)
         self._presence_subscriptions.clear()
 
         # Leave personal group
-        await self.channel_layer.group_discard(
-            f"user_{user_id}", self.channel_name
-        )
+        await self.channel_layer.group_discard(f"user_{user_id}", self.channel_name)
 
         # Set offline and broadcast
         await self._set_presence_offline(user.id)
@@ -147,9 +140,7 @@ class ChatConsumer(AuthenticatedConsumer):
 
         handler_name = self.EVENT_HANDLERS.get(event_type)
         if not handler_name:
-            await self._send_error(
-                "unknown_event", f"Unknown event type: {event_type}"
-            )
+            await self._send_error("unknown_event", f"Unknown event type: {event_type}")
             return
 
         handler = getattr(self, handler_name)
@@ -249,9 +240,7 @@ class ChatConsumer(AuthenticatedConsumer):
         message_id = content.get("message_id")
 
         if not message_id:
-            await self._send_error(
-                "invalid_payload", "message_id is required"
-            )
+            await self._send_error("invalid_payload", "message_id is required")
             return
 
         user = self.scope["user"]
@@ -287,7 +276,7 @@ class ChatConsumer(AuthenticatedConsumer):
             return
 
         user = self.scope["user"]
-        reaction_obj = await self._db_add_reaction(
+        await self._db_add_reaction(
             message_id=UUID(message_id),
             user=user,
             reaction=reaction,
@@ -356,9 +345,7 @@ class ChatConsumer(AuthenticatedConsumer):
         """Broadcast typing indicator to conversation group (no self-echo)."""
         conversation_id = content.get("conversation_id")
         if not conversation_id:
-            await self._send_error(
-                "invalid_payload", "conversation_id is required"
-            )
+            await self._send_error("invalid_payload", "conversation_id is required")
             return
 
         user = self.scope["user"]
@@ -402,9 +389,7 @@ class ChatConsumer(AuthenticatedConsumer):
 
         from apps.chat.ws_serializers import serialize_seen_update
 
-        payload = serialize_seen_update(
-            conversation_id, user.id, last_seen_message_id
-        )
+        payload = serialize_seen_update(conversation_id, user.id, last_seen_message_id)
         await self.channel_layer.group_send(
             f"conversation_{conversation_id}",
             {"type": "chat.seen.update", "payload": payload},
@@ -449,9 +434,7 @@ class ChatConsumer(AuthenticatedConsumer):
         user_ids = content.get("user_ids", [])
 
         if not isinstance(user_ids, list):
-            await self._send_error(
-                "invalid_payload", "user_ids must be a list"
-            )
+            await self._send_error("invalid_payload", "user_ids must be a list")
             return
 
         if len(user_ids) > WS_MAX_PRESENCE_SUBSCRIPTIONS:
@@ -463,17 +446,13 @@ class ChatConsumer(AuthenticatedConsumer):
 
         # Leave old subscriptions
         for uid in self._presence_subscriptions:
-            await self.channel_layer.group_discard(
-                f"presence_{uid}", self.channel_name
-            )
+            await self.channel_layer.group_discard(f"presence_{uid}", self.channel_name)
         self._presence_subscriptions.clear()
 
         # Join new subscriptions
         for uid in user_ids:
             uid_str = str(uid)
-            await self.channel_layer.group_add(
-                f"presence_{uid_str}", self.channel_name
-            )
+            await self.channel_layer.group_add(f"presence_{uid_str}", self.channel_name)
             self._presence_subscriptions.add(uid_str)
 
         # Send current status for all subscribed users
@@ -481,10 +460,12 @@ class ChatConsumer(AuthenticatedConsumer):
         from apps.chat.ws_serializers import serialize_presence
 
         for uid, is_online in statuses.items():
-            await self.send_json({
-                "type": "presence",
-                **serialize_presence(uid, is_online),
-            })
+            await self.send_json(
+                {
+                    "type": "presence",
+                    **serialize_presence(uid, is_online),
+                }
+            )
 
     # =========================================================================
     # CONVERSATION GROUP MANAGEMENT
@@ -494,9 +475,7 @@ class ChatConsumer(AuthenticatedConsumer):
         """Join a specific conversation group dynamically."""
         conversation_id = content.get("conversation_id")
         if not conversation_id:
-            await self._send_error(
-                "invalid_payload", "conversation_id is required"
-            )
+            await self._send_error("invalid_payload", "conversation_id is required")
             return
 
         user = self.scope["user"]
@@ -521,9 +500,7 @@ class ChatConsumer(AuthenticatedConsumer):
         """Leave a conversation group."""
         conversation_id = content.get("conversation_id")
         if not conversation_id:
-            await self._send_error(
-                "invalid_payload", "conversation_id is required"
-            )
+            await self._send_error("invalid_payload", "conversation_id is required")
             return
 
         group_name = f"conversation_{conversation_id}"
@@ -536,68 +513,86 @@ class ChatConsumer(AuthenticatedConsumer):
 
     async def chat_message_new(self, event):
         """Receive message.new from channel layer and send to client."""
-        await self.send_json({
-            "type": "message.new",
-            **event["payload"],
-        })
+        await self.send_json(
+            {
+                "type": "message.new",
+                **event["payload"],
+            }
+        )
 
     async def chat_message_edited(self, event):
         """Receive message.edited from channel layer and send to client."""
-        await self.send_json({
-            "type": "message.edited",
-            **event["payload"],
-        })
+        await self.send_json(
+            {
+                "type": "message.edited",
+                **event["payload"],
+            }
+        )
 
     async def chat_message_deleted(self, event):
         """Receive message.deleted from channel layer and send to client."""
-        await self.send_json({
-            "type": "message.deleted",
-            **event["payload"],
-        })
+        await self.send_json(
+            {
+                "type": "message.deleted",
+                **event["payload"],
+            }
+        )
 
     async def chat_typing(self, event):
         """Receive typing from channel layer — skip if sender."""
         if event.get("exclude_channel") == self.channel_name:
             return
-        await self.send_json({
-            "type": "typing",
-            **event["payload"],
-        })
+        await self.send_json(
+            {
+                "type": "typing",
+                **event["payload"],
+            }
+        )
 
     async def chat_seen_update(self, event):
         """Receive seen.update from channel layer and send to client."""
-        await self.send_json({
-            "type": "seen.update",
-            **event["payload"],
-        })
+        await self.send_json(
+            {
+                "type": "seen.update",
+                **event["payload"],
+            }
+        )
 
     async def chat_delivered_update(self, event):
         """Receive delivered.update from channel layer and send to client."""
-        await self.send_json({
-            "type": "delivered.update",
-            **event["payload"],
-        })
+        await self.send_json(
+            {
+                "type": "delivered.update",
+                **event["payload"],
+            }
+        )
 
     async def chat_presence(self, event):
         """Receive presence from channel layer and send to client."""
-        await self.send_json({
-            "type": "presence",
-            **event["payload"],
-        })
+        await self.send_json(
+            {
+                "type": "presence",
+                **event["payload"],
+            }
+        )
 
     async def chat_reaction_update(self, event):
         """Receive reaction.update from channel layer and send to client."""
-        await self.send_json({
-            "type": "reaction.update",
-            **event["payload"],
-        })
+        await self.send_json(
+            {
+                "type": "reaction.update",
+                **event["payload"],
+            }
+        )
 
     async def chat_conversation_new(self, event):
         """Receive new conversation notification and send to client."""
-        await self.send_json({
-            "type": "conversation.new",
-            **event["payload"],
-        })
+        await self.send_json(
+            {
+                "type": "conversation.new",
+                **event["payload"],
+            }
+        )
 
     # =========================================================================
     # HEARTBEAT
@@ -607,7 +602,11 @@ class ChatConsumer(AuthenticatedConsumer):
         """Refresh presence TTL periodically."""
         try:
             while True:
-                await asyncio.sleep(WS_HEARTBEAT_INTERVAL_SECONDS)
+                interval = feature_config.get_value(
+                    "chat.presence.heartbeat_interval_seconds",
+                    WS_HEARTBEAT_INTERVAL_SECONDS,
+                )
+                await asyncio.sleep(interval)
                 await self._set_presence_online(user_id)
         except asyncio.CancelledError:
             pass
@@ -721,11 +720,13 @@ class ChatConsumer(AuthenticatedConsumer):
 
     async def _send_error(self, code: str, message: str):
         """Send error event to client."""
-        await self.send_json({
-            "type": "error",
-            "code": code,
-            "message": message,
-        })
+        await self.send_json(
+            {
+                "type": "error",
+                "code": code,
+                "message": message,
+            }
+        )
 
     @staticmethod
     def _format_error(exc) -> dict:

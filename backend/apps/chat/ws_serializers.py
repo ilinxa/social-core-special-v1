@@ -56,9 +56,7 @@ def serialize_message(message) -> dict:
         "content": message.content,
         "status": message.status,
         "sequence_number": message.sequence_number,
-        "edited_at": (
-            message.edited_at.isoformat() if message.edited_at else None
-        ),
+        "edited_at": (message.edited_at.isoformat() if message.edited_at else None),
         "created_at": message.created_at.isoformat(),
         "attachments": [serialize_attachment(att) for att in attachments],
     }
@@ -70,9 +68,7 @@ def serialize_message_edited(message) -> dict:
         "conversation_id": str(message.conversation_id),
         "message_id": str(message.id),
         "content": message.content,
-        "edited_at": (
-            message.edited_at.isoformat() if message.edited_at else None
-        ),
+        "edited_at": (message.edited_at.isoformat() if message.edited_at else None),
     }
 
 
@@ -93,7 +89,9 @@ def serialize_typing(conversation_id, user_id, is_typing: bool) -> dict:
     }
 
 
-def serialize_seen_update(conversation_id, participant_id, last_seen_message_id) -> dict:
+def serialize_seen_update(
+    conversation_id, participant_id, last_seen_message_id
+) -> dict:
     """Serialize a seen watermark update for WS broadcast."""
     return {
         "conversation_id": str(conversation_id),

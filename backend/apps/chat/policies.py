@@ -112,9 +112,7 @@ class ChatPolicy:
         )
 
     @staticmethod
-    def can_manage_entity_chat(
-        *, user, account_type: str, account_id: UUID
-    ) -> bool:
+    def can_manage_entity_chat(*, user, account_type: str, account_id: UUID) -> bool:
         """Check if user has can_manage_chat permission for this entity."""
         if user.is_staff or user.is_superuser:
             return True
@@ -189,10 +187,7 @@ class ChatPolicy:
         - Org-scope moderator with moderation permission
         """
         # Author can always delete own messages
-        if (
-            message.sender_type == ParticipantType.USER
-            and message.sender_id == user.id
-        ):
+        if message.sender_type == ParticipantType.USER and message.sender_id == user.id:
             return True
 
         # Entity message — acting user can delete

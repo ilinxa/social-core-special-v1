@@ -121,7 +121,9 @@ def message_in_dm(db, dm_conversation, user):
 
 @pytest.mark.django_db
 class TestMessageCreateBroadcast:
-    def test_message_create_calls_broadcast(self, authenticated_client, dm_conversation):
+    def test_message_create_calls_broadcast(
+        self, authenticated_client, dm_conversation
+    ):
         url = f"/api/v1/chat/conversations/{dm_conversation.id}/messages/"
         with patch("apps.chat.broadcast.broadcast_message_new") as mock_bc:
             resp = authenticated_client.post(url, {"content": "Hello!"}, format="json")
@@ -138,7 +140,9 @@ class TestMessageCreateBroadcast:
             resp = authenticated_client.post(url, {"content": "Hello!"}, format="json")
         assert resp.status_code == status.HTTP_201_CREATED
 
-    def test_message_get_does_not_broadcast(self, authenticated_client, dm_conversation):
+    def test_message_get_does_not_broadcast(
+        self, authenticated_client, dm_conversation
+    ):
         url = f"/api/v1/chat/conversations/{dm_conversation.id}/messages/"
         with patch("apps.chat.broadcast.broadcast_message_new") as mock_bc:
             resp = authenticated_client.get(url)
@@ -169,7 +173,8 @@ class TestMessageEditBroadcast:
     ):
         url = f"/api/v1/chat/conversations/{dm_conversation.id}/messages/{message_in_dm.id}/"
         with patch(
-            "apps.chat.broadcast.broadcast_message_edited", side_effect=Exception("boom")
+            "apps.chat.broadcast.broadcast_message_edited",
+            side_effect=Exception("boom"),
         ):
             resp = authenticated_client.patch(
                 url, {"content": "Edited!"}, format="json"

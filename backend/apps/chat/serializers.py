@@ -15,7 +15,6 @@ from apps.chat.constants import (
     ScopeType,
 )
 
-
 # =============================================================================
 # INPUT SERIALIZERS
 # =============================================================================
@@ -107,9 +106,9 @@ def _resolve_participant_display(participant_type: str, participant_id):
         if participant_type == ParticipantType.USER:
             from apps.users.models import User
 
-            user = User.objects.select_related("profile").filter(
-                id=participant_id
-            ).first()
+            user = (
+                User.objects.select_related("profile").filter(id=participant_id).first()
+            )
             if user and hasattr(user, "profile"):
                 display_name = user.profile.display_name or ""
                 if user.profile.avatar:
@@ -118,9 +117,7 @@ def _resolve_participant_display(participant_type: str, participant_id):
         elif participant_type == ParticipantType.BUSINESS:
             from apps.organization.business.models import BusinessProfile
 
-            profile = BusinessProfile.objects.filter(
-                business_id=participant_id
-            ).first()
+            profile = BusinessProfile.objects.filter(business_id=participant_id).first()
             if profile:
                 display_name = profile.display_name or ""
                 if profile.logo:
@@ -129,9 +126,7 @@ def _resolve_participant_display(participant_type: str, participant_id):
         elif participant_type == ParticipantType.PLATFORM:
             from apps.organization.platform.models import PlatformProfile
 
-            profile = PlatformProfile.objects.filter(
-                platform_id=participant_id
-            ).first()
+            profile = PlatformProfile.objects.filter(platform_id=participant_id).first()
             if profile:
                 display_name = profile.name or ""
                 if profile.logo:
@@ -155,9 +150,7 @@ class ParticipantOutputSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField()
 
     def get_display_name(self, obj):
-        name, _ = _resolve_participant_display(
-            obj.participant_type, obj.participant_id
-        )
+        name, _ = _resolve_participant_display(obj.participant_type, obj.participant_id)
         return name
 
     def get_avatar_url(self, obj):
@@ -218,12 +211,16 @@ class ConversationListOutputSerializer(serializers.Serializer):
             return False
         from apps.chat.models import ConversationParticipant
 
-        participant = ConversationParticipant.objects.filter(
-            conversation=obj,
-            participant_type=ParticipantType.USER,
-            participant_id=request.user.id,
-            is_active=True,
-        ).values_list("is_muted", flat=True).first()
+        participant = (
+            ConversationParticipant.objects.filter(
+                conversation=obj,
+                participant_type=ParticipantType.USER,
+                participant_id=request.user.id,
+                is_active=True,
+            )
+            .values_list("is_muted", flat=True)
+            .first()
+        )
         return participant or False
 
 
@@ -318,13 +315,18 @@ class MessageOutputSerializer(serializers.Serializer):
         if data is not None:
             return data.get("my_reactions", [])
         request = self.context.get("request")
-        uid = request.user.id if request and hasattr(request, "user") and request.user else None
+        uid = (
+            request.user.id
+            if request and hasattr(request, "user") and request.user
+            else None
+        )
         if uid:
             from apps.chat.models import MessageReaction
 
             return list(
-                MessageReaction.objects.filter(message=obj, user_id=uid)
-                .values_list("reaction", flat=True)
+                MessageReaction.objects.filter(message=obj, user_id=uid).values_list(
+                    "reaction", flat=True
+                )
             )
         return []
 
@@ -340,13 +342,17 @@ class ChatRequestOutputSerializer(serializers.Serializer):
         """Get the sender (other participant) of this DM."""
         from apps.chat.models import ConversationParticipant
 
-        sender = ConversationParticipant.objects.filter(
-            conversation=obj.conversation,
-            is_active=True,
-        ).exclude(
-            participant_type=obj.participant_type,
-            participant_id=obj.participant_id,
-        ).first()
+        sender = (
+            ConversationParticipant.objects.filter(
+                conversation=obj.conversation,
+                is_active=True,
+            )
+            .exclude(
+                participant_type=obj.participant_type,
+                participant_id=obj.participant_id,
+            )
+            .first()
+        )
 
         if not sender:
             return None
@@ -364,12 +370,16 @@ class ChatRequestOutputSerializer(serializers.Serializer):
     def get_preview_messages(self, obj):
         from apps.chat.models import Message
 
-        messages = Message.objects.filter(
-            conversation=obj.conversation,
-        ).exclude(
-            sender_type=obj.participant_type,
-            sender_id=obj.participant_id,
-        ).order_by("sequence_number")[:3]
+        messages = (
+            Message.objects.filter(
+                conversation=obj.conversation,
+            )
+            .exclude(
+                sender_type=obj.participant_type,
+                sender_id=obj.participant_id,
+            )
+            .order_by("sequence_number")[:3]
+        )
 
         return [
             {
@@ -382,12 +392,16 @@ class ChatRequestOutputSerializer(serializers.Serializer):
     def get_message_count(self, obj):
         from apps.chat.models import Message
 
-        return Message.objects.filter(
-            conversation=obj.conversation,
-        ).exclude(
-            sender_type=obj.participant_type,
-            sender_id=obj.participant_id,
-        ).count()
+        return (
+            Message.objects.filter(
+                conversation=obj.conversation,
+            )
+            .exclude(
+                sender_type=obj.participant_type,
+                sender_id=obj.participant_id,
+            )
+            .count()
+        )
 
 
 class ChatBlockOutputSerializer(serializers.Serializer):

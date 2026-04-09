@@ -252,9 +252,7 @@ def owner_with_configure_perm(
 
 
 @pytest.fixture
-def owner_with_approve_perm(
-    owner_membership, owner_role, can_approve_membership_perm
-):
+def owner_with_approve_perm(owner_membership, owner_role, can_approve_membership_perm):
     RolePermission.objects.get_or_create(
         role=owner_role,
         permission=can_approve_membership_perm,

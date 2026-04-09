@@ -8,6 +8,8 @@ import uuid
 
 import pytest
 
+from unittest.mock import patch
+
 from apps.chat.constants import (
     ConversationType,
     MessageContentType,
@@ -114,9 +116,7 @@ class TestGetConversationsForParticipant:
 
     def test_filters_by_business_scope(self, user):
         biz_id = uuid.uuid4()
-        conv1 = ConversationFactory(
-            scope_type=ScopeType.BUSINESS, scope_id=biz_id
-        )
+        conv1 = ConversationFactory(scope_type=ScopeType.BUSINESS, scope_id=biz_id)
         conv2 = ConversationFactory(scope_type=ScopeType.GLOBAL)
         ConversationParticipantFactory(
             conversation=conv1,
@@ -241,9 +241,7 @@ class TestGetMessages:
         m2 = MessageFactory(conversation=conv, sequence_number=2)
         m3 = MessageFactory(conversation=conv, sequence_number=3)
 
-        result = list(
-            ChatSelector.get_messages(conversation_id=conv.id, page_size=10)
-        )
+        result = list(ChatSelector.get_messages(conversation_id=conv.id, page_size=10))
         # Default: latest first (descending)
         assert result[0].id == m3.id
         assert result[1].id == m2.id
@@ -290,9 +288,7 @@ class TestGetMessages:
         for i in range(5):
             MessageFactory(conversation=conv, sequence_number=i + 1)
 
-        result = list(
-            ChatSelector.get_messages(conversation_id=conv.id, page_size=3)
-        )
+        result = list(ChatSelector.get_messages(conversation_id=conv.id, page_size=3))
         assert len(result) == 3
 
 
@@ -634,9 +630,7 @@ class TestGetUnreadCountsByScope:
 
         # Business conversation
         biz_id = uuid.uuid4()
-        conv_biz = ConversationFactory(
-            scope_type=ScopeType.BUSINESS, scope_id=biz_id
-        )
+        conv_biz = ConversationFactory(scope_type=ScopeType.BUSINESS, scope_id=biz_id)
         ConversationParticipantFactory(
             conversation=conv_biz,
             participant_type=ParticipantType.USER,
@@ -653,3 +647,75 @@ class TestGetUnreadCountsByScope:
         assert result["global"] == 1
         assert result["business"][str(biz_id)] == 1
         assert result["platform"] == 0
+
+    def test_result_includes_entity_key(self, user):
+        """Unread counts result always has entity.business and entity.platform keys."""
+        result = ChatSelector.get_unread_counts_by_scope(user_id=user.id)
+        assert "entity" in result
+        assert "business" in result["entity"]
+        assert "platform" in result["entity"]
+
+    @patch("apps.chat.policies.ChatPolicy.can_manage_entity_chat", return_value=True)
+    def test_entity_unread_for_managed_business(self, mock_policy, user, user_b):
+        """Entity unread counts include business entities the user can manage."""
+        biz_id = uuid.uuid4()
+
+        # Conversation where a business entity is a participant
+        conv = ConversationFactory(scope_type=ScopeType.GLOBAL)
+        ConversationParticipantFactory(
+            conversation=conv,
+            participant_type=ParticipantType.BUSINESS,
+            participant_id=biz_id,
+        )
+        # Message from user_b creates unread for the entity
+        MessageFactory(
+            conversation=conv,
+            sender_type=ParticipantType.USER,
+            sender_id=user_b.id,
+            sequence_number=1,
+        )
+
+        result = ChatSelector.get_unread_counts_by_scope(user_id=user.id)
+        assert result["entity"]["business"][str(biz_id)] >= 1
+
+    @patch("apps.chat.policies.ChatPolicy.can_manage_entity_chat", return_value=False)
+    def test_entity_unread_excludes_non_managed(self, mock_policy, user, user_b):
+        """Entity unread counts exclude entities the user cannot manage."""
+        biz_id = uuid.uuid4()
+
+        conv = ConversationFactory(scope_type=ScopeType.GLOBAL)
+        ConversationParticipantFactory(
+            conversation=conv,
+            participant_type=ParticipantType.BUSINESS,
+            participant_id=biz_id,
+        )
+        MessageFactory(
+            conversation=conv,
+            sender_type=ParticipantType.USER,
+            sender_id=user_b.id,
+            sequence_number=1,
+        )
+
+        result = ChatSelector.get_unread_counts_by_scope(user_id=user.id)
+        assert str(biz_id) not in result["entity"]["business"]
+
+    @patch("apps.chat.policies.ChatPolicy.can_manage_entity_chat", return_value=True)
+    def test_entity_unread_platform(self, mock_policy, user, user_b):
+        """Entity unread counts for platform entity participants."""
+        platform_id = uuid.uuid4()
+
+        conv = ConversationFactory(scope_type=ScopeType.GLOBAL)
+        ConversationParticipantFactory(
+            conversation=conv,
+            participant_type=ParticipantType.PLATFORM,
+            participant_id=platform_id,
+        )
+        MessageFactory(
+            conversation=conv,
+            sender_type=ParticipantType.USER,
+            sender_id=user_b.id,
+            sequence_number=1,
+        )
+
+        result = ChatSelector.get_unread_counts_by_scope(user_id=user.id)
+        assert result["entity"]["platform"][str(platform_id)] >= 1

@@ -1,0 +1,3239 @@
+{
+  "$schema": "test-map-schema",
+  "version": "1.2",
+  "generated": "2026-03-31",
+  "summary": {
+    "total_files": 145,
+    "total_tests": 581,
+    "layers": {
+      "L1_smoke_desktop": {
+        "files": 96,
+        "tests": 285
+      },
+      "L1_smoke_mobile": {
+        "files": 4,
+        "tests": 21
+      },
+      "L2_workflows": {
+        "files": 35,
+        "tests": 37
+      },
+      "L3_scenarios": {
+        "files": 10,
+        "tests": 238
+      }
+    },
+    "systems_covered": 16,
+    "parameters_covered": 14
+  },
+  "projects": {
+    "smoke-desktop": {
+      "viewport": "1280x720",
+      "workers": 4,
+      "retries": 1
+    },
+    "smoke-mobile": {
+      "viewport": "iPhone 14 Pro (393x852)",
+      "workers": 2,
+      "retries": 1
+    },
+    "workflows": {
+      "viewport": "1280x720",
+      "workers": 2,
+      "retries": 2
+    },
+    "scenarios": {
+      "viewport": "1280x720",
+      "workers": 1,
+      "retries": 0,
+      "serial": true
+    }
+  },
+  "tests": [
+    {
+      "file": "tests/smoke/auth/login.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "auth"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5",
+        "P7"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "tests": [
+        "renders login form with all elements",
+        "successful login redirects to home",
+        "invalid credentials show error",
+        "empty email shows validation error",
+        "empty password shows validation error",
+        "forgot password link navigates correctly",
+        "sign up link navigates correctly",
+        "shows verified banner when redirected from verification",
+        "login page visual regression",
+        "login form inputs have associated labels"
+      ]
+    },
+    {
+      "file": "tests/smoke/auth/register.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "auth"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5",
+        "P7"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "tests": [
+        "renders registration form with all elements",
+        "successful registration redirects away from register",
+        "duplicate email shows error",
+        "password mismatch shows error",
+        "sign in link navigates correctly",
+        "register page visual regression",
+        "register form inputs have associated labels"
+      ]
+    },
+    {
+      "file": "tests/smoke/auth/logout.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "auth"
+      ],
+      "parameters": [
+        "P2",
+        "P5",
+        "P14"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "tests": [
+        "logout clears session and redirects to login",
+        "cannot access protected route after logout"
+      ]
+    },
+    {
+      "file": "tests/smoke/auth/email-verification.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "auth"
+      ],
+      "parameters": [
+        "P2",
+        "P4",
+        "P5",
+        "P7"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "tests": [
+        "verify email with correct code redirects to login",
+        "invalid code shows error",
+        "resend code button works with cooldown",
+        "verify page renders with email from query param"
+      ]
+    },
+    {
+      "file": "tests/smoke/auth/password-reset.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "auth"
+      ],
+      "parameters": [
+        "P2",
+        "P4",
+        "P5",
+        "P7"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "request reset shows success message",
+        "reset password with valid token and login",
+        "missing token shows error",
+        "back to sign in link works"
+      ]
+    },
+    {
+      "file": "tests/smoke/auth/password-change.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "auth"
+      ],
+      "parameters": [
+        "P2",
+        "P5",
+        "P7"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "change password while logged in"
+      ]
+    },
+    {
+      "file": "tests/smoke/auth/session-management.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "auth"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "security page renders with session list",
+        "change password form is visible"
+      ]
+    },
+    {
+      "file": "tests/smoke/auth/oauth-redirect.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "auth"
+      ],
+      "parameters": [
+        "P2",
+        "P3"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "Google button initiates OAuth redirect",
+        "Apple button initiates OAuth redirect",
+        "OAuth buttons are visible on register page"
+      ]
+    },
+    {
+      "file": "tests/smoke/user/profile-view.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "users"
+      ],
+      "parameters": [
+        "P1",
+        "P4"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "tests": [
+        "own profile renders with key elements",
+        "profile shows avatar area",
+        "edit button navigates to edit page",
+        "profile page visual regression",
+        "profile page has correct ARIA landmarks"
+      ]
+    },
+    {
+      "file": "tests/smoke/user/profile-edit.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "users"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P4",
+        "P7"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "edit form renders with all fields",
+        "edit and save profile",
+        "cancel returns to profile without saving"
+      ]
+    },
+    {
+      "file": "tests/smoke/user/settings.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "users"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P14"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "settings page renders with username section",
+        "danger zone with deactivate button is visible",
+        "deactivate dialog requires typing confirmation",
+        "settings page visual regression",
+        "settings page has correct ARIA landmarks",
+        "settings form inputs have associated labels"
+      ]
+    },
+    {
+      "file": "tests/smoke/user/home-feed.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "users"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "tests": [
+        "home page renders after login",
+        "sidebar navigation is visible on desktop",
+        "brand link navigates to home"
+      ]
+    },
+    {
+      "file": "tests/smoke/user/activity-feed.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "users"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P4"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "activity page renders with tabs",
+        "filter tabs switch content",
+        "empty state shows when no transactions"
+      ]
+    },
+    {
+      "file": "tests/smoke/user/other-user-profile.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "users"
+      ],
+      "parameters": [
+        "P1",
+        "P4",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "view another user profile",
+        "non-existent user shows not found"
+      ]
+    },
+    {
+      "file": "tests/smoke/user/username-change.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "users"
+      ],
+      "parameters": [
+        "P2",
+        "P4",
+        "P7"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "change username successfully"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/create-business.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P2",
+        "P4",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "business owner can create a business via account switcher",
+        "regular user without permission does not see create business option",
+        "business creation dialog validates required fields"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/profile-public.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P7"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "anonymous user can view public business profile",
+        "non-existent business shows not found",
+        "public profile shows about section when available",
+        "business profile visual regression",
+        "business profile has correct ARIA landmarks"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/console-dashboard.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "dashboard renders for business owner",
+        "sidebar navigation links are visible in console",
+        "account switcher shows business context",
+        "business dashboard visual regression",
+        "business dashboard has correct ARIA landmarks"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/business-settings.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "settings page renders for owner",
+        "danger zone with transfer ownership is visible for owner",
+        "archive button is visible for owner",
+        "business settings visual regression",
+        "business settings has correct ARIA landmarks"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/member-management.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P4",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "members page renders with member list",
+        "search input is visible",
+        "create role button is visible for owner",
+        "roles section is visible"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/role-management.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "roles are listed on members page",
+        "create role button visible for owner",
+        "create role dialog opens"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/member-detail.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P7"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "members page shows at least the owner"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/member-actions.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P2",
+        "P5",
+        "P7"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "owner sees the member list"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/business-lifecycle.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P2",
+        "P4",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "newly created business is active"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/business-audit.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "audit page renders"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/business-visibility.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "visibility"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P7"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "profile edit page renders with tabs",
+        "profile edit form has name and description fields",
+        "save button is present on edit form"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/business-network.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "network"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "followers page renders",
+        "connections page renders"
+      ]
+    },
+    {
+      "file": "tests/smoke/business/business-transactions-detail.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "transactions dashboard renders with cards",
+        "requests list page renders",
+        "invitations list page renders"
+      ]
+    },
+    {
+      "file": "tests/smoke/platform/profile-public.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "platform"
+      ],
+      "parameters": [
+        "P1",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "platform profile page renders"
+      ]
+    },
+    {
+      "file": "tests/smoke/platform/console-dashboard.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "platform"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "dashboard renders for platform admin",
+        "sidebar navigation is visible"
+      ]
+    },
+    {
+      "file": "tests/smoke/platform/platform-management.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "platform"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "members page renders",
+        "roles section visible",
+        "search input is visible"
+      ]
+    },
+    {
+      "file": "tests/smoke/platform/platform-businesses.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "platform"
+      ],
+      "parameters": [
+        "P1",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "businesses page renders",
+        "shows coming soon placeholder"
+      ]
+    },
+    {
+      "file": "tests/smoke/platform/platform-audit.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "platform"
+      ],
+      "parameters": [
+        "P1",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "audit page renders"
+      ]
+    },
+    {
+      "file": "tests/smoke/platform/platform-cms.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P1",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "CMS sites page renders",
+        "CMS templates page renders",
+        "API keys page renders",
+        "media library page renders"
+      ]
+    },
+    {
+      "file": "tests/smoke/platform/platform-forms.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "forms"
+      ],
+      "parameters": [
+        "P1",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "forms dashboard renders",
+        "forms dashboard shows template card"
+      ]
+    },
+    {
+      "file": "tests/smoke/platform/platform-transactions.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "transactions dashboard renders",
+        "transactions dashboard shows request and invitation cards"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/conversation-list.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "chat page renders with sidebar",
+        "search input is visible",
+        "conversation listbox has proper ARIA role",
+        "shows empty state when no conversations"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/send-message.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "compose bar shows message input",
+        "message log has proper ARIA role"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/group-chat.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "new conversation dialog opens",
+        "new conversation dialog has create and cancel buttons"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/attachments.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "attachment button exists in compose bar"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/reactions.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "reaction controls POM instantiates without error"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/search-messages.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "search button is visible in message header",
+        "search panel opens on search button click"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/chat-requests.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "chat page renders without error"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/message-edit-delete.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "chat page loads for message operations",
+        "settings button is accessible in message header"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/presence-indicators.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "chat page loads with WebSocket connection"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/delivery-status.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "delivery status POM instantiates with test IDs"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/group-admin.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "chat page loads for group management"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/chat-mute.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "chat page loads for mute operations"
+      ]
+    },
+    {
+      "file": "tests/smoke/chat/entity-sender-badge.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "business chat page renders",
+        "platform chat page renders"
+      ]
+    },
+    {
+      "file": "tests/smoke/network/follow-business.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "network"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "follow button is visible on public business profile",
+        "anonymous user does not see follow button"
+      ]
+    },
+    {
+      "file": "tests/smoke/network/connect-user.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "network"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "connect button is visible on other user profile"
+      ]
+    },
+    {
+      "file": "tests/smoke/network/network-page.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "network"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "network page renders with heading",
+        "connections and following tabs are visible",
+        "search input is visible"
+      ]
+    },
+    {
+      "file": "tests/smoke/network/following-list.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "network"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "following tab shows content"
+      ]
+    },
+    {
+      "file": "tests/smoke/network/connection-list.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "network"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "connections tab shows content"
+      ]
+    },
+    {
+      "file": "tests/smoke/network/disconnect.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "network"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "network page is accessible for disconnect operations"
+      ]
+    },
+    {
+      "file": "tests/smoke/transactions/membership-invitation.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "invitations page renders from dashboard",
+        "invitations list page renders"
+      ]
+    },
+    {
+      "file": "tests/smoke/transactions/join-request.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "request to join button visible on public profile",
+        "requests list page renders for owner"
+      ]
+    },
+    {
+      "file": "tests/smoke/transactions/ownership-transfer.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "transfer ownership button visible in settings"
+      ]
+    },
+    {
+      "file": "tests/smoke/transactions/transaction-list.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "activity page renders with heading",
+        "role filter tabs are visible",
+        "shows transactions or empty state"
+      ]
+    },
+    {
+      "file": "tests/smoke/transactions/transaction-deny-cancel.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "activity page is accessible for deny/cancel operations"
+      ]
+    },
+    {
+      "file": "tests/smoke/transactions/transaction-pages.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "business transactions dashboard renders with all cards",
+        "requests page status filters are visible"
+      ]
+    },
+    {
+      "file": "tests/smoke/transactions/form-mapping-settings.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "transaction settings page renders",
+        "settings page shows description"
+      ]
+    },
+    {
+      "file": "tests/smoke/forms/template-builder.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "forms"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "create template page renders with form fields",
+        "create form button is disabled when name is empty",
+        "template list page renders with status tabs"
+      ]
+    },
+    {
+      "file": "tests/smoke/forms/form-submission.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "forms"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "responses page renders with form selector",
+        "responses page shows select form prompt"
+      ]
+    },
+    {
+      "file": "tests/smoke/forms/form-responses.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "forms"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "responses page has back button",
+        "responses page shows empty state without form selected"
+      ]
+    },
+    {
+      "file": "tests/smoke/forms/template-lifecycle.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "forms"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "forms dashboard renders with navigation cards",
+        "template library page renders"
+      ]
+    },
+    {
+      "file": "tests/smoke/forms/field-crud.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "forms"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "create template page has slug and description fields",
+        "cancel button navigates away from create page"
+      ]
+    },
+    {
+      "file": "tests/smoke/forms/field-types-all.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "forms"
+      ],
+      "parameters": [
+        "P1",
+        "P4",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "template list shows new form button",
+        "template list shows templates or empty state"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/cms-site-management.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "CMS sites page renders",
+        "CMS sites page shows coming soon placeholder"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/cms-page-publish.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "CMS templates page renders",
+        "CMS templates page shows coming soon placeholder"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/cms-content-editing.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "CMS sites and templates pages are both accessible"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/cms-media-library.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "media library page renders",
+        "media library shows coming soon placeholder"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/cms-api-keys.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "API keys page renders",
+        "API keys page shows coming soon placeholder"
+      ]
+    },
+    {
+      "file": "tests/smoke/notifications/notification-center.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "notifications"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "notifications page renders with heading",
+        "notifications page shows coming soon placeholder"
+      ]
+    },
+    {
+      "file": "tests/smoke/notifications/notification-preferences.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "notifications"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "notification preferences page is accessible"
+      ]
+    },
+    {
+      "file": "tests/smoke/notifications/notification-history.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "notifications"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "notification page accessible for history viewing"
+      ]
+    },
+    {
+      "file": "tests/smoke/explore/search-businesses.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "explore"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "explore page renders with heading and search",
+        "businesses tab is visible",
+        "explore page accessible to anonymous users",
+        "explore page visual regression",
+        "explore page has correct ARIA landmarks"
+      ]
+    },
+    {
+      "file": "tests/smoke/explore/search-users.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "explore"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "users tab visible for authenticated users",
+        "all tab is selected by default"
+      ]
+    },
+    {
+      "file": "tests/smoke/explore/filters.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "explore"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "filters button is visible on businesses tab",
+        "subheading describes the explore page"
+      ]
+    },
+    {
+      "file": "tests/smoke/feature-gates/feature-gate-403.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "feature-gates"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P6"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "chat page renders (feature gate enabled)",
+        "explore page renders (feature gate enabled)",
+        "forms page renders for business owner (feature gate enabled)"
+      ]
+    },
+    {
+      "file": "tests/smoke/limits/member-quota.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "business",
+        "limits"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P10"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "members page renders quota indicator",
+        "quota shows member count with format X / Y",
+        "quota at full capacity shows 1 / 1 when max is 1"
+      ]
+    },
+    {
+      "file": "tests/smoke/limits/rate-limits.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "auth",
+        "limits"
+      ],
+      "parameters": [
+        "P1",
+        "P4",
+        "P10"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "account lockout after repeated failed logins shows error",
+        "failed login attempt shows inline error message"
+      ]
+    },
+    {
+      "file": "tests/smoke/limits/field-length-limits.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "auth",
+        "business",
+        "limits"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P10"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "register form rejects username exceeding 30 characters",
+        "business profile rejects tagline exceeding 500 characters",
+        "business profile rejects description exceeding 5000 characters"
+      ]
+    },
+    {
+      "file": "tests/smoke/navigation/account-switcher.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "navigation"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "account switcher is visible on authenticated pages",
+        "switcher shows Personal as active on personal routes",
+        "switching to business navigates to business console",
+        "switching back to personal navigates to home",
+        "switching between two businesses updates context"
+      ]
+    },
+    {
+      "file": "tests/smoke/public/landing-pages.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "public"
+      ],
+      "parameters": [
+        "P1",
+        "P3"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "tests": [
+        "landing page renders with heading and navigation",
+        "public navigation links are visible",
+        "about page renders",
+        "contact page renders",
+        "sign in link navigates to login",
+        "register link navigates to register",
+        "explore link navigates to explore page",
+        "landing page visual regression",
+        "landing page has correct ARIA landmarks"
+      ]
+    },
+    {
+      "file": "tests/smoke/responsive/auth-mobile.spec.ts",
+      "layer": "L1",
+      "project": "smoke-mobile",
+      "systems": [
+        "auth"
+      ],
+      "parameters": [
+        "P1",
+        "P8"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "login form renders and all elements are visible",
+        "login form is usable â€” fields accept input and submit works",
+        "register form renders all fields on mobile",
+        "register form is usable â€” submit redirects to verify",
+        "forgot password link is tappable on mobile",
+        "sign up link navigates from login on mobile"
+      ]
+    },
+    {
+      "file": "tests/smoke/responsive/chat-mobile.spec.ts",
+      "layer": "L1",
+      "project": "smoke-mobile",
+      "systems": [
+        "chat"
+      ],
+      "parameters": [
+        "P7",
+        "P8"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "conversation list fills screen on mobile",
+        "selecting conversation shows message view with back button",
+        "compose bar is usable on mobile"
+      ]
+    },
+    {
+      "file": "tests/smoke/responsive/navigation-mobile.spec.ts",
+      "layer": "L1",
+      "project": "smoke-mobile",
+      "systems": [
+        "navigation"
+      ],
+      "parameters": [
+        "P2",
+        "P8"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "tests": [
+        "sidebar is hidden on mobile",
+        "bottom navbar is visible on mobile",
+        "bottom navbar links navigate correctly",
+        "main content area is visible on mobile",
+        "public pages have mobile-friendly navigation",
+        "user menu is accessible on mobile"
+      ]
+    },
+    {
+      "file": "tests/smoke/responsive/business-console-mobile.spec.ts",
+      "layer": "L1",
+      "project": "smoke-mobile",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P2",
+        "P8"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "dashboard renders on mobile",
+        "sidebar is hidden on mobile in business console",
+        "bottom navbar shows in business console",
+        "settings page renders on mobile"
+      ]
+    },
+    {
+      "file": "tests/workflows/auth-to-profile.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "auth",
+        "users"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "tests": [
+        "user can login, view home, navigate to profile, and session persists"
+      ]
+    },
+    {
+      "file": "tests/workflows/registration-email-verification.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "auth"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P4",
+        "P5"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "tests": [
+        "register, verify email via DB code, and login"
+      ]
+    },
+    {
+      "file": "tests/workflows/business-creation-to-first-member.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "auth",
+        "business",
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P4",
+        "P5"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "multi_context": true,
+      "tests": [
+        "owner creates business, invites user, invitee accepts, member appears"
+      ]
+    },
+    {
+      "file": "tests/workflows/member-invitation-full-cycle.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "transactions",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P4",
+        "P5"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "multi_context": true,
+      "tests": [
+        "invitation created, visible to both parties, accepted, member gains access"
+      ]
+    },
+    {
+      "file": "tests/workflows/join-request-with-form.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "transactions",
+        "forms",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "multi_context": true,
+      "feature_gated": [
+        "forms"
+      ],
+      "tests": [
+        "user submits join request with required form, owner sees pending review"
+      ]
+    },
+    {
+      "file": "tests/workflows/transaction-form-approval-workflow.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "transactions",
+        "forms",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "multi_context": true,
+      "feature_gated": [
+        "forms"
+      ],
+      "tests": [
+        "form-linked join request approved, member activated"
+      ]
+    },
+    {
+      "file": "tests/workflows/business-follow-to-join.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "network",
+        "transactions",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "multi_context": true,
+      "feature_gated": [
+        "network"
+      ],
+      "tests": [
+        "user follows business, requests to join, owner accepts"
+      ]
+    },
+    {
+      "file": "tests/workflows/two-user-chat-realtime.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "chat",
+        "auth"
+      ],
+      "parameters": [
+        "P1",
+        "P6",
+        "P7"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "multi_context": true,
+      "feature_gated": [
+        "chat"
+      ],
+      "tests": [
+        "two users exchange messages in real-time via WebSocket"
+      ]
+    },
+    {
+      "file": "tests/workflows/chat-conversation-lifecycle.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "chat",
+        "auth"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "chat"
+      ],
+      "tests": [
+        "create conversation, send messages, edit, delete"
+      ]
+    },
+    {
+      "file": "tests/workflows/network-follow-connect-flow.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "network",
+        "transactions",
+        "auth"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "multi_context": true,
+      "feature_gated": [
+        "network"
+      ],
+      "tests": [
+        "follow business, send connection request, accept, verify both sides"
+      ]
+    },
+    {
+      "file": "tests/workflows/business-member-rbac-flow.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "business",
+        "auth"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "multi_context": true,
+      "tests": [
+        "member gets admin role assigned and gains elevated permissions"
+      ]
+    },
+    {
+      "file": "tests/workflows/explore-to-interaction.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "explore",
+        "network",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "network"
+      ],
+      "tests": [
+        "search for business on explore, follow it, verify in network"
+      ]
+    },
+    {
+      "file": "tests/workflows/member-quota-enforcement.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "business",
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P10"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "fill quota, attempt over-quota blocked, remove member, invite again"
+      ]
+    },
+    {
+      "file": "tests/workflows/ownership-transfer-workflow.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "transactions",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "multi_context": true,
+      "tests": [
+        "owner transfers to member, member accepts, permissions swap"
+      ]
+    },
+    {
+      "file": "tests/workflows/platform-business-management.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "platform",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P8"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "platform admin views business list and finds specific business"
+      ]
+    },
+    {
+      "file": "tests/workflows/entity-chat-business-context.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "chat",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P6"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "multi_context": true,
+      "feature_gated": [
+        "chat"
+      ],
+      "tests": [
+        "business entity sends message, external user sees entity badge"
+      ]
+    },
+    {
+      "file": "tests/workflows/cms-content-lifecycle.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "cms",
+        "platform"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "create site, create page, publish, verify status, unpublish"
+      ]
+    },
+    {
+      "file": "tests/workflows/form-template-lifecycle.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "forms",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "forms"
+      ],
+      "tests": [
+        "create template, add fields, publish, submit response, view"
+      ]
+    },
+    {
+      "file": "tests/workflows/form-builder-complete-lifecycle.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "forms",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P4",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "forms"
+      ],
+      "tests": [
+        "create template with 5+ field types, submit response, verify all values"
+      ]
+    },
+    {
+      "file": "tests/workflows/member-discipline-flow.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "business",
+        "auth"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "multi_context": true,
+      "tests": [
+        "owner suspends member, access denied, then reactivates, access restored"
+      ]
+    },
+    {
+      "file": "tests/workflows/business-status-lifecycle.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "business",
+        "platform",
+        "auth"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P11"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "business suspend and reactivate lifecycle"
+      ]
+    },
+    {
+      "file": "tests/workflows/oauth-registration-flow.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "auth"
+      ],
+      "parameters": [
+        "P2",
+        "P3"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "tests": [
+        "OAuth buttons redirect to Google/Apple (smoke-level only)"
+      ]
+    },
+    {
+      "file": "tests/workflows/chat-request-dm-block-flow.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "chat",
+        "network"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P7"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "multi_context": true,
+      "feature_gated": [
+        "chat"
+      ],
+      "tests": [
+        "user A sends DM, user B accepts request, then blocks user A"
+      ]
+    },
+    {
+      "file": "tests/workflows/business-network-management.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "network",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "network"
+      ],
+      "tests": [
+        "3 users follow business, owner sees all in follower list"
+      ]
+    },
+    {
+      "file": "tests/workflows/feature-gate-degradation.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "feature-gates",
+        "chat"
+      ],
+      "parameters": [
+        "P14"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "tests": [
+        "UI handles 403 from feature-gated endpoint gracefully"
+      ]
+    },
+    {
+      "file": "tests/workflows/notification-triggered-actions.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "notifications"
+      ],
+      "parameters": [
+        "P1",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "status": "deferred",
+      "deferred_reason": "Notification inbox API not yet built",
+      "tests": [
+        "placeholder â€” notification triggers user action"
+      ]
+    },
+    {
+      "file": "tests/workflows/audit-trail-verification.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "business"
+      ],
+      "parameters": [
+        "P5",
+        "P13"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "status": "deferred",
+      "deferred_reason": "Audit log read API not yet built",
+      "tests": [
+        "placeholder â€” actions generate audit trail entries"
+      ]
+    },
+    {
+      "file": "tests/workflows/full-notification-lifecycle.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "notifications"
+      ],
+      "parameters": [
+        "P1",
+        "P5"
+      ],
+      "priority": "P2",
+      "serial": false,
+      "status": "deferred",
+      "deferred_reason": "Notification inbox API not yet built",
+      "tests": [
+        "placeholder â€” full notification create/read/mark lifecycle"
+      ]
+    },
+    {
+      "file": "tests/scenarios/persona-alice-newcomer.spec.ts",
+      "layer": "L3",
+      "project": "scenarios",
+      "systems": [
+        "auth",
+        "users",
+        "explore",
+        "network",
+        "transactions",
+        "business",
+        "chat"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P3",
+        "P5",
+        "P7"
+      ],
+      "priority": "P0",
+      "serial": true,
+      "tests": [
+        "Step 1: Alice visits the landing page anonymously",
+        "Step 2: Alice browses public navigation links",
+        "Step 3: Alice navigates to the about page",
+        "Step 4: Alice views the explore page as anonymous user",
+        "Step 5: Alice clicks register from landing page",
+        "Step 6: Alice fills out the registration form",
+        "Step 7: Alice verifies her email via DB code",
+        "Step 8: Alice logs in for the first time",
+        "Step 9: Alice sees the home page after login",
+        "Step 10: Alice navigates to her profile",
+        "Step 11: Alice verifies her avatar area is visible",
+        "Step 12: Setup â€” create a business for Alice to discover",
+        "Step 13: Alice searches for the business on explore",
+        "Step 14: Alice views the business public profile",
+        "Step 15: Alice follows the business via API",
+        "Step 16: Alice sees follow confirmed on business profile",
+        "Step 17: Business owner invites Alice",
+        "Step 18: Alice accepts the invitation",
+        "Step 19: Alice can access the business console",
+        "Step 20: Setup â€” create a conversation with business owner",
+        "Step 21: Business owner sends a welcome message",
+        "Step 22: Alice opens the chat page",
+        "Step 23: Alice sees the conversation in her list",
+        "Step 24: Alice opens the conversation and sees the welcome message",
+        "Step 25: Alice sends a reply",
+        "Step 26: Alice navigates to settings",
+        "Step 27: Alice verifies her username in settings",
+        "Step 28: Alice logs out",
+        "Step 29: Alice cannot access protected routes after logout",
+        "Step 30: Alice logs back in successfully",
+        "Step 31: Alice revisits the explore page",
+        "Step 32: Alice verifies her profile still shows correct info",
+        "Step 33: Alice clicks edit on her profile",
+        "Step 34: Alice views the home feed again",
+        "Step 35: Alice verifies navigation links work",
+        "Step 36: Alice's full journey is complete â€” final state check"
+      ]
+    },
+    {
+      "file": "tests/scenarios/persona-bob-entrepreneur.spec.ts",
+      "layer": "L3",
+      "project": "scenarios",
+      "systems": [
+        "auth",
+        "business",
+        "forms",
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5",
+        "P6",
+        "P10"
+      ],
+      "priority": "P0",
+      "serial": true,
+      "tests": [
+        "Step 1: Bob registers and verifies via API",
+        "Step 2: Bob logs in",
+        "Step 3: Bob creates a business via API",
+        "Step 4: Bob views his business dashboard",
+        "Step 5: Bob views the public business profile",
+        "Step 6: Bob creates a form template via API",
+        "Step 7: Bob adds fields to the form",
+        "Step 8: Bob publishes the form template",
+        "Step 9: Bob creates a form-transaction mapping",
+        "Step 10: Register member A via API",
+        "Step 11: Register member B via API",
+        "Step 12: Bob invites member A",
+        "Step 13: Member A accepts the invitation",
+        "Step 14: Bob invites member B",
+        "Step 15: Member B accepts the invitation",
+        "Step 16: Bob verifies member count is 3",
+        "Step 17: Bob lists available roles",
+        "Step 18: Bob assigns admin role to member A",
+        "Step 19: Bob views member A detail â€” role should be admin",
+        "Step 20: Member A logs in and accesses business settings",
+        "Step 21: A form response is submitted via API",
+        "Step 22: Bob views form responses page in console",
+        "Step 23: Bob sets member quota to 3 (at capacity)",
+        "Step 24: Bob attempts to invite a 4th member â€” quota exceeded",
+        "Step 25: Bob removes member B to free quota",
+        "Step 26: Bob verifies member count is now 2",
+        "Step 27: Bob views business settings page",
+        "Step 28: Bob sees transfer ownership button",
+        "Step 29: Bob sees archive button",
+        "Step 30: Bob initiates ownership transfer to member A",
+        "Step 31: Member A accepts the ownership transfer",
+        "Step 32: Member A is now the owner â€” can access settings",
+        "Step 33: Bob is no longer owner â€” reduced access",
+        "Step 34: Bob views the business public profile",
+        "Step 35: Bob verifies business dashboard still accessible",
+        "Step 36: Bob navigates home â€” session still valid",
+        "Step 37: Bob's entrepreneurial journey is complete"
+      ]
+    },
+    {
+      "file": "tests/scenarios/persona-carol-admin.spec.ts",
+      "layer": "L3",
+      "project": "scenarios",
+      "systems": [
+        "auth",
+        "platform",
+        "business",
+        "cms",
+        "forms"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5",
+        "P6"
+      ],
+      "priority": "P0",
+      "serial": true,
+      "tests": [
+        "Step 1: Carol logs into the platform",
+        "Step 2: Carol navigates to platform console dashboard",
+        "Step 3: Carol views the platform account via API",
+        "Step 4: Carol views platform members",
+        "Step 5: Carol views the business list page",
+        "Step 6: Carol creates a test business for admin management",
+        "Step 7: Carol creates a CMS site via API",
+        "Step 8: Carol creates a CMS page",
+        "Step 9: Carol publishes the CMS page",
+        "Step 10: Carol views the CMS section in platform console",
+        "Step 11: Carol creates a platform-scoped form template",
+        "Step 12: Carol views forms section in platform console",
+        "Step 13: Carol views platform transactions page",
+        "Step 14: Carol views platform audit page",
+        "Step 15: Carol navigates back to dashboard",
+        "Step 16: Carol returns to personal home",
+        "Step 17: Carol's admin journey is complete"
+      ]
+    },
+    {
+      "file": "tests/scenarios/persona-dave-social.spec.ts",
+      "layer": "L3",
+      "project": "scenarios",
+      "systems": [
+        "auth",
+        "network",
+        "chat",
+        "explore"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P7"
+      ],
+      "priority": "P0",
+      "serial": true,
+      "tests": [
+        "Step 1: Dave registers and verifies",
+        "Step 2: Create 3 friends for Dave",
+        "Step 3: Create 2 businesses for Dave to follow",
+        "Step 4: Dave follows business 1",
+        "Step 5: Dave follows business 2",
+        "Step 6: Dave verifies following count is 2",
+        "Step 7: Dave sends connection request to friend 1",
+        "Step 8: Friend 1 accepts Dave's connection",
+        "Step 9: Dave sends connection request to friend 2",
+        "Step 10: Friend 2 accepts Dave's connection",
+        "Step 11: Dave verifies connections count",
+        "Step 12: Dave creates a conversation with friend 1",
+        "Step 13: Dave sends rapid messages",
+        "Step 14: Friend 1 replies",
+        "Step 15: Dave opens chat page in browser",
+        "Step 16: Dave sees messages in the conversation",
+        "Step 17: Dave verifies conversation count",
+        "Step 18: Dave browses explore page",
+        "Step 19: Dave searches for businesses",
+        "Step 20: Dave's social journey is complete"
+      ]
+    },
+    {
+      "file": "tests/scenarios/persona-eve-adversarial.spec.ts",
+      "layer": "L3",
+      "project": "scenarios",
+      "systems": [
+        "auth",
+        "users",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P11",
+        "P13"
+      ],
+      "priority": "P0",
+      "serial": true,
+      "tests": [
+        "Step 1: Eve registers normally first",
+        "Step 2: Eve attempts XSS in login email field",
+        "Step 3: Eve attempts XSS in registration username",
+        "Step 4: Eve attempts SQL injection in search",
+        "Step 5: Eve attempts path traversal in URL",
+        "Step 6: Eve attempts to access other user profile edit",
+        "Step 7: Eve attempts login with wrong password â€” attempt 1",
+        "Step 8: Eve attempts login with wrong password â€” attempt 2",
+        "Step 9: Eve attempts login with wrong password â€” attempt 3",
+        "Step 10: Eve attempts login with wrong password â€” attempt 4",
+        "Step 11: Eve attempts login with wrong password â€” attempt 5",
+        "Step 12: Eve can still login with correct password after 5 failed attempts",
+        "Step 13: Eve tries to access business console without membership",
+        "Step 14: Eve tries to access platform console without admin role",
+        "Step 15: Eve tries direct API access to admin endpoint",
+        "Step 16: Eve tries to modify another user via API",
+        "Step 17: Eve sends rapid requests to test rate limiting",
+        "Step 18: Eve tries extremely long input in search",
+        "Step 19: Eve tries special characters in login",
+        "Step 20: Eve logs in and views her profile",
+        "Step 21: Eve navigates to profile edit",
+        "Step 22: Eve tries to set XSS payload as display name via UI",
+        "Step 23: Eve navigates to settings",
+        "Step 24: Eve sees the deactivate button",
+        "Step 25: Eve opens deactivation dialog",
+        "Step 26: Eve types wrong confirmation text",
+        "Step 27: Eve types correct confirmation â€” button enables",
+        "Step 28: Eve verifies account is still active after cancel",
+        "Step 29: Eve's adversarial journey is complete â€” no breaches"
+      ]
+    },
+    {
+      "file": "tests/scenarios/persona-frank-multi-context.spec.ts",
+      "layer": "L3",
+      "project": "scenarios",
+      "systems": [
+        "auth",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P5",
+        "P6"
+      ],
+      "priority": "P0",
+      "serial": true,
+      "tests": [
+        "Step 1: Frank registers and verifies",
+        "Step 2: Create 3 businesses with different owners",
+        "Step 3: Invite Frank to all 3 businesses",
+        "Step 4: Frank accepts all 3 invitations",
+        "Step 5: Frank logs in and sees home",
+        "Step 6: Frank navigates to business 1 dashboard",
+        "Step 7: Frank navigates to business 2 dashboard",
+        "Step 8: Frank navigates to business 3 dashboard",
+        "Step 9: Business 1 has correct member count",
+        "Step 10: Business 2 has correct member count",
+        "Step 11: Business 3 has correct member count",
+        "Step 12: Frank views each business public profile",
+        "Step 13: Frank views settings of business 1",
+        "Step 14: Frank views settings of business 2",
+        "Step 15: Frank returns to personal home",
+        "Step 16: Frank rapidly switches between all 3 businesses",
+        "Step 17: Frank navigates from biz 3 back to home without issues",
+        "Step 18: Frank views explore page from personal context",
+        "Step 19: Frank views profile from personal context",
+        "Step 20: Frank's multi-context journey is complete",
+        "Step 21: All 3 businesses still have correct state"
+      ]
+    },
+    {
+      "file": "tests/scenarios/persona-gary-cms.spec.ts",
+      "layer": "L3",
+      "project": "scenarios",
+      "systems": [
+        "auth",
+        "cms",
+        "platform"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P6"
+      ],
+      "priority": "P1",
+      "serial": true,
+      "tests": [
+        "Step 1: Gary logs in",
+        "Step 2: Gary creates a CMS site",
+        "Step 3: Gary lists sites â€” sees his site",
+        "Step 4: Gary creates page 1 â€” Home",
+        "Step 5: Gary creates page 2 â€” About",
+        "Step 6: Gary publishes page 1",
+        "Step 7: Gary publishes page 2",
+        "Step 8: Gary unpublishes page 2 (back to draft)",
+        "Step 9: Gary re-publishes page 2",
+        "Step 10: Gary creates a CMS API key",
+        "Step 11: Gary verifies the API key has correct prefix",
+        "Step 12: Gary views CMS section in platform console",
+        "Step 13: Gary navigates to platform dashboard",
+        "Step 14: Gary unpublishes page 1",
+        "Step 15: Gary re-publishes page 1 for final state",
+        "Step 16: Gary verifies site list still shows site",
+        "Step 17: Gary returns to personal home",
+        "Step 18: Gary's CMS management journey is complete"
+      ]
+    },
+    {
+      "file": "tests/scenarios/multi-persona-interaction.spec.ts",
+      "layer": "L3",
+      "project": "scenarios",
+      "systems": [
+        "auth",
+        "business",
+        "network",
+        "chat",
+        "transactions"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P6",
+        "P7"
+      ],
+      "priority": "P0",
+      "serial": true,
+      "tests": [
+        "Step 1: Register all 5 actors",
+        "Step 2: Alpha creates a business",
+        "Step 3: Alpha invites Beta and Gamma",
+        "Step 4: Beta accepts invitation",
+        "Step 5: Gamma accepts invitation",
+        "Step 6: Business has 3 members",
+        "Step 7: Delta follows the business",
+        "Step 8: Echo follows the business",
+        "Step 9: Delta sends connection request to Alpha",
+        "Step 10: Alpha accepts Delta's connection",
+        "Step 11: Echo sends connection request to Beta",
+        "Step 12: Beta accepts Echo's connection",
+        "Step 13: Alpha verifies connections",
+        "Step 14: Alpha creates a group conversation with Beta and Gamma",
+        "Step 15: Alpha sends a message to the group",
+        "Step 16: Beta sends a reply",
+        "Step 17: Gamma sends a reply",
+        "Step 18: Alpha opens chat in browser and sees group",
+        "Step 19: Beta opens chat and sees the group conversation",
+        "Step 20: All actors can still log in",
+        "Step 21: Multi-persona interaction complete â€” final state verified"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/business-site-crud.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P3",
+        "P4"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "business owner sees site list via CmsBusinessGuard",
+        "business can create a site",
+        "site detail returns _permissions with 14 booleans",
+        "business can edit a site",
+        "business can delete a site",
+        "sites are scoped to business"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/business-template-catalog.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P13"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "catalog shows eligible templates",
+        "platform-only templates NOT shown in catalog",
+        "activate and deactivate template round-trip"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/limits-enforcement.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms",
+        "feature-gates"
+      ],
+      "parameters": [
+        "P7",
+        "P14"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "creating resources within limits succeeds",
+        "multiple sites can be created with unlimited config",
+        "multiple pages per site with unlimited config",
+        "CMS requires cms_enabled flag on business"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/permissions-tier-1-5.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms",
+        "business"
+      ],
+      "parameters": [
+        "P6"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "site detail returns _permissions with 14 booleans",
+        "owner sees all permissions true",
+        "_permissions object has correct types",
+        "edit button hidden without can_edit_site for restricted member"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/platform-business-management.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P12"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "business CMS management page lists businesses",
+        "toggle CMS on for a business",
+        "toggle CMS off for a business",
+        "view activated templates sheet"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/platform-templates-browser.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P2"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "template browser lists section templates",
+        "switch to block templates tab",
+        "template cards show org_type badges",
+        "default templates marked with badge"
+      ]
+    },
+    {
+      "file": "tests/smoke/cms/public-api-key-auth.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P11"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "public site with valid API key returns 200",
+        "public site without API key returns 401",
+        "public site with invalid API key returns 401",
+        "published page returns content via public API",
+        "draft page returns 404 via public API",
+        "revoked key returns 401"
+      ]
+    },
+    {
+      "file": "tests/smoke/notifications/notification-api-endpoints.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "notifications"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P7"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "notifications"
+      ],
+      "tests": [
+        "scopes endpoint returns valid structure",
+        "types endpoint returns configurable types only",
+        "single preference detail returns all fields",
+        "update non-configurable type is rejected"
+      ]
+    },
+    {
+      "file": "tests/smoke/notifications/notification-bell.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "notifications"
+      ],
+      "parameters": [
+        "P1",
+        "P2"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "feature_gated": [
+        "notifications"
+      ],
+      "tests": [
+        "bell visible when logged in",
+        "bell hidden when logged out",
+        "dropdown opens on click with heading and link",
+        "badge shows unread count when notifications exist"
+      ]
+    },
+    {
+      "file": "tests/smoke/notifications/notification-delivery-flow.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "notifications"
+      ],
+      "parameters": [
+        "P1",
+        "P5"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "notifications"
+      ],
+      "tests": [
+        "registration triggers verify_email notification",
+        "login triggers new_login notification",
+        "all notification log items have required fields"
+      ]
+    },
+    {
+      "file": "tests/smoke/notifications/notification-rbac.spec.ts",
+      "layer": "L1",
+      "project": "smoke-desktop",
+      "systems": [
+        "notifications",
+        "business"
+      ],
+      "parameters": [
+        "P6"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "notifications"
+      ],
+      "tests": [
+        "org-scoped history returns _permissions when scope_id provided",
+        "non-member gets empty list for business scope (not 403)",
+        "history without scope_id has no _permissions key"
+      ]
+    },
+    {
+      "file": "tests/workflows/cms-business-onboarding.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "cms",
+        "transactions",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P5",
+        "P12",
+        "P13"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "business onboarding: request → approve → create → publish → public"
+      ]
+    },
+    {
+      "file": "tests/workflows/cms-content-versioning-workflow.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P3",
+        "P8"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "edit → version history → rollback → publish with version tracking"
+      ]
+    },
+    {
+      "file": "tests/workflows/cms-cross-context-isolation.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "cms",
+        "business"
+      ],
+      "parameters": [
+        "P6"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "two businesses cannot see each other CMS sites"
+      ]
+    },
+    {
+      "file": "tests/workflows/cms-public-api-full-cycle.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P5",
+        "P11"
+      ],
+      "priority": "P0",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "full public API lifecycle: publish → read → unpublish → revoke"
+      ]
+    },
+    {
+      "file": "tests/workflows/cms-template-lifecycle.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "cms"
+      ],
+      "parameters": [
+        "P5",
+        "P13"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "activate → use → fail deactivate → delete → deactivate"
+      ]
+    },
+    {
+      "file": "tests/workflows/notification-preferences-roundtrip.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "notifications"
+      ],
+      "parameters": [
+        "P2",
+        "P3"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "notifications"
+      ],
+      "tests": [
+        "update → verify → reset → verify defaults restored"
+      ]
+    },
+    {
+      "file": "tests/workflows/notification-scope-isolation.spec.ts",
+      "layer": "L2",
+      "project": "workflows",
+      "systems": [
+        "notifications",
+        "business"
+      ],
+      "parameters": [
+        "P5",
+        "P6"
+      ],
+      "priority": "P1",
+      "serial": false,
+      "feature_gated": [
+        "notifications"
+      ],
+      "tests": [
+        "non-member gets empty list for business scope"
+      ]
+    },
+    {
+      "file": "tests/scenarios/persona-helen-business-cms.spec.ts",
+      "layer": "L3",
+      "project": "scenarios",
+      "systems": [
+        "auth",
+        "cms",
+        "transactions",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P3",
+        "P5",
+        "P6",
+        "P8",
+        "P11",
+        "P12",
+        "P13"
+      ],
+      "priority": "P1",
+      "serial": true,
+      "multi_context": true,
+      "feature_gated": [
+        "cms"
+      ],
+      "tests": [
+        "Step 1: Helen registers and creates a business",
+        "Step 2: Helen navigates to CMS — sees activation page",
+        "Step 3: Platform admin enables CMS for Helen",
+        "Step 4: Helen re-logins — CMS is now accessible",
+        "Step 5: Helen navigates to CMS — passes CmsBusinessGuard",
+        "Step 6: Helen browses template catalog and activates templates",
+        "Step 7: Helen checks library — activated templates visible",
+        "Step 8: Helen creates site 'Helen's Blog'",
+        "Step 9: Helen creates page 'Home'",
+        "Step 10: Helen navigates to page editor — content tree renders",
+        "Step 11: Helen edits a block and sees saved indicator",
+        "Step 12: Helen publishes page",
+        "Step 13: Helen creates API key for site",
+        "Step 14: Helen verifies public API returns published content",
+        "Step 15: Helen creates page 'About'",
+        "Step 16: Helen publishes 'About'",
+        "Step 17: Helen unpublishes 'Home' — public: Home=404, About=200",
+        "Step 18: Helen re-publishes 'Home'",
+        "Step 19: Helen views site detail via UI",
+        "Step 20: Helen's business CMS journey is complete"
+      ]
+    },
+    {
+      "file": "tests/scenarios/persona-nina-notifications.spec.ts",
+      "layer": "L3",
+      "project": "scenarios",
+      "systems": [
+        "auth",
+        "notifications",
+        "business"
+      ],
+      "parameters": [
+        "P1",
+        "P2",
+        "P3",
+        "P5",
+        "P6"
+      ],
+      "priority": "P1",
+      "serial": true,
+      "multi_context": true,
+      "feature_gated": [
+        "notifications"
+      ],
+      "tests": [
+        "Step 1: Nina registers and verifies",
+        "Step 2: Nina sees notification bell in topbar",
+        "Step 3: Nina navigates to notifications page — sees empty or initial state",
+        "Step 4: Nina navigates to settings — preferences visible",
+        "Step 5: Nina verifies all 5 category cards",
+        "Step 6: Nina toggles email off for New Login Alert",
+        "Step 7: Nina verifies preference persisted",
+        "Step 8: Nina triggers a new_login notification",
+        "Step 9: Nina checks notification in history via API",
+        "Step 10: Nina navigates to notifications page — sees items",
+        "Step 11: Nina resets preference to defaults",
+        "Step 12: Nina creates a business",
+        "Step 13: Nina checks history — registration notifications visible",
+        "Step 14: Nina checks scopes endpoint",
+        "Step 15: Nina's notification exploration is complete"
+      ]
+    }
+  ]
+}

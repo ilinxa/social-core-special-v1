@@ -11,6 +11,12 @@ logger = get_logger(__name__)
 @shared_task(base=LoggedTask, soft_time_limit=240, time_limit=300)
 def expire_transactions_task():
     """Hourly: expire transactions past their expiration date."""
+    from apps.core.feature_config import feature_config
+
+    if not feature_config.is_system_enabled("transaction"):
+        logger.info("task.expire.skipped", reason="system_disabled")
+        return
+
     expired = TransactionSelector.list_expired_needing_update()
     count = 0
     for txn in expired:
@@ -33,6 +39,12 @@ def expire_transactions_task():
 )
 def retry_outcome_execution_task(self, transaction_id: str):
     """Retry failed outcome execution with exponential backoff."""
+    from apps.core.feature_config import feature_config
+
+    if not feature_config.is_system_enabled("transaction"):
+        logger.info("task.retry_outcome.skipped", reason="system_disabled")
+        return
+
     from uuid import UUID
 
     from apps.core.types import ActorContext
@@ -58,6 +70,12 @@ def retry_outcome_execution_task(self, transaction_id: str):
 @shared_task(base=LoggedTask, soft_time_limit=240, time_limit=300)
 def cleanup_old_transaction_logs_task(retention_days: int = 90):
     """Daily: delete logs for terminal transactions older than retention."""
+    from apps.core.feature_config import feature_config
+
+    if not feature_config.is_system_enabled("transaction"):
+        logger.info("task.cleanup.skipped", reason="system_disabled")
+        return
+
     from datetime import timedelta
 
     from apps.transaction.constants import TERMINAL_STATES
@@ -74,6 +92,12 @@ def cleanup_old_transaction_logs_task(retention_days: int = 90):
 @shared_task(base=LoggedTask, soft_time_limit=240, time_limit=300)
 def send_expiration_reminder_task():
     """Daily: remind targets about transactions expiring in 24-48 hours."""
+    from apps.core.feature_config import feature_config
+
+    if not feature_config.is_system_enabled("transaction"):
+        logger.info("task.reminder.skipped", reason="system_disabled")
+        return
+
     from datetime import timedelta
 
     from django.contrib.auth import get_user_model
@@ -82,10 +106,13 @@ def send_expiration_reminder_task():
 
     User = get_user_model()
 
+    reminder_hours = feature_config.get_value(
+        "transaction.expiration_reminder_hours", 48
+    )
     now = timezone.now()
     expiring = Transaction.objects.filter(
-        expires_at__gte=now + timedelta(hours=24),
-        expires_at__lt=now + timedelta(hours=48),
+        expires_at__gte=now + timedelta(hours=max(1, reminder_hours // 2)),
+        expires_at__lt=now + timedelta(hours=reminder_hours),
         status="pending",
     )
 
@@ -106,6 +133,8 @@ def send_expiration_reminder_task():
                         "transaction_id": str(txn.id),
                         "expires_at": txn.expires_at.isoformat(),
                     },
+                    scope_type=txn.context_type,
+                    scope_id=txn.context_id,
                 )
                 count += 1
     logger.info("task.reminder.complete", count=count)

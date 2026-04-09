@@ -496,3 +496,59 @@ class MembershipSelector:
         )
 
         return list(User.objects.filter(id__in=user_ids, is_active=True))
+
+    @staticmethod
+    def list_all_members(
+        *,
+        account_type: str | None = None,
+        status: str | None = None,
+        search: str | None = None,
+        include_deleted: bool = False,
+    ) -> QuerySet[Membership]:
+        """
+        Global member listing for governance.
+        Searches across ALL accounts. Filters by account_type, status, search.
+        Search: email, username, first_name, last_name (case-insensitive).
+        """
+        from django.db.models import Q
+
+        if include_deleted:
+            qs = Membership.all_objects.all()
+        else:
+            qs = Membership.objects.all()
+
+        if account_type:
+            qs = qs.filter(account_type=account_type)
+
+        if status:
+            qs = qs.filter(status=status)
+
+        if search:
+            qs = qs.filter(
+                Q(user__email__icontains=search)
+                | Q(user__username__icontains=search)
+                | Q(user__profile__first_name__icontains=search)
+                | Q(user__profile__last_name__icontains=search)
+            )
+
+        return qs.select_related("role", "user").order_by("-joined_at")
+
+    @staticmethod
+    def get_membership_by_id_global(*, membership_id: UUID) -> Membership:
+        """
+        Get any membership by ID (governance view, include all statuses).
+        Uses all_objects to include soft-deleted memberships.
+
+        Raises:
+            NotFound: If membership doesn't exist
+        """
+        try:
+            return Membership.all_objects.select_related("role", "user").get(
+                id=membership_id
+            )
+        except Membership.DoesNotExist:
+            raise NotFound(
+                message="Membership not found",
+                resource="Membership",
+                resource_id=membership_id,
+            )

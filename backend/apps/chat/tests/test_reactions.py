@@ -117,9 +117,10 @@ class TestAddReaction:
             user=user_b,
             reaction=ReactionType.HEART,
         )
-        assert MessageReaction.objects.filter(
-            message=message_in_dm, user=user_b
-        ).count() == 2
+        assert (
+            MessageReaction.objects.filter(message=message_in_dm, user=user_b).count()
+            == 2
+        )
 
     def test_add_reaction_requires_participant(self, message_in_dm):
         outsider = UserFactory(is_verified=True)
@@ -200,9 +201,7 @@ class TestRemoveReaction:
             user=user_b,
             reaction=ReactionType.LIKE,
         )
-        remaining = MessageReaction.objects.filter(
-            message=message_in_dm, user=user_b
-        )
+        remaining = MessageReaction.objects.filter(message=message_in_dm, user=user_b)
         assert remaining.count() == 1
         assert remaining.first().reaction == ReactionType.HEART
 
@@ -214,14 +213,18 @@ class TestRemoveReaction:
 
 @pytest.mark.django_db
 class TestReactionView:
-    def test_add_reaction_via_api(self, authenticated_client, dm_conversation, message_in_dm):
+    def test_add_reaction_via_api(
+        self, authenticated_client, dm_conversation, message_in_dm
+    ):
         url = f"/api/v1/chat/conversations/{dm_conversation.id}/messages/{message_in_dm.id}/reactions/"
         resp = authenticated_client.post(url, {"reaction": "like"}, format="json")
         assert resp.status_code == status.HTTP_201_CREATED
         assert resp.data["reaction"] == "like"
         assert "id" in resp.data
 
-    def test_remove_reaction_via_api(self, authenticated_client, dm_conversation, message_in_dm, user):
+    def test_remove_reaction_via_api(
+        self, authenticated_client, dm_conversation, message_in_dm, user
+    ):
         MessageReaction.objects.create(
             message=message_in_dm, user=user, reaction=ReactionType.LIKE
         )
@@ -229,12 +232,16 @@ class TestReactionView:
         resp = authenticated_client.delete(url, {"reaction": "like"}, format="json")
         assert resp.status_code == status.HTTP_204_NO_CONTENT
 
-    def test_add_reaction_requires_authentication(self, api_client, dm_conversation, message_in_dm):
+    def test_add_reaction_requires_authentication(
+        self, api_client, dm_conversation, message_in_dm
+    ):
         url = f"/api/v1/chat/conversations/{dm_conversation.id}/messages/{message_in_dm.id}/reactions/"
         resp = api_client.post(url, {"reaction": "like"}, format="json")
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_add_reaction_invalid_type_via_api(self, authenticated_client, dm_conversation, message_in_dm):
+    def test_add_reaction_invalid_type_via_api(
+        self, authenticated_client, dm_conversation, message_in_dm
+    ):
         url = f"/api/v1/chat/conversations/{dm_conversation.id}/messages/{message_in_dm.id}/reactions/"
         resp = authenticated_client.post(url, {"reaction": "invalid"}, format="json")
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
@@ -282,7 +289,9 @@ class TestReactionCountsOutput:
         msg_data = resp.data[0]
         assert "like" in msg_data["my_reactions"]
 
-    def test_reaction_counts_aggregate_correctly(self, dm_conversation, message_in_dm, user, user_b, user_c):
+    def test_reaction_counts_aggregate_correctly(
+        self, dm_conversation, message_in_dm, user, user_b, user_c
+    ):
         MessageReaction.objects.create(
             message=message_in_dm, user=user, reaction=ReactionType.LIKE
         )
@@ -295,12 +304,12 @@ class TestReactionCountsOutput:
 
         from apps.chat.selectors import ChatSelector
 
-        result = ChatSelector.get_reactions_for_messages(
-            message_ids=[message_in_dm.id]
-        )
+        result = ChatSelector.get_reactions_for_messages(message_ids=[message_in_dm.id])
         assert result[message_in_dm.id]["counts"]["like"] == 3
 
-    def test_empty_reactions(self, authenticated_client, dm_conversation, message_in_dm):
+    def test_empty_reactions(
+        self, authenticated_client, dm_conversation, message_in_dm
+    ):
         url = f"/api/v1/chat/conversations/{dm_conversation.id}/messages/"
         resp = authenticated_client.get(url)
 
@@ -317,7 +326,9 @@ class TestReactionCountsOutput:
 
 @pytest.mark.django_db
 class TestReactionBroadcast:
-    def test_add_reaction_broadcasts(self, dm_conversation, message_in_dm, user_b, immediate_on_commit):
+    def test_add_reaction_broadcasts(
+        self, dm_conversation, message_in_dm, user_b, immediate_on_commit
+    ):
         with patch("apps.chat.broadcast.broadcast_reaction_update") as mock_bc:
             ChatService.add_reaction(
                 message_id=message_in_dm.id,
@@ -328,7 +339,9 @@ class TestReactionBroadcast:
         args = mock_bc.call_args[0]
         assert args[4] == "add"
 
-    def test_remove_reaction_broadcasts(self, dm_conversation, message_in_dm, user_b, immediate_on_commit):
+    def test_remove_reaction_broadcasts(
+        self, dm_conversation, message_in_dm, user_b, immediate_on_commit
+    ):
         MessageReaction.objects.create(
             message=message_in_dm, user=user_b, reaction=ReactionType.LIKE
         )
@@ -342,7 +355,9 @@ class TestReactionBroadcast:
         args = mock_bc.call_args[0]
         assert args[4] == "remove"
 
-    def test_broadcast_failure_doesnt_fail_service(self, dm_conversation, message_in_dm, user_b, immediate_on_commit):
+    def test_broadcast_failure_doesnt_fail_service(
+        self, dm_conversation, message_in_dm, user_b, immediate_on_commit
+    ):
         with patch(
             "apps.chat.broadcast.broadcast_reaction_update",
             side_effect=Exception("boom"),
@@ -384,7 +399,9 @@ class TestReactionNotification:
                 reaction=ReactionType.LIKE,
             )
         # _notify_safe called for reaction_received
-        notify_calls = [c for c in mock_notify.call_args_list if c[0][0] == "reaction_received"]
+        notify_calls = [
+            c for c in mock_notify.call_args_list if c[0][0] == "reaction_received"
+        ]
         assert len(notify_calls) == 1
 
     def test_reaction_skips_self_notification(
@@ -397,10 +414,14 @@ class TestReactionNotification:
                 user=user,
                 reaction=ReactionType.LIKE,
             )
-        notify_calls = [c for c in mock_notify.call_args_list if c[0][0] == "reaction_received"]
+        notify_calls = [
+            c for c in mock_notify.call_args_list if c[0][0] == "reaction_received"
+        ]
         assert len(notify_calls) == 0
 
-    def test_reaction_notification_handler(self, dm_conversation, message_in_dm, user, user_b):
+    def test_reaction_notification_handler(
+        self, dm_conversation, message_in_dm, user, user_b
+    ):
         mock_ns = MagicMock()
         ChatService._notify_reaction_received(
             mock_ns,
@@ -413,7 +434,10 @@ class TestReactionNotification:
         assert "conversation_id" in ctx
         assert "reactor_name" in ctx
         assert "message_preview" in ctx
-        assert mock_ns.send.call_args.kwargs["notification_type"] == "chat_reaction_received"
+        assert (
+            mock_ns.send.call_args.kwargs["notification_type"]
+            == "chat_reaction_received"
+        )
 
     def test_reaction_notification_type_exists(self):
         from apps.notifications.types import NOTIFICATION_TYPES

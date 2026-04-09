@@ -559,6 +559,39 @@ class DBHelper:
         )
         return membership_id
 
+    # -- Feature Gate Integration Helpers --
+
+    def get_failed_login_attempts(self, email):
+        """Get failed_login_attempts counter for a user."""
+        row = self.execute_one(
+            "SELECT failed_login_attempts FROM users WHERE email = %s", (email,)
+        )
+        return row[0] if row else 0
+
+    def get_locked_until(self, email):
+        """Get locked_until timestamp for a user. Returns datetime or None."""
+        row = self.execute_one(
+            "SELECT locked_until FROM users WHERE email = %s", (email,)
+        )
+        return row[0] if row else None
+
+    def unlock_account(self, email):
+        """Clear account lockout (reset counter + locked_until)."""
+        self.execute(
+            "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE email = %s",
+            (email,),
+            fetch=False,
+        )
+
+    def set_business_visibility(self, slug, is_public):
+        """Set business profile is_public flag for follow approval testing."""
+        self.execute(
+            """UPDATE business_profile SET is_public = %s
+               WHERE business_id = (SELECT id FROM business_account WHERE slug = %s)""",
+            (is_public, slug),
+            fetch=False,
+        )
+
 
 # =============================================================================
 # REDIS HELPER — Direct Redis queries for cache/blacklist verification
@@ -693,66 +726,320 @@ def assert_error():
 
 @pytest.fixture(scope="session", autouse=True)
 def _cleanup_previous_run(db_helper):
-    """Clean up test data from previous runs for idempotent test execution.
+    """Clean up ALL test data from previous runs for idempotent test execution.
 
-    Runs once at session start. Deletes known test users and related data
-    so registration tests always start fresh.
+    Runs once at session start. Uses fresh connections per statement
+    to avoid error-state propagation. All @test.com users and data removed.
     """
-    test_emails = [
-        "alice@test.com",
-        "bob@test.com",
-        "carol@test.com",
-        "nobody@test.com",
-        "deactivate@test.com",
-    ]
-    for email in test_emails:
+    import psycopg2 as _pg2
+
+    def _exec(sql, params=None):
+        """Execute SQL with a fresh connection. Errors are silently ignored."""
         try:
-            # Delete in order: auth tokens → device sessions → refresh tokens → user
-            db_helper.execute(
-                """
-                DELETE FROM auth_verification_tokens WHERE email = %s
-                """,
-                (email,),
-                fetch=False,
-            )
-            db_helper.execute(
-                """
-                DELETE FROM auth_password_reset_tokens
-                WHERE user_id IN (SELECT id FROM users WHERE email = %s)
-                """,
-                (email,),
-                fetch=False,
-            )
-            db_helper.execute(
-                """
-                DELETE FROM auth_device_sessions
-                WHERE user_id IN (SELECT id FROM users WHERE email = %s)
-                """,
-                (email,),
-                fetch=False,
-            )
-            db_helper.execute(
-                """
-                DELETE FROM auth_refresh_tokens
-                WHERE user_id IN (SELECT id FROM users WHERE email = %s)
-                """,
-                (email,),
-                fetch=False,
-            )
-            # Delete memberships
-            db_helper.execute(
-                """
-                DELETE FROM rbac_membership
-                WHERE user_id IN (SELECT id FROM users WHERE email = %s)
-                """,
-                (email,),
-                fetch=False,
-            )
-            # Delete user
-            db_helper.execute(
-                "DELETE FROM users WHERE email = %s",
-                (email,),
-                fetch=False,
-            )
+            c = _pg2.connect(**DBHelper.PG_CONFIG)
+            c.autocommit = True
+            with c.cursor() as cur:
+                cur.execute(sql, params)
+            c.close()
         except Exception:
-            pass  # Table may not exist or FK constraints may prevent deletion
+            pass
+
+    # ── Collect ALL test user IDs ───────────────────────────────────────
+    try:
+        rows = db_helper.execute(
+            "SELECT id FROM users WHERE email LIKE '%@test.com'"
+        )
+        if not rows:
+            return
+        test_user_ids = tuple(str(r[0]) for r in rows)
+    except Exception:
+        return
+
+    ph = ",".join(["%s"] * len(test_user_ids))
+
+    # ── Collect ALL test business IDs ───────────────────────────────────
+    try:
+        rows = db_helper.execute(
+            f"SELECT id FROM business_account WHERE created_by_id IN ({ph})",
+            test_user_ids,
+        )
+        test_biz_ids = tuple(str(r[0]) for r in rows) if rows else ()
+    except Exception:
+        test_biz_ids = ()
+
+    biz_ph = ",".join(["%s"] * len(test_biz_ids)) if test_biz_ids else None
+
+    # ── 1. CMS (deepest children first) ─────────────────────────────────
+    if test_biz_ids:
+        _exec(
+            f"""DELETE FROM cms_section_block_placement
+                WHERE section_placement_id IN (
+                    SELECT psp.id FROM cms_page_section_placement psp
+                    JOIN cms_page p ON psp.page_id = p.id
+                    JOIN cms_site s ON p.site_id = s.id
+                    WHERE s.account_id IN ({biz_ph}))""",
+            test_biz_ids,
+        )
+        _exec(
+            f"""DELETE FROM cms_page_section_placement
+                WHERE page_id IN (
+                    SELECT p.id FROM cms_page p
+                    JOIN cms_site s ON p.site_id = s.id
+                    WHERE s.account_id IN ({biz_ph}))""",
+            test_biz_ids,
+        )
+        _exec(
+            f"""DELETE FROM cms_content_version
+                WHERE page_id IN (
+                    SELECT p.id FROM cms_page p
+                    JOIN cms_site s ON p.site_id = s.id
+                    WHERE s.account_id IN ({biz_ph}))""",
+            test_biz_ids,
+        )
+        _exec(
+            f"""DELETE FROM cms_media_usage
+                WHERE media_file_id IN (
+                    SELECT id FROM cms_media_file
+                    WHERE site_id IN (
+                        SELECT id FROM cms_site WHERE account_id IN ({biz_ph})))""",
+            test_biz_ids,
+        )
+        _exec(
+            f"""DELETE FROM cms_media_file
+                WHERE site_id IN (
+                    SELECT id FROM cms_site WHERE account_id IN ({biz_ph}))""",
+            test_biz_ids,
+        )
+        _exec(
+            f"""DELETE FROM cms_media_folder
+                WHERE site_id IN (
+                    SELECT id FROM cms_site WHERE account_id IN ({biz_ph}))""",
+            test_biz_ids,
+        )
+        _exec(
+            f"""DELETE FROM cms_api_key
+                WHERE site_id IN (
+                    SELECT id FROM cms_site WHERE account_id IN ({biz_ph}))""",
+            test_biz_ids,
+        )
+        _exec(
+            f"""DELETE FROM cms_page
+                WHERE site_id IN (
+                    SELECT id FROM cms_site WHERE account_id IN ({biz_ph}))""",
+            test_biz_ids,
+        )
+        _exec(
+            f"DELETE FROM cms_site WHERE account_id IN ({biz_ph})",
+            test_biz_ids,
+        )
+
+    # CMS: delete ALL sites (all are test data — platform-owned)
+    _exec("DELETE FROM cms_section_block_placement")
+    _exec("DELETE FROM cms_page_section_placement")
+    _exec("DELETE FROM cms_content_version")
+    _exec("DELETE FROM cms_media_usage")
+    _exec("DELETE FROM cms_media_file")
+    _exec("DELETE FROM cms_media_folder")
+    _exec("DELETE FROM cms_api_key")
+    _exec("UPDATE cms_site SET homepage_id = NULL")
+    _exec("DELETE FROM cms_page")
+    _exec("DELETE FROM cms_site")
+
+    # CMS templates created by test users
+    _exec(f"DELETE FROM cms_section_template_activation WHERE activated_by_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM cms_block_template_activation WHERE activated_by_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM cms_section_template WHERE created_by_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM cms_block_template WHERE created_by_id IN ({ph})", test_user_ids)
+
+    # ── 2. Forms ────────────────────────────────────────────────────────
+    for idx_table in [
+        "form_boolean_field_index", "form_integer_field_index",
+        "form_text_field_index", "form_date_field_index",
+        "form_datetime_field_index", "form_decimal_field_index",
+    ]:
+        _exec(
+            f"""DELETE FROM {idx_table} WHERE response_id IN (
+                    SELECT id FROM form_response WHERE submitted_by_id IN ({ph}))""",
+            test_user_ids,
+        )
+    _exec(
+        f"""DELETE FROM transaction_form_mapping WHERE form_response_id IN (
+                SELECT id FROM form_response WHERE submitted_by_id IN ({ph}))""",
+        test_user_ids,
+    )
+    _exec(f"DELETE FROM form_response WHERE submitted_by_id IN ({ph})", test_user_ids)
+    _exec(
+        f"""DELETE FROM form_field WHERE template_id IN (
+                SELECT id FROM form_template WHERE created_by_id IN ({ph}))""",
+        test_user_ids,
+    )
+    _exec(f"DELETE FROM form_template WHERE created_by_id IN ({ph})", test_user_ids)
+
+    # ── 3. Transactions ─────────────────────────────────────────────────
+    _exec(
+        f"""DELETE FROM transaction_log WHERE transaction_id IN (
+                SELECT id FROM transaction_transaction WHERE created_by_id IN ({ph}))""",
+        test_user_ids,
+    )
+    _exec(f"DELETE FROM transaction_transaction WHERE created_by_id IN ({ph})", test_user_ids)
+
+    # ── 4. Network ──────────────────────────────────────────────────────
+    # network_follow.follower_id is polymorphic (user UUID or entity UUID)
+    _exec(f"DELETE FROM network_follow WHERE follower_id IN ({ph})", test_user_ids)
+    _exec(f"UPDATE network_follow SET removed_by_id = NULL WHERE removed_by_id IN ({ph})", test_user_ids)
+    _exec(
+        f"DELETE FROM network_connection WHERE user_a_id IN ({ph}) OR user_b_id IN ({ph})",
+        test_user_ids + test_user_ids,
+    )
+    _exec(
+        f"UPDATE network_connection SET disconnected_by_id = NULL WHERE disconnected_by_id IN ({ph})",
+        test_user_ids,
+    )
+    _exec(
+        f"UPDATE network_connection SET initiated_by_id = NULL WHERE initiated_by_id IN ({ph})",
+        test_user_ids,
+    )
+
+    # ── 5. Notifications ────────────────────────────────────────────────
+    _exec(f"DELETE FROM notification_logs WHERE user_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM notification_preferences WHERE user_id IN ({ph})", test_user_ids)
+
+    # ── 6. Chat ─────────────────────────────────────────────────────────
+    _exec(f"""DELETE FROM chat_message_reaction WHERE message_id IN (
+                SELECT id FROM chat_message WHERE sender_id IN ({ph}))""", test_user_ids)
+    _exec(f"""DELETE FROM chat_message_attachment WHERE message_id IN (
+                SELECT id FROM chat_message WHERE sender_id IN ({ph}))""", test_user_ids)
+    _exec(f"DELETE FROM chat_message WHERE sender_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM chat_conversation_participant WHERE user_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM chat_block WHERE blocker_id IN ({ph})", test_user_ids)
+
+    # ── 7. Audit logs ───────────────────────────────────────────────────
+    _exec(f"DELETE FROM audit_log WHERE actor_id IN ({ph})", test_user_ids)
+
+    # ── 8. RBAC — memberships then roles ────────────────────────────────
+    _exec(f"UPDATE rbac_membership SET status_changed_by_id = NULL WHERE status_changed_by_id IN ({ph})", test_user_ids)
+    _exec(f"UPDATE rbac_membership SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})", test_user_ids)
+    _exec(f"UPDATE rbac_membership SET created_by_id = NULL WHERE created_by_id IN ({ph})", test_user_ids)
+    _exec(f"UPDATE rbac_membership SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM rbac_membership WHERE user_id IN ({ph})", test_user_ids)
+    if test_biz_ids:
+        _exec(
+            f"""DELETE FROM rbac_role_permission WHERE role_id IN (
+                    SELECT id FROM rbac_role
+                    WHERE account_type = 'business' AND account_id IN ({biz_ph}))""",
+            test_biz_ids,
+        )
+        _exec(
+            f"DELETE FROM rbac_role WHERE account_type = 'business' AND account_id IN ({biz_ph})",
+            test_biz_ids,
+        )
+    # Delete test-created platform roles by name (system roles are:
+    # Platform Owner, Platform Admin, Global Moderator, Base Member)
+    _test_role_names = ("Platform Moderator", "Temp Role")
+    _exec(
+        """DELETE FROM rbac_role_permission WHERE role_id IN (
+                SELECT id FROM rbac_role
+                WHERE account_type = 'platform' AND name IN %s)""",
+        (_test_role_names,),
+    )
+    _exec(
+        "DELETE FROM rbac_role WHERE account_type = 'platform' AND name IN %s",
+        (_test_role_names,),
+    )
+    # NULL out test user refs on platform roles (they survive across runs)
+    _exec(f"UPDATE rbac_role SET created_by_id = NULL WHERE created_by_id IN ({ph})", test_user_ids)
+    _exec(f"UPDATE rbac_role SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
+    _exec(f"UPDATE rbac_role SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})", test_user_ids)
+    # NULL refs from platform_account/profile (singleton, survives runs)
+    _exec(f"UPDATE platform_account SET created_by_id = NULL WHERE created_by_id IN ({ph})", test_user_ids)
+    _exec(f"UPDATE platform_account SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
+    _exec(f"UPDATE platform_profile SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
+
+    # ── 9. Business data ────────────────────────────────────────────────
+    if test_biz_ids:
+        _exec(f"DELETE FROM business_slug_history WHERE business_id IN ({biz_ph})", test_biz_ids)
+        _exec(f"UPDATE business_profile SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
+        _exec(f"DELETE FROM business_profile WHERE business_id IN ({biz_ph})", test_biz_ids)
+        _exec(f"UPDATE business_account SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
+        _exec(f"UPDATE business_account SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})", test_user_ids)
+        _exec(f"UPDATE business_account SET verified_by_id = NULL WHERE verified_by_id IN ({ph})", test_user_ids)
+        _exec(f"DELETE FROM business_account WHERE id IN ({biz_ph})", test_biz_ids)
+
+    # ── 10. User profiles ───────────────────────────────────────────────
+    _exec(f"DELETE FROM user_profiles WHERE user_id IN ({ph})", test_user_ids)
+
+    # ── 11. Auth tokens ─────────────────────────────────────────────────
+    _exec(
+        f"""DELETE FROM auth_verification_tokens
+            WHERE user_id IN ({ph}) OR email IN (SELECT email FROM users WHERE id IN ({ph}))""",
+        test_user_ids + test_user_ids,
+    )
+    _exec(f"DELETE FROM auth_password_reset_tokens WHERE user_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM auth_governance_otp WHERE user_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM auth_oauth_connections WHERE user_id IN ({ph})", test_user_ids)
+    # Device sessions → refresh tokens (FK order)
+    _exec(f"DELETE FROM auth_device_sessions WHERE user_id IN ({ph})", test_user_ids)
+    _exec(f"UPDATE auth_refresh_tokens SET replaced_by_id = NULL WHERE user_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM auth_refresh_tokens WHERE user_id IN ({ph})", test_user_ids)
+
+    # ── 12. NULL out ALL remaining FK references to test users ─────────
+    # This catches any created_by/updated_by/deleted_by/etc. columns
+    # that still reference test users across ALL tables.
+    _null_stmts = [
+        "UPDATE form_template SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE form_template SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE form_template SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE form_response SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE form_response SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE form_response SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE form_response SET processed_by_id = NULL WHERE processed_by_id IN ({ph})",
+        "UPDATE transaction_transaction SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE transaction_transaction SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE transaction_transaction SET resolved_by_id = NULL WHERE resolved_by_id IN ({ph})",
+        "UPDATE transaction_transaction SET info_requested_by_id = NULL WHERE info_requested_by_id IN ({ph})",
+        "UPDATE transaction_transaction SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE transaction_form_mapping SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE transaction_form_mapping SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE transaction_form_mapping SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE business_account SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE business_account SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE business_account SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE business_account SET verified_by_id = NULL WHERE verified_by_id IN ({ph})",
+        "UPDATE business_profile SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE cms_site SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE cms_site SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE cms_site SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE cms_page SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE cms_page SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE cms_page SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE cms_api_key SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE cms_api_key SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE cms_api_key SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE cms_media_file SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE cms_media_file SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE cms_media_file SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE cms_media_folder SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE cms_media_folder SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE cms_media_folder SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE cms_content_version SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE cms_section_template SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE cms_section_template SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE cms_section_template SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE cms_block_template SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE cms_block_template SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE cms_block_template SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        "UPDATE cms_section_block_placement SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        "UPDATE cms_section_block_placement SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        "UPDATE chat_message_attachment SET uploaded_by_id = NULL WHERE uploaded_by_id IN ({ph})",
+        "UPDATE chat_conversation_participant SET added_by_id = NULL WHERE added_by_id IN ({ph})",
+        "UPDATE chat_conversation_participant SET removed_by_id = NULL WHERE removed_by_id IN ({ph})",
+        "UPDATE django_admin_log SET user_id = NULL WHERE user_id IN ({ph})",
+    ]
+    for stmt in _null_stmts:
+        _exec(stmt.format(ph=ph), test_user_ids)
+
+    # ── 13. Users ───────────────────────────────────────────────────────
+    _exec(f"UPDATE users SET referred_by_id = NULL WHERE referred_by_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM users_groups WHERE user_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM users_user_permissions WHERE user_id IN ({ph})", test_user_ids)
+    _exec(f"DELETE FROM users WHERE id IN ({ph})", test_user_ids)

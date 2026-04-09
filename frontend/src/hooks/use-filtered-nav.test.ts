@@ -79,11 +79,12 @@ describe("useFilteredNav", () => {
         isLoaded: true,
       });
       const { result } = renderHook(() => useFilteredNav());
-      // Dashboard and Profile have no permission requirement
+      // Dashboard, Profile, and Chat have no permission requirement
       const allItems = result.current.flatMap((s) => s.items);
-      expect(allItems).toHaveLength(2);
+      expect(allItems).toHaveLength(3);
       expect(allItems[0].key).toBe("biz-dashboard");
       expect(allItems[1].key).toBe("biz-profile");
+      expect(allItems[2].key).toBe("biz-chat");
     });
 
     it("shows permission-gated items when user has matching permissions", () => {
@@ -115,7 +116,9 @@ describe("useFilteredNav", () => {
               "can_manage_connections",
               "can_create_form",
               "can_view_cms_content",
+              "can_activate_cms_template",
               "can_upload_cms_media",
+              "can_create_cms_api_key",
               "can_view_transactions",
               "can_view_audit_logs",
               "can_view_settings",
@@ -234,9 +237,11 @@ describe("useFilteredNav", () => {
       });
       const { result } = renderHook(() => useFilteredNav());
       const allItems = result.current.flatMap((s) => s.items);
-      expect(allItems).toHaveLength(2);
+      // Dashboard, Profile, and Chat have no permission requirement
+      expect(allItems).toHaveLength(3);
       expect(allItems[0].key).toBe("plat-dashboard");
       expect(allItems[1].key).toBe("plat-profile");
+      expect(allItems[2].key).toBe("plat-chat");
     });
 
     it("shows permission-gated items for platform", () => {

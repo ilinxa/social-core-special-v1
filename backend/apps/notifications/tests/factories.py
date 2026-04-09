@@ -104,3 +104,17 @@ class ProcessingNotificationLogFactory(NotificationLogFactory):
     """Factory for PROCESSING notification logs."""
 
     status = NotificationLog.Status.PROCESSING
+
+
+class ScopedNotificationLogFactory(NotificationLogFactory):
+    """Factory for business-scoped notification logs."""
+
+    scope_type = "business"
+    scope_id = factory.LazyFunction(uuid.uuid4)
+
+
+class ScopedPreferenceFactory(NotificationPreferenceFactory):
+    """Factory for business-scoped notification preferences."""
+
+    scope_type = "business"
+    scope_id = factory.LazyFunction(uuid.uuid4)

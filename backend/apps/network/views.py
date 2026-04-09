@@ -27,9 +27,10 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.feature_config import feature_config
 from apps.core.observability import get_logger
 from apps.core.pagination import StandardPagination
-from apps.core.permissions import IsAuthenticated
+from apps.core.permissions import FeatureRequired, IsAuthenticated
 from apps.core.types import ActorContext
 from apps.network.policies import NetworkPolicy
 from apps.network.selectors import ConnectionSelector, FollowSelector
@@ -126,7 +127,7 @@ class FollowCreateView(APIView):
     followee_type and business privacy setting.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("user.network.enabled")]
 
     @extend_schema(
         summary="Follow an account",
@@ -177,9 +178,12 @@ class FollowCreateView(APIView):
                     business_id=str(followee_id),
                 )
 
-            if is_public:
+            follow_approval = feature_config.get_value(
+                "network.follow_approval_required", False
+            )
+            if follow_approval or not is_public:
                 txn = TransactionService.create_request(
-                    transaction_type="business_follow_request",
+                    transaction_type="business_follow_approval_request",
                     user_id=request.user.id,
                     target_account_type="business",
                     target_account_id=followee_id,
@@ -187,7 +191,7 @@ class FollowCreateView(APIView):
                 )
             else:
                 txn = TransactionService.create_request(
-                    transaction_type="business_follow_approval_request",
+                    transaction_type="business_follow_request",
                     user_id=request.user.id,
                     target_account_type="business",
                     target_account_id=followee_id,
@@ -208,7 +212,7 @@ class FollowCreateView(APIView):
 class FollowDeleteView(APIView):
     """DELETE /api/v1/network/follow/<uuid:follow_id>/ — Unfollow."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("user.network.enabled")]
 
     @extend_schema(
         summary="Unfollow an account",
@@ -240,7 +244,7 @@ class FollowDeleteView(APIView):
 class FollowingListView(APIView):
     """GET /api/v1/network/following/ — My followed accounts."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("user.network.enabled")]
     pagination_class = StandardPagination
 
     @extend_schema(
@@ -282,7 +286,7 @@ class FollowingListView(APIView):
 class UserConnectionRequestView(APIView):
     """POST /api/v1/network/connections/request/ — Send connection request."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("user.network.enabled")]
 
     @extend_schema(
         summary="Send a connection request",
@@ -324,7 +328,7 @@ class UserConnectionRequestView(APIView):
 class UserConnectionDeleteView(APIView):
     """DELETE /api/v1/network/connections/<uuid:connection_id>/ — Disconnect."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("user.network.enabled")]
 
     @extend_schema(
         summary="Remove a connection",
@@ -356,7 +360,7 @@ class UserConnectionDeleteView(APIView):
 class UserConnectionListView(APIView):
     """GET /api/v1/network/connections/ — My connections."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("user.network.enabled")]
     pagination_class = StandardPagination
 
     @extend_schema(
@@ -401,7 +405,7 @@ class UserConnectionListView(APIView):
 class BusinessFollowersListView(APIView):
     """GET /api/v1/network/business/<slug>/followers/ — Business followers."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("business.network.enabled")]
     pagination_class = StandardPagination
 
     @extend_schema(
@@ -438,7 +442,7 @@ class BusinessFollowersListView(APIView):
 class BusinessFollowerRemoveView(APIView):
     """DELETE /api/v1/network/business/<slug>/followers/<uuid:follow_id>/"""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("business.network.enabled")]
 
     @extend_schema(
         summary="Remove a follower from business",
@@ -484,7 +488,7 @@ class BusinessFollowerRemoveView(APIView):
 class BusinessConnectionListView(APIView):
     """GET /api/v1/network/business/<slug>/connections/"""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("business.network.enabled")]
     pagination_class = StandardPagination
 
     @extend_schema(
@@ -529,7 +533,7 @@ class BusinessConnectionListView(APIView):
 class BusinessConnectionRequestView(APIView):
     """POST /api/v1/network/business/<slug>/connections/request/"""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("business.network.enabled")]
 
     @extend_schema(
         summary="Send a business connection request",
@@ -623,7 +627,7 @@ class BusinessConnectionRequestView(APIView):
 class BusinessConnectionDeleteView(APIView):
     """DELETE /api/v1/network/business/<slug>/connections/<uuid:connection_id>/"""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("business.network.enabled")]
 
     @extend_schema(
         summary="Remove a business connection",
@@ -669,7 +673,7 @@ class BusinessConnectionDeleteView(APIView):
 class UserNetworkStatsView(APIView):
     """GET /api/v1/network/stats/ — Current user's network stats."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("user.network.enabled")]
 
     @extend_schema(
         summary="Get user network statistics",
@@ -697,7 +701,7 @@ class UserNetworkStatsView(APIView):
 class BusinessNetworkStatsView(APIView):
     """GET /api/v1/network/business/<slug>/stats/"""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("business.network.enabled")]
 
     @extend_schema(
         summary="Get business network statistics",

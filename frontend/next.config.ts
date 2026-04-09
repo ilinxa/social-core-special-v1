@@ -23,14 +23,35 @@ const nextConfig: NextConfig = {
         destination: "/pconsole/:path",
         permanent: true,
       },
+      // CMS routes migrated from bconsole/pconsole to cconsole
+      {
+        source: "/bconsole/:slug/cms/:path*",
+        destination: "/cconsole/:slug/:path*",
+        permanent: true,
+      },
+      {
+        source: "/pconsole/cms/:path*",
+        destination: "/cconsole/:path*",
+        permanent: true,
+      },
     ];
   },
 
   async rewrites() {
+    // API requests are proxied by app/api/[...path]/route.ts (not rewrites)
+    // to properly handle cookies, trailing slashes, and headers.
     return [
       {
         source: "/media/:path*",
         destination: `${apiUrl}/media/:path*`,
+      },
+      {
+        source: "/health",
+        destination: `${apiUrl}/health/`,
+      },
+      {
+        source: "/ready",
+        destination: `${apiUrl}/ready/`,
       },
     ];
   },
@@ -44,7 +65,7 @@ const nextConfig: NextConfig = {
       "style-src 'self' 'unsafe-inline'",
       `img-src 'self' data: blob: https: ${apiUrl}`,
       "font-src 'self'",
-      `connect-src 'self' ${apiUrl}`,
+      `connect-src 'self' ${apiUrl} ${apiUrl.replace(/^http/, "ws")}`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

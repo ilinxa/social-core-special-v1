@@ -36,7 +36,7 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="User menu">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user?.profile.avatar_url ?? undefined} alt={user?.username} />
             <AvatarFallback>{getInitials(user)}</AvatarFallback>

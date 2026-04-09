@@ -215,6 +215,109 @@ def business_slug_history_factory(db):
 # =============================================================================
 
 
+def _ensure_platform_rbac(platform_account):
+    """Ensure platform RBAC roles are initialized."""
+    from apps.rbac.models import Role
+    from apps.rbac.services import RBACService
+
+    exists = Role.objects.filter(
+        account_type="platform",
+        account_id=platform_account.id,
+    ).exists()
+    if not exists:
+        RBACService.initialize_platform_account(platform_id=platform_account.id)
+
+
+@pytest.fixture
+def platform_owner_user(db, platform_account):
+    """Create a user with Platform Owner role membership."""
+    from apps.rbac.selectors import RoleSelector
+    from apps.rbac.services import RBACService
+
+    _ensure_platform_rbac(platform_account)
+    owner = UserFactory(username="platowner", email="platowner@example.com")
+    owner_role = RoleSelector.get_owner_role(
+        account_type="platform",
+        account_id=platform_account.id,
+    )
+    RBACService.create_membership(
+        user=owner,
+        account_type="platform",
+        account_id=platform_account.id,
+        role_id=owner_role.id,
+        created_by=owner,
+    )
+    return owner
+
+
+@pytest.fixture
+def platform_owner_client(api_client, platform_owner_user):
+    """Return an APIClient authenticated as a Platform Owner."""
+    api_client.force_authenticate(user=platform_owner_user)
+    return api_client
+
+
+@pytest.fixture
+def platform_admin_user(db, platform_account):
+    """Create a user with Platform Admin role membership."""
+    from apps.rbac.models import Role
+    from apps.rbac.services import RBACService
+
+    _ensure_platform_rbac(platform_account)
+    admin = UserFactory(username="platadmin2", email="platadmin2@example.com")
+    admin_role = Role.objects.get(
+        account_type="platform",
+        account_id=platform_account.id,
+        name="Platform Admin",
+    )
+    RBACService.create_membership(
+        user=admin,
+        account_type="platform",
+        account_id=platform_account.id,
+        role_id=admin_role.id,
+        created_by=admin,
+    )
+    return admin
+
+
+@pytest.fixture
+def platform_admin_client(api_client, platform_admin_user):
+    """Return an APIClient authenticated as a Platform Admin."""
+    api_client.force_authenticate(user=platform_admin_user)
+    return api_client
+
+
+@pytest.fixture
+def global_moderator_user(db, platform_account):
+    """Create a user with Global Moderator role on the platform."""
+    from apps.rbac.models import Role
+    from apps.rbac.services import RBACService
+
+    _ensure_platform_rbac(platform_account)
+
+    moderator = UserFactory(username="globmod", email="globmod@example.com")
+    mod_role = Role.objects.get(
+        account_type="platform",
+        account_id=platform_account.id,
+        name="Global Moderator",
+    )
+    RBACService.create_membership(
+        user=moderator,
+        account_type="platform",
+        account_id=platform_account.id,
+        role_id=mod_role.id,
+        created_by=moderator,
+    )
+    return moderator
+
+
+@pytest.fixture
+def governance_client(api_client, global_moderator_user):
+    """Return an APIClient authenticated as a Global Moderator."""
+    api_client.force_authenticate(user=global_moderator_user)
+    return api_client
+
+
 @pytest.fixture
 def another_user(db):
     """Create and return another user (for permission tests)."""

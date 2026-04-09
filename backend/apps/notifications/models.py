@@ -11,6 +11,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import TimeStampedModel
+from apps.notifications.constants import NotificationScope
 
 
 class NotificationPreference(TimeStampedModel):
@@ -19,6 +20,10 @@ class NotificationPreference(TimeStampedModel):
 
     Only stores OVERRIDES from defaults. If no record exists,
     use the default_channels from NotificationTypeConfig.
+
+    Supports scoped preferences: a user can have different channel
+    settings per org (business/platform) for the same notification type.
+    Resolution order: scoped preference → global user preference → type defaults.
     """
 
     user = models.ForeignKey(
@@ -29,6 +34,21 @@ class NotificationPreference(TimeStampedModel):
 
     notification_type = models.CharField(
         max_length=100, db_index=True, help_text="NotificationTypeConfig.name"
+    )
+
+    # Scope isolation
+    scope_type = models.CharField(
+        max_length=20,
+        choices=NotificationScope.choices,
+        default=NotificationScope.USER,
+        db_index=True,
+        help_text="Isolation scope: user (global default), business, or platform",
+    )
+    scope_id = models.UUIDField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Null for user scope, UUID for org scope",
     )
 
     # Channel preferences (True = enabled, False = disabled)
@@ -44,16 +64,29 @@ class NotificationPreference(TimeStampedModel):
             models.Index(
                 fields=["user", "notification_type"], name="notifpref_user_type_idx"
             ),
+            models.Index(
+                fields=["user", "notification_type", "scope_type", "scope_id"],
+                name="notifpref_user_type_scope_idx",
+            ),
         ]
         constraints = [
+            # Scoped preferences: one per user+type+scope_type+scope_id
             models.UniqueConstraint(
-                fields=["user", "notification_type"],
-                name="notifpref_user_type_uniq",
+                fields=["user", "notification_type", "scope_type", "scope_id"],
+                condition=models.Q(scope_id__isnull=False),
+                name="notifpref_user_type_scope_uniq",
+            ),
+            # Global/user-scoped preferences: one per user+type+scope_type
+            models.UniqueConstraint(
+                fields=["user", "notification_type", "scope_type"],
+                condition=models.Q(scope_id__isnull=True),
+                name="notifpref_user_type_global_uniq",
             ),
         ]
 
     def __str__(self):
-        return f"{self.user.email} - {self.notification_type}"
+        scope_str = f" [{self.scope_type}]" if self.scope_type != "user" else ""
+        return f"{self.user.email} - {self.notification_type}{scope_str}"
 
     def get_enabled_channels(self) -> List[str]:
         """Return list of enabled channels."""
@@ -71,6 +104,10 @@ class NotificationLog(TimeStampedModel):
     """
     Audit log for all notifications sent.
     Tracks delivery status per channel.
+
+    Supports scope isolation: notifications carry the org context
+    (business/platform) they relate to, enabling frontend filtering
+    and org-scoped notification views.
     """
 
     class Status(models.TextChoices):
@@ -91,6 +128,21 @@ class NotificationLog(TimeStampedModel):
     )
 
     notification_type = models.CharField(max_length=100, db_index=True)
+
+    # Scope isolation
+    scope_type = models.CharField(
+        max_length=20,
+        choices=NotificationScope.choices,
+        default=NotificationScope.USER,
+        db_index=True,
+        help_text="Isolation scope: user (personal), business, or platform",
+    )
+    scope_id = models.UUIDField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Null for user scope, UUID for org scope",
+    )
 
     # Channels used for this notification
     channels = models.JSONField(
@@ -133,8 +185,23 @@ class NotificationLog(TimeStampedModel):
             models.Index(
                 fields=["status", "created_at"], name="notiflog_status_created_idx"
             ),
+            models.Index(
+                fields=["scope_type", "scope_id", "user", "created_at"],
+                name="notiflog_scope_user_idx",
+            ),
+            models.Index(
+                fields=["scope_type", "scope_id", "created_at"],
+                name="notiflog_scope_created_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(scope_type="user") | models.Q(scope_id__isnull=False),
+                name="notiflog_scope_id_required_for_org",
+            ),
         ]
 
     def __str__(self):
         user_str = self.user.email if self.user else "Unknown"
-        return f"{self.notification_type} → {user_str} ({self.status})"
+        scope_str = f" [{self.scope_type}]" if self.scope_type != "user" else ""
+        return f"{self.notification_type} → {user_str} ({self.status}){scope_str}"

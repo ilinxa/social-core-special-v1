@@ -191,6 +191,47 @@ class MediaFileManager(SoftDeleteManager):
 
 
 # ---------------------------------------------------------------------------
+# Template Activations
+# ---------------------------------------------------------------------------
+
+
+class TemplateActivationQuerySet(models.QuerySet):
+    """Shared query helpers for template activation models."""
+
+    def active(self):
+        return self.filter(is_active=True)
+
+    def for_org(self, *, org_type: str, org_id):
+        return self.filter(org_type=org_type, org_id=org_id)
+
+
+class SectionTemplateActivationManager(models.Manager):
+    """Manager for SectionTemplateActivation."""
+
+    def get_queryset(self):
+        return TemplateActivationQuerySet(self.model, using=self._db)
+
+    def active(self):
+        return self.get_queryset().active()
+
+    def for_org(self, **kwargs):
+        return self.get_queryset().for_org(**kwargs)
+
+
+class BlockTemplateActivationManager(models.Manager):
+    """Manager for BlockTemplateActivation."""
+
+    def get_queryset(self):
+        return TemplateActivationQuerySet(self.model, using=self._db)
+
+    def active(self):
+        return self.get_queryset().active()
+
+    def for_org(self, **kwargs):
+        return self.get_queryset().for_org(**kwargs)
+
+
+# ---------------------------------------------------------------------------
 # CMSApiKey
 # ---------------------------------------------------------------------------
 

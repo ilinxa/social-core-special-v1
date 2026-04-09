@@ -10,8 +10,9 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.chat.policies import ChatPolicy
 from apps.core.permissions import IsAuthenticated
-
+from apps.core.views import PermissionInjectMixin
 
 # =============================================================================
 # CONVERSATION VIEWS
@@ -81,8 +82,12 @@ class ConversationListCreateView(APIView):
         return Response(output.data, status=status.HTTP_201_CREATED)
 
 
-class ConversationDetailView(APIView):
+class ConversationDetailView(PermissionInjectMixin, APIView):
     permission_classes = [IsAuthenticated]
+    policy_class = ChatPolicy
+
+    def _build_policy_kwargs(self) -> dict:
+        return {"user": self.request.user, "conversation": self._conversation}
 
     def get(self, request, conversation_id):
         from apps.chat.selectors import ChatSelector
@@ -91,6 +96,8 @@ class ConversationDetailView(APIView):
         conversation = ChatSelector.get_conversation_by_id(
             conversation_id=conversation_id
         )
+        self._conversation = conversation
+        self._inject_permissions = True
 
         serializer = ConversationDetailOutputSerializer(
             conversation, context={"request": request}
@@ -159,9 +166,7 @@ class ParticipantListAddView(APIView):
 
         from apps.chat.serializers import ParticipantOutputSerializer
 
-        output = ParticipantOutputSerializer(
-            participant, context={"request": request}
-        )
+        output = ParticipantOutputSerializer(participant, context={"request": request})
 
         try:
             from apps.chat.broadcast import broadcast_new_conversation
@@ -170,9 +175,7 @@ class ParticipantListAddView(APIView):
             conversation = ChatSelector.get_conversation_by_id(
                 conversation_id=conversation_id
             )
-            broadcast_new_conversation(
-                conversation, [str(data["participant_id"])]
-            )
+            broadcast_new_conversation(conversation, [str(data["participant_id"])])
         except Exception:
             pass
 
@@ -543,6 +546,39 @@ class UnreadCountsView(APIView):
 
 
 # =============================================================================
+# GROUP ADMIN MANAGEMENT VIEWS
+# =============================================================================
+
+
+class PromoteToAdminView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, conversation_id, participant_id):
+        from apps.chat.services import ChatService
+
+        ChatService.promote_to_admin(
+            conversation_id=conversation_id,
+            participant_id=participant_id,
+            user=request.user,
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DemoteFromAdminView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, conversation_id, participant_id):
+        from apps.chat.services import ChatService
+
+        ChatService.demote_from_admin(
+            conversation_id=conversation_id,
+            participant_id=participant_id,
+            user=request.user,
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# =============================================================================
 # ATTACHMENT VIEWS
 # =============================================================================
 
@@ -617,6 +653,68 @@ class ReactionView(APIView):
         )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# =============================================================================
+# MEDIA GALLERY VIEW
+# =============================================================================
+
+
+class MediaGalleryView(APIView):
+    """
+    List all image attachments in a conversation (for media gallery).
+
+    Cursor-based pagination by created_at. Only returns linked attachments.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, conversation_id):
+        from apps.chat.selectors import ChatSelector
+        from apps.chat.serializers import AttachmentOutputSerializer
+
+        # Verify user is participant
+        participant = ChatSelector.get_participant(
+            conversation_id=conversation_id,
+            participant_type="user",
+            participant_id=request.user.id,
+        )
+        if not participant:
+            from apps.core.exceptions import PermissionDenied
+
+            raise PermissionDenied(
+                message="You are not a participant in this conversation",
+                action="view_media",
+                resource="Conversation",
+            )
+
+        cursor = request.query_params.get("cursor")
+        page_size = min(int(request.query_params.get("page_size", 50)), 100)
+
+        attachments = ChatSelector.get_media_gallery(
+            conversation_id=conversation_id,
+            cursor=cursor,
+            page_size=page_size + 1,  # Fetch one extra to detect has_next
+        )
+        items = list(attachments)
+        has_next = len(items) > page_size
+        if has_next:
+            items = items[:page_size]
+
+        serializer = AttachmentOutputSerializer(
+            items, many=True, context={"request": request}
+        )
+
+        next_cursor = None
+        if has_next and items:
+            next_cursor = items[-1].created_at.isoformat()
+
+        return Response(
+            {
+                "results": serializer.data,
+                "next_cursor": next_cursor,
+            }
+        )
 
 
 # =============================================================================

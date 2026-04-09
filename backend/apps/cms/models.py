@@ -19,13 +19,16 @@ from apps.cms.constants import (
     ContentLayer,
     ContentVersionAction,
     PageStatus,
+    TemplateOrgType,
 )
 from apps.cms.managers import (
+    BlockTemplateActivationManager,
     BlockTemplateManager,
     CMSApiKeyManager,
     MediaFileManager,
     MediaFolderManager,
     PageManager,
+    SectionTemplateActivationManager,
     SectionTemplateManager,
     SiteManager,
 )
@@ -215,7 +218,8 @@ class SectionTemplate(UUIDModel, AuditModel):
     Reusable layout definition — structural blueprint for a page region.
     Platform-wide, holds no content. Content lives in block placements.
 
-    Globally unique slug.
+    Globally unique slug. CRUD is superuser-only.
+    org_type controls which organization types can activate this template.
     """
 
     # Identity
@@ -229,6 +233,19 @@ class SectionTemplate(UUIDModel, AuditModel):
         max_length=100, help_text="Globally unique identifier (among non-deleted)"
     )
     description = models.TextField(blank=True, default="", help_text="Section purpose")
+
+    # Eligibility
+    org_type = models.CharField(
+        max_length=20,
+        choices=TemplateOrgType.choices,
+        default=TemplateOrgType.ALL,
+        db_index=True,
+        help_text="Which organization types can activate and use this template.",
+    )
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Auto-activate for new orgs when CMS is enabled.",
+    )
 
     # Type & config
     section_type = models.CharField(
@@ -270,6 +287,7 @@ class BlockTemplate(UUIDModel, AuditModel):
 
     INVARIANT: Schema is immutable by admins. Only superusers modify via Django Admin.
     INVARIANT: schema_version auto-increments on every schema change.
+    CRUD is superuser-only. org_type controls which organization types can activate.
     """
 
     # Identity
@@ -281,6 +299,19 @@ class BlockTemplate(UUIDModel, AuditModel):
         max_length=100, help_text="Globally unique identifier (among non-deleted)"
     )
     description = models.TextField(blank=True, default="", help_text="Block purpose")
+
+    # Eligibility
+    org_type = models.CharField(
+        max_length=20,
+        choices=TemplateOrgType.choices,
+        default=TemplateOrgType.ALL,
+        db_index=True,
+        help_text="Which organization types can activate and use this template.",
+    )
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Auto-activate for new orgs when CMS is enabled.",
+    )
 
     # Type & schema
     block_type = models.CharField(
@@ -713,6 +744,122 @@ class MediaUsage(UUIDModel, TimeStampedModel):
 
     def __str__(self):
         return f"{self.media_file} -> {self.block_placement} [{self.content_layer}]"
+
+
+class SectionTemplateActivation(UUIDModel, TimeStampedModel):
+    """
+    Records that an organization has activated a section template for use.
+
+    Activation is a lightweight pointer — no content is copied.
+    The org can only create placements referencing templates they've activated.
+
+    INVARIANT: Unique(template, org_type, org_id) — one activation per template per org.
+    """
+
+    template = models.ForeignKey(
+        SectionTemplate,
+        on_delete=models.PROTECT,
+        related_name="activations",
+        help_text="The canonical section template being activated",
+    )
+    org_type = models.CharField(
+        max_length=20,
+        choices=OwnerType.choices,
+        db_index=True,
+        help_text="Organization type (platform or business)",
+    )
+    org_id = models.UUIDField(
+        db_index=True,
+        help_text="UUID of the organization account",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Org can deactivate templates without deleting the record",
+    )
+    activated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="cms_section_activations",
+        help_text="Who activated this template for the org",
+    )
+
+    objects = SectionTemplateActivationManager()
+
+    class Meta:
+        db_table = "cms_section_template_activation"
+        verbose_name = "Section Template Activation"
+        verbose_name_plural = "Section Template Activations"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["template", "org_type", "org_id"],
+                name="unique_section_activation_per_org",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["org_type", "org_id", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.template.display_name} -> {self.org_type}:{self.org_id}"
+
+
+class BlockTemplateActivation(UUIDModel, TimeStampedModel):
+    """
+    Records that an organization has activated a block template for use.
+
+    Activation is a lightweight pointer — schema always comes from the
+    canonical template. No content is copied or overridden.
+
+    INVARIANT: Unique(template, org_type, org_id) — one activation per template per org.
+    """
+
+    template = models.ForeignKey(
+        BlockTemplate,
+        on_delete=models.PROTECT,
+        related_name="activations",
+        help_text="The canonical block template being activated",
+    )
+    org_type = models.CharField(
+        max_length=20,
+        choices=OwnerType.choices,
+        db_index=True,
+        help_text="Organization type (platform or business)",
+    )
+    org_id = models.UUIDField(
+        db_index=True,
+        help_text="UUID of the organization account",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Org can deactivate templates without deleting the record",
+    )
+    activated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="cms_block_activations",
+        help_text="Who activated this template for the org",
+    )
+
+    objects = BlockTemplateActivationManager()
+
+    class Meta:
+        db_table = "cms_block_template_activation"
+        verbose_name = "Block Template Activation"
+        verbose_name_plural = "Block Template Activations"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["template", "org_type", "org_id"],
+                name="unique_block_activation_per_org",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["org_type", "org_id", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.template.display_name} -> {self.org_type}:{self.org_id}"
 
 
 class CMSApiKey(UUIDModel, AuditModel):

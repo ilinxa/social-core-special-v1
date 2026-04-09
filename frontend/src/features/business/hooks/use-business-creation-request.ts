@@ -55,6 +55,7 @@ export function useBusinessCreationRequest() {
   // Form dialog state
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [formMappingId, setFormMappingId] = useState<string | null>(null);
+  const [formTemplateId, setFormTemplateId] = useState<string | null>(null);
   const [formTemplate, setFormTemplate] =
     useState<FormTemplateForTransaction | null>(null);
   const [formTemplateName, setFormTemplateName] = useState("");
@@ -157,8 +158,9 @@ export function useBusinessCreationRequest() {
         account_id: platform.id,
       });
 
-      if (result.form_required && result.form_template && result.form_mapping_id) {
-        setFormMappingId(result.form_mapping_id);
+      if (result.form_required && result.form_template) {
+        setFormMappingId(result.form_mapping_id ?? null);
+        setFormTemplateId(result.form_template_id ?? null);
         setFormTemplate(result.form_template);
         setFormTemplateName(result.form_template.name);
         setFormError(null);
@@ -214,14 +216,21 @@ export function useBusinessCreationRequest() {
 
   const handleFormSubmit = useCallback(
     async (formData: Record<string, unknown>) => {
-      if (!formMappingId) return;
+      if (!formMappingId && !formTemplateId) return;
       setSubmittingForm(true);
       setFormError(null);
 
       try {
         const platform = await fetchPlatformAccountApi();
+        const submitParams = formMappingId
+          ? formMappingId
+          : {
+              form_template_id: formTemplateId!,
+              account_type: "platform",
+              account_id: platform.id,
+            };
         const { form_response_id } = await submitRequestFormResponseApi(
-          formMappingId,
+          submitParams,
           formData,
         );
         await sendRequest(platform.id, form_response_id);
@@ -233,7 +242,7 @@ export function useBusinessCreationRequest() {
         setSubmittingForm(false);
       }
     },
-    [formMappingId],
+    [formMappingId, formTemplateId],
   );
 
   return {

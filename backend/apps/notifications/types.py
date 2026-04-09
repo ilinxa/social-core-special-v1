@@ -49,6 +49,10 @@ class NotificationTypeConfig:
     sms_template: str | None = None  # SMS template
     user_configurable: bool = True  # Can user change preferences?
     enabled: bool = True
+    default_recipient_permissions: List[str] | None = None
+    # None = direct-target only (send() with user=). send_to_org() is rejected.
+    # ["perm_a", "perm_b"] = org-broadcastable. send_to_org() resolves members
+    #   with ANY of these permissions + owner. Caller can override at call time.
 
 
 # =============================================================================
@@ -89,6 +93,9 @@ NOTIFICATION_TYPES = {
         email_template="password_reset",
         user_configurable=False,
     ),
+    # -------------------------------------------------------------------------
+    # SECURITY NOTIFICATIONS
+    # -------------------------------------------------------------------------
     "password_changed": NotificationTypeConfig(
         name="password_changed",
         display_name="Password Changed",
@@ -99,9 +106,6 @@ NOTIFICATION_TYPES = {
         email_template="password_changed",
         user_configurable=False,
     ),
-    # -------------------------------------------------------------------------
-    # SECURITY NOTIFICATIONS
-    # -------------------------------------------------------------------------
     "new_login": NotificationTypeConfig(
         name="new_login",
         display_name="New Login Alert",
@@ -235,7 +239,9 @@ NOTIFICATION_TYPES = {
         category=Category.TRANSACTIONAL,
         default_channels=[Channel.EMAIL, Channel.PUSH],
         required_context=["transaction_id", "transaction_type"],
+        email_template="transaction_pending_approval",
         user_configurable=True,
+        default_recipient_permissions=["can_approve_membership_request"],
     ),
     # -------------------------------------------------------------------------
     # SOCIAL NOTIFICATIONS (Network System)
@@ -368,3 +374,9 @@ def get_configurable_types() -> List[NotificationTypeConfig]:
 def get_all_types() -> List[NotificationTypeConfig]:
     """Get all notification types."""
     return list(NOTIFICATION_TYPES.values())
+
+
+def is_org_broadcastable(name: str) -> bool:
+    """Check if a notification type supports send_to_org()."""
+    config = get_notification_type(name)
+    return config is not None and config.default_recipient_permissions is not None

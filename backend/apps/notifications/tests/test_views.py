@@ -447,3 +447,216 @@ class TestConfigurableTypesView:
             assert "category" in notification_type
             assert "default_channels" in notification_type
             assert isinstance(notification_type["default_channels"], list)
+
+
+# =============================================================================
+# INPUT VALIDATION (BUG-3 regression tests)
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestNotificationHistoryValidation:
+    """Verify view handles invalid query parameters gracefully."""
+
+    def test_history_invalid_limit_uses_default(
+        self, authenticated_client, history_url, user
+    ):
+        """?limit=abc returns 200 with default limit (no 500 error)."""
+        SentNotificationLogFactory(user=user)
+
+        response = authenticated_client.get(history_url, {"limit": "abc"})
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_history_negative_limit_clamped_to_1(
+        self, authenticated_client, history_url, user
+    ):
+        """?limit=-5 is clamped to 1."""
+        SentNotificationLogFactory(user=user)
+        SentNotificationLogFactory(user=user)
+
+        response = authenticated_client.get(history_url, {"limit": "-5"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+
+    def test_history_zero_limit_clamped_to_1(
+        self, authenticated_client, history_url, user
+    ):
+        """?limit=0 is clamped to 1."""
+        SentNotificationLogFactory(user=user)
+        SentNotificationLogFactory(user=user)
+
+        response = authenticated_client.get(history_url, {"limit": "0"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+
+    def test_history_invalid_status_ignored(
+        self, authenticated_client, history_url, user
+    ):
+        """?status=bogus is ignored and returns all logs."""
+        SentNotificationLogFactory(user=user)
+
+        response = authenticated_client.get(history_url, {"status": "bogus"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] >= 1
+
+
+# =============================================================================
+# OFFSET PAGINATION (ISSUE-7 tests)
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestNotificationHistoryPagination:
+    """Verify offset-based pagination on history endpoint."""
+
+    def test_history_offset_skips_results(
+        self, authenticated_client, history_url, user
+    ):
+        """offset=2 skips the first 2 results."""
+        # Create 3 logs
+        for _ in range(3):
+            SentNotificationLogFactory(user=user)
+
+        response = authenticated_client.get(history_url, {"offset": "2", "limit": "10"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1  # 3 total - 2 skipped = 1
+
+    def test_history_offset_and_limit_combined(
+        self, authenticated_client, history_url, user
+    ):
+        """offset=1, limit=2 returns middle slice of 4 results."""
+        for _ in range(4):
+            SentNotificationLogFactory(user=user)
+
+        response = authenticated_client.get(history_url, {"offset": "1", "limit": "2"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 2  # skip 1, take 2 from 4
+
+    def test_history_invalid_offset_uses_default(
+        self, authenticated_client, history_url, user
+    ):
+        """?offset=abc defaults to 0."""
+        SentNotificationLogFactory(user=user)
+
+        response = authenticated_client.get(history_url, {"offset": "abc"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] >= 1
+
+    def test_history_default_offset_is_zero(
+        self, authenticated_client, history_url, user
+    ):
+        """Without offset, all results are returned (offset=0 default)."""
+        for _ in range(3):
+            SentNotificationLogFactory(user=user)
+
+        response = authenticated_client.get(history_url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 3
+
+
+# =============================================================================
+# SCOPE FILTERING (Phase 4/5 tests)
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestNotificationHistoryScope:
+    """Verify scope filtering on history endpoint."""
+
+    def test_scope_type_filter(self, authenticated_client, history_url, user):
+        """?scope_type=business returns only business-scoped notifications."""
+        from apps.notifications.tests.factories import ScopedNotificationLogFactory
+
+        SentNotificationLogFactory(user=user)  # user-scoped
+        ScopedNotificationLogFactory(user=user, status="sent")  # business-scoped
+
+        response = authenticated_client.get(history_url, {"scope_type": "business"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+        assert response.data["notifications"][0]["scope_type"] == "business"
+
+    def test_scope_type_user_filter(self, authenticated_client, history_url, user):
+        """?scope_type=user returns only user-scoped notifications."""
+        from apps.notifications.tests.factories import ScopedNotificationLogFactory
+
+        SentNotificationLogFactory(user=user)  # user-scoped
+        ScopedNotificationLogFactory(user=user, status="sent")  # business-scoped
+
+        response = authenticated_client.get(history_url, {"scope_type": "user"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+        assert response.data["notifications"][0]["scope_type"] == "user"
+
+    def test_response_includes_scope_fields(
+        self, authenticated_client, history_url, user
+    ):
+        """History response includes scope_type and scope_id fields."""
+        SentNotificationLogFactory(user=user)
+
+        response = authenticated_client.get(history_url)
+
+        assert response.status_code == status.HTTP_200_OK
+        notif = response.data["notifications"][0]
+        assert "scope_type" in notif
+        assert "scope_id" in notif
+
+    @patch(
+        "apps.notifications.policies.NotificationPolicy.can_view_scoped_notifications"
+    )
+    def test_non_member_gets_empty(
+        self, mock_can_view, authenticated_client, history_url, user
+    ):
+        """Non-member requesting org-scoped notifications gets empty list."""
+        import uuid
+
+        mock_can_view.return_value = False
+        biz_id = str(uuid.uuid4())
+
+        response = authenticated_client.get(
+            history_url, {"scope_type": "business", "scope_id": biz_id}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 0
+        assert response.data["notifications"] == []
+
+
+# =============================================================================
+# NOTIFICATION SCOPES ENDPOINT
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestNotificationScopesView:
+    """Tests for GET /api/v1/notifications/scopes/."""
+
+    def test_unauthenticated_returns_401(self, api_client):
+        response = api_client.get("/api/v1/notifications/scopes/")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_returns_scopes_with_counts(self, authenticated_client, user):
+        """Returns distinct scopes where user has notifications."""
+        from apps.notifications.tests.factories import ScopedNotificationLogFactory
+
+        SentNotificationLogFactory(user=user)
+        SentNotificationLogFactory(user=user)
+        ScopedNotificationLogFactory(user=user, status="sent")
+
+        response = authenticated_client.get("/api/v1/notifications/scopes/")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "scopes" in response.data
+        assert "count" in response.data
+        # Should have at least 2 scopes (user + business)
+        scope_types = {s["scope_type"] for s in response.data["scopes"]}
+        assert "user" in scope_types

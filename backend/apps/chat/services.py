@@ -13,10 +13,8 @@ from django.utils import timezone
 from apps.chat.constants import (
     CHAT_ALLOWED_IMAGE_EXTENSIONS,
     CHAT_ALLOWED_IMAGE_TYPES,
-    CHAT_ATTACHMENT_ORPHAN_TTL_HOURS,
     CHAT_GROUP_MAX_PARTICIPANTS,
     CHAT_MAX_ATTACHMENTS_PER_MESSAGE,
-    CHAT_MAX_IMAGE_SIZE,
     CHAT_MESSAGE_EDIT_WINDOW_MINUTES,
     CHAT_MESSAGE_MAX_LENGTH,
     CHAT_MESSAGE_PREVIEW_LENGTH,
@@ -44,10 +42,12 @@ from apps.chat.selectors import ChatSelector
 from apps.core.exceptions import (
     BusinessRuleViolation,
     ConflictError,
+    FeatureDisabled,
     NotFound,
     PermissionDenied,
     ValidationError,
 )
+from apps.core.feature_config import feature_config
 from apps.core.observability import get_logger
 from apps.core.observability.audit import AuditLog, AuditService
 
@@ -89,6 +89,18 @@ class ChatService:
             acting_user: The authenticated user performing the action
             request: HTTP request for audit context
         """
+        # Feature gates — entity participation
+        _entity_types = [creator_type] + [
+            p["participant_type"] for p in participant_ids
+        ]
+        for _pt in _entity_types:
+            if _pt == ParticipantType.BUSINESS:
+                if not feature_config.is_feature_enabled("business.chat.entity"):
+                    raise FeatureDisabled(feature="business.chat.entity")
+            elif _pt == ParticipantType.PLATFORM:
+                if not feature_config.is_feature_enabled("platform.chat.entity"):
+                    raise FeatureDisabled(feature="platform.chat.entity")
+
         # Validate scope eligibility for creator
         ChatPolicy.validate_scope_eligibility(
             user=acting_user,
@@ -130,14 +142,66 @@ class ChatService:
 
         # Group validation
         if conversation_type == ConversationType.GROUP:
+            # Feature gate — group conversations
+            _group_gates = {
+                "global": "user.chat.group",
+                "business": "business.chat.group",
+            }
+            _gate_path = _group_gates.get(scope_type)
+            if _gate_path and not feature_config.is_feature_enabled(_gate_path):
+                raise FeatureDisabled(feature=_gate_path)
+
+            # Org-scoped groups require can_manage_chat RBAC permission
+            if scope_type in (ScopeType.BUSINESS, ScopeType.PLATFORM):
+                if not ChatPolicy.can_manage_entity_chat(
+                    user=acting_user,
+                    account_type=scope_type,
+                    account_id=scope_id,
+                ):
+                    raise PermissionDenied(
+                        message="You need the can_manage_chat permission to create groups in this scope",
+                        action="create_group",
+                        resource="Conversation",
+                    )
+
+            # VG limit — per-user or per-scope group cap
+            if scope_type == ScopeType.GLOBAL:
+                _group_count = Conversation.objects.filter(
+                    created_by_type=ParticipantType.USER,
+                    created_by_id=creator_id,
+                    conversation_type=ConversationType.GROUP,
+                    scope_type=ScopeType.GLOBAL,
+                ).count()
+                feature_config.check_limit(
+                    "user.chat.max_groups",
+                    _group_count,
+                    rule="max_groups_exceeded",
+                    resource="Group conversation",
+                )
+            elif scope_type == ScopeType.BUSINESS:
+                _group_count = Conversation.objects.filter(
+                    scope_type=ScopeType.BUSINESS,
+                    scope_id=scope_id,
+                    conversation_type=ConversationType.GROUP,
+                ).count()
+                feature_config.check_limit(
+                    "business.chat.max_groups",
+                    _group_count,
+                    rule="max_groups_exceeded",
+                    resource="Business group conversation",
+                )
+
             if not name.strip():
                 raise ValidationError(
                     message="Group name is required",
                     field="name",
                 )
-            if len(participant_ids) > CHAT_GROUP_MAX_PARTICIPANTS - 1:
+            max_participants = feature_config.get_value(
+                "chat.groups.max_participants", CHAT_GROUP_MAX_PARTICIPANTS
+            )
+            if len(participant_ids) > max_participants - 1:
                 raise BusinessRuleViolation(
-                    message=f"Group cannot exceed {CHAT_GROUP_MAX_PARTICIPANTS} participants",
+                    message=f"Group cannot exceed {max_participants} participants",
                     rule="group_max_participants",
                 )
 
@@ -317,9 +381,12 @@ class ChatService:
                 message="Either content or attachments are required",
                 field="content",
             )
-        if len(content) > CHAT_MESSAGE_MAX_LENGTH:
+        max_length = feature_config.get_value(
+            "chat.messages.max_length", CHAT_MESSAGE_MAX_LENGTH
+        )
+        if len(content) > max_length:
             raise ValidationError(
-                message=f"Message exceeds maximum length of {CHAT_MESSAGE_MAX_LENGTH} characters",
+                message=f"Message exceeds maximum length of {max_length} characters",
                 field="content",
             )
 
@@ -357,7 +424,9 @@ class ChatService:
             conversation=conversation,
             sender_type=sender_type,
             sender_id=sender_id,
-            acting_user_id=acting_user_id if sender_type != ParticipantType.USER else None,
+            acting_user_id=(
+                acting_user_id if sender_type != ParticipantType.USER else None
+            ),
             content_type=content_type,
             content=content,
             metadata=metadata or {},
@@ -370,7 +439,9 @@ class ChatService:
                 message=message,
                 attachment_ids=attachment_ids,
                 conversation_id=conversation_id,
-                uploaded_by_id=acting_user_id if sender_type != ParticipantType.USER else sender_id,
+                uploaded_by_id=(
+                    acting_user_id if sender_type != ParticipantType.USER else sender_id
+                ),
             )
 
         # Update conversation denormalized fields
@@ -425,11 +496,8 @@ class ChatService:
 
         # Only author can edit
         if not (
-            message.sender_type == ParticipantType.USER
-            and message.sender_id == user.id
-        ) and not (
-            message.acting_user_id and message.acting_user_id == user.id
-        ):
+            message.sender_type == ParticipantType.USER and message.sender_id == user.id
+        ) and not (message.acting_user_id and message.acting_user_id == user.id):
             raise PermissionDenied(
                 message="You can only edit your own messages",
                 action="edit_message",
@@ -443,10 +511,13 @@ class ChatService:
             )
 
         # Check edit window
+        edit_window = feature_config.get_value(
+            "chat.messages.edit_window_minutes", CHAT_MESSAGE_EDIT_WINDOW_MINUTES
+        )
         elapsed = (timezone.now() - message.created_at).total_seconds() / 60
-        if elapsed > CHAT_MESSAGE_EDIT_WINDOW_MINUTES:
+        if elapsed > edit_window:
             raise BusinessRuleViolation(
-                message=f"Edit window of {CHAT_MESSAGE_EDIT_WINDOW_MINUTES} minutes has expired",
+                message=f"Edit window of {edit_window} minutes has expired",
                 rule="edit_window_expired",
             )
 
@@ -455,9 +526,12 @@ class ChatService:
                 message="Message content cannot be empty",
                 field="content",
             )
-        if len(new_content) > CHAT_MESSAGE_MAX_LENGTH:
+        max_length = feature_config.get_value(
+            "chat.messages.max_length", CHAT_MESSAGE_MAX_LENGTH
+        )
+        if len(new_content) > max_length:
             raise ValidationError(
-                message=f"Message exceeds maximum length of {CHAT_MESSAGE_MAX_LENGTH} characters",
+                message=f"Message exceeds maximum length of {max_length} characters",
                 field="content",
             )
 
@@ -481,7 +555,10 @@ class ChatService:
         # Update last message preview if this was the last message
         conversation = message.conversation
         if conversation.last_message_id == message.id:
-            conversation.last_message_preview = new_content[:CHAT_MESSAGE_PREVIEW_LENGTH]
+            preview_len = feature_config.get_value(
+                "chat.messages.preview_length", CHAT_MESSAGE_PREVIEW_LENGTH
+            )
+            conversation.last_message_preview = new_content[:preview_len]
             conversation.save(update_fields=["last_message_preview", "updated_at"])
 
         logger.info(
@@ -633,7 +710,10 @@ class ChatService:
         conversation = Conversation.objects.filter(id=conversation_id).first()
         if conversation:
             creator_id = conversation.created_by_id
-            if conversation.created_by_type == ParticipantType.USER and creator_id != user.id:
+            if (
+                conversation.created_by_type == ParticipantType.USER
+                and creator_id != user.id
+            ):
                 from apps.users.models import User
 
                 requester = User.objects.filter(id=creator_id).first()
@@ -660,8 +740,12 @@ class ChatService:
             resource=conversation,
             details={
                 "conversation_id": str(conversation_id),
-                "requester_type": conversation.created_by_type if conversation else None,
-                "requester_id": str(conversation.created_by_id) if conversation else None,
+                "requester_type": (
+                    conversation.created_by_type if conversation else None
+                ),
+                "requester_id": (
+                    str(conversation.created_by_id) if conversation else None
+                ),
             },
         )
 
@@ -728,9 +812,12 @@ class ChatService:
         active_count = ConversationParticipant.objects.filter(
             conversation=conversation, is_active=True
         ).count()
-        if active_count >= CHAT_GROUP_MAX_PARTICIPANTS:
+        max_participants = feature_config.get_value(
+            "chat.groups.max_participants", CHAT_GROUP_MAX_PARTICIPANTS
+        )
+        if active_count >= max_participants:
             raise BusinessRuleViolation(
-                message=f"Group cannot exceed {CHAT_GROUP_MAX_PARTICIPANTS} participants",
+                message=f"Group cannot exceed {max_participants} participants",
                 rule="group_max_participants",
             )
 
@@ -1058,9 +1145,7 @@ class ChatService:
 
     @staticmethod
     @transaction.atomic
-    def promote_to_admin(
-        *, conversation_id: UUID, participant_id: UUID, user
-    ) -> None:
+    def promote_to_admin(*, conversation_id: UUID, participant_id: UUID, user) -> None:
         """Promote a participant to group admin."""
         conversation = ChatSelector.get_conversation_by_id(
             conversation_id=conversation_id
@@ -1094,9 +1179,7 @@ class ChatService:
 
     @staticmethod
     @transaction.atomic
-    def demote_from_admin(
-        *, conversation_id: UUID, participant_id: UUID, user
-    ) -> None:
+    def demote_from_admin(*, conversation_id: UUID, participant_id: UUID, user) -> None:
         """Demote a participant from group admin to member."""
         conversation = ChatSelector.get_conversation_by_id(
             conversation_id=conversation_id
@@ -1135,6 +1218,11 @@ class ChatService:
         participant.role = ParticipantRole.MEMBER
         participant.save(update_fields=["role", "updated_at"])
 
+        ChatService._send_system_message(
+            conversation=conversation,
+            content=f"{participant.participant_type}:{participant.participant_id} was demoted from admin",
+        )
+
     # =========================================================================
     # ATTACHMENTS
     # =========================================================================
@@ -1153,6 +1241,17 @@ class ChatService:
         Validates MIME type, extension, file size. Stores to default_storage,
         creates an orphan MessageAttachment (message=None).
         """
+        # Feature gates — file sharing
+        if not feature_config.is_feature_enabled("user.chat.file_sharing"):
+            raise FeatureDisabled(feature="user.chat.file_sharing")
+
+        _conv = (
+            Conversation.objects.filter(id=conversation_id).only("scope_type").first()
+        )
+        if _conv and _conv.scope_type == ScopeType.BUSINESS:
+            if not feature_config.is_feature_enabled("business.chat.file_sharing"):
+                raise FeatureDisabled(feature="business.chat.file_sharing")
+
         import os
         import uuid as uuid_mod
 
@@ -1188,9 +1287,11 @@ class ChatService:
             )
 
         # Validate file size
-        if file.size > CHAT_MAX_IMAGE_SIZE:
+        max_size_mb = feature_config.get_value("chat.attachments.max_image_size_mb", 10)
+        max_size_bytes = max_size_mb * 1024 * 1024
+        if file.size > max_size_bytes:
             raise ValidationError(
-                message=f"File size exceeds maximum of {CHAT_MAX_IMAGE_SIZE // (1024 * 1024)} MB",
+                message=f"File size exceeds maximum of {max_size_mb} MB",
                 field="file",
             )
 
@@ -1250,9 +1351,12 @@ class ChatService:
         Validates: all IDs exist, all belong to same conversation, all uploaded
         by same user, all are orphans (message=None), count <= max.
         """
-        if len(attachment_ids) > CHAT_MAX_ATTACHMENTS_PER_MESSAGE:
+        max_attachments = feature_config.get_value(
+            "chat.attachments.max_per_message", CHAT_MAX_ATTACHMENTS_PER_MESSAGE
+        )
+        if len(attachment_ids) > max_attachments:
             raise ValidationError(
-                message=f"Cannot attach more than {CHAT_MAX_ATTACHMENTS_PER_MESSAGE} files per message",
+                message=f"Cannot attach more than {max_attachments} files per message",
                 field="attachment_ids",
             )
 
@@ -1302,6 +1406,10 @@ class ChatService:
         """
         from django.db import IntegrityError
 
+        # Feature gate — reactions
+        if not feature_config.is_feature_enabled("user.chat.reactions"):
+            raise FeatureDisabled(feature="user.chat.reactions")
+
         if reaction not in ReactionType.values:
             raise ValidationError(
                 message=f"Invalid reaction type: {reaction}",
@@ -1348,10 +1456,7 @@ class ChatService:
         )
 
         # Notify message author on commit (if different user)
-        if (
-            message.sender_type == ParticipantType.USER
-            and message.sender_id != user.id
-        ):
+        if message.sender_type == ParticipantType.USER and message.sender_id != user.id:
             transaction.on_commit(
                 lambda: ChatService._notify_safe(
                     "reaction_received",
@@ -1479,7 +1584,10 @@ class ChatService:
             return RequestStatus.NONE
 
         # Entity participants: no request needed
-        if sender_type != ParticipantType.USER or recipient_type != ParticipantType.USER:
+        if (
+            sender_type != ParticipantType.USER
+            or recipient_type != ParticipantType.USER
+        ):
             return RequestStatus.NONE
 
         # Check if users are connected
@@ -1499,14 +1607,18 @@ class ChatService:
     ) -> None:
         """Check if a sender in a DM with pending request has exceeded the message limit."""
         # Find the recipient's participant record
-        recipient = ConversationParticipant.objects.filter(
-            conversation=conversation,
-            request_status=RequestStatus.PENDING,
-            is_active=True,
-        ).exclude(
-            participant_type=sender_type,
-            participant_id=sender_id,
-        ).first()
+        recipient = (
+            ConversationParticipant.objects.filter(
+                conversation=conversation,
+                request_status=RequestStatus.PENDING,
+                is_active=True,
+            )
+            .exclude(
+                participant_type=sender_type,
+                participant_id=sender_id,
+            )
+            .first()
+        )
 
         if not recipient:
             return  # No pending request, send freely
@@ -1518,18 +1630,20 @@ class ChatService:
             sender_id=sender_id,
         ).count()
 
-        if msg_count >= CHAT_REQUEST_MAX_MESSAGES:
+        max_request_messages = feature_config.get_value(
+            "chat.requests.max_messages", CHAT_REQUEST_MAX_MESSAGES
+        )
+        if msg_count >= max_request_messages:
             raise BusinessRuleViolation(
-                message=f"Cannot send more than {CHAT_REQUEST_MAX_MESSAGES} messages before the request is accepted",
+                message=f"Cannot send more than {max_request_messages} messages before the request is accepted",
                 rule="request_message_limit",
             )
 
     @staticmethod
     def _get_next_sequence_number(conversation_id: UUID) -> int:
         """Get the next sequence number for a conversation."""
-        last = (
-            Message.objects.filter(conversation_id=conversation_id)
-            .aggregate(max_seq=models.Max("sequence_number"))
+        last = Message.objects.filter(conversation_id=conversation_id).aggregate(
+            max_seq=models.Max("sequence_number")
         )
         return (last["max_seq"] or 0) + 1
 
@@ -1540,7 +1654,10 @@ class ChatService:
         """Update denormalized last message fields on conversation."""
         conversation.last_message_id = message.id
         conversation.last_message_at = message.created_at
-        conversation.last_message_preview = message.content[:CHAT_MESSAGE_PREVIEW_LENGTH]
+        preview_len = feature_config.get_value(
+            "chat.messages.preview_length", CHAT_MESSAGE_PREVIEW_LENGTH
+        )
+        conversation.last_message_preview = message.content[:preview_len]
         conversation.last_message_sender_type = message.sender_type
         conversation.last_message_sender_id = message.sender_id
         conversation.save(
@@ -1614,11 +1731,22 @@ class ChatService:
         except Exception:
             return False
 
+    # Chat scope → notification scope mapping
+    # Chat uses "global" for unscoped, notifications use "user"
+    _CHAT_TO_NOTIF_SCOPE = {
+        "global": "user",
+        "business": "business",
+        "platform": "platform",
+    }
+
     @staticmethod
     def _notify_new_message(NS, *, message, conversation) -> None:
         """Notify offline participants about a new message."""
         from apps.chat.presence import PresenceManager
         from apps.users.models import User
+
+        notif_scope = ChatService._CHAT_TO_NOTIF_SCOPE[conversation.scope_type]
+        notif_scope_id = conversation.scope_id
 
         participants = ConversationParticipant.objects.filter(
             conversation=conversation,
@@ -1627,6 +1755,8 @@ class ChatService:
         ).exclude(participant_id=message.sender_id)
 
         for p in participants:
+            if p.is_muted:
+                continue
             if PresenceManager.is_online(p.participant_id):
                 continue
             if ChatService._is_rate_limited(p.participant_id, conversation.id):
@@ -1644,6 +1774,8 @@ class ChatService:
                     "sender_name": f"{message.sender_type}:{message.sender_id}",
                     "preview": message.content[:100],
                 },
+                scope_type=notif_scope,
+                scope_id=notif_scope_id,
             )
 
     @staticmethod
@@ -1659,6 +1791,8 @@ class ChatService:
                 "requester_name": requester_name,
                 "preview": "",
             },
+            scope_type=ChatService._CHAT_TO_NOTIF_SCOPE[conversation.scope_type],
+            scope_id=conversation.scope_id,
         )
 
     @staticmethod
@@ -1673,6 +1807,8 @@ class ChatService:
                 "conversation_id": str(conversation.id),
                 "accepter_name": accepter_name,
             },
+            scope_type=ChatService._CHAT_TO_NOTIF_SCOPE[conversation.scope_type],
+            scope_id=conversation.scope_id,
         )
 
     @staticmethod
@@ -1686,6 +1822,8 @@ class ChatService:
                 "group_name": conversation.name or "Group",
                 "added_by_name": added_by_name,
             },
+            scope_type=ChatService._CHAT_TO_NOTIF_SCOPE[conversation.scope_type],
+            scope_id=conversation.scope_id,
         )
 
     @staticmethod
@@ -1710,4 +1848,6 @@ class ChatService:
                 "reactor_name": reactor_user.username or str(reactor_user.id),
                 "message_preview": message.content[:100],
             },
+            scope_type=ChatService._CHAT_TO_NOTIF_SCOPE[conversation.scope_type],
+            scope_id=conversation.scope_id,
         )

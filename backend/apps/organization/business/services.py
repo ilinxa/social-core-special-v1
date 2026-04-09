@@ -21,6 +21,7 @@ from django.utils.text import slugify
 from apps.core.constants import BusinessStatus, VerificationStatus
 from apps.core.exceptions import ConflictError, ValidationError
 from apps.core.observability import AuditLog, AuditService, get_logger
+from apps.organization.business.constants import RESERVED_BUSINESS_SLUGS
 from apps.organization.business.models import (
     BusinessAccount,
     BusinessProfile,
@@ -51,6 +52,13 @@ class BusinessAccountService:
         Raises:
             ConflictError: If slug is already in use or was used historically.
         """
+        if slug in RESERVED_BUSINESS_SLUGS:
+            raise ConflictError(
+                message=f"Slug '{slug}' is reserved",
+                resource="BusinessAccount",
+                conflict_type="slug_reserved",
+            )
+
         if BusinessAccountSelector.slug_exists(
             slug=slug, exclude_business_id=exclude_business_id
         ):
@@ -105,6 +113,24 @@ class BusinessAccountService:
 
         # Validate slug availability
         BusinessAccountService._validate_slug(slug=slug)
+
+        # VG limits — deployment-wide business cap + per-user cap
+        from apps.core.feature_config import feature_config
+
+        feature_config.check_limit(
+            "limits.max_businesses",
+            BusinessAccount.objects.filter(status=BusinessStatus.ACTIVE).count(),
+            rule="max_businesses_exceeded",
+            resource="Business",
+        )
+        feature_config.check_limit(
+            "limits.max_businesses_per_user",
+            BusinessAccount.objects.filter(
+                created_by=owner, status=BusinessStatus.ACTIVE
+            ).count(),
+            rule="max_businesses_per_user_exceeded",
+            resource="Business per user",
+        )
 
         # Create business account
         business = BusinessAccount.objects.create(
@@ -380,6 +406,9 @@ class BusinessAccountService:
         Returns:
             BusinessAccount: Updated business.
         """
+        from apps.organization.business.transitions import validate_transition
+
+        validate_transition(business.status, BusinessStatus.SUSPENDED)
         old_status = business.status
         business.status = BusinessStatus.SUSPENDED
         business.updated_by = actor
@@ -425,11 +454,9 @@ class BusinessAccountService:
         Raises:
             ValidationError: If business is not suspended.
         """
-        if business.status != BusinessStatus.SUSPENDED:
-            raise ValidationError(
-                message="Business is not suspended",
-                field="status",
-            )
+        from apps.organization.business.transitions import validate_transition
+
+        validate_transition(business.status, BusinessStatus.ACTIVE)
 
         business.status = BusinessStatus.ACTIVE
         business.updated_by = actor
@@ -470,6 +497,10 @@ class BusinessAccountService:
         Returns:
             BusinessAccount: Updated business.
         """
+        from apps.organization.business.transitions import validate_transition
+
+        validate_transition(business.status, BusinessStatus.ARCHIVED)
+
         business.status = BusinessStatus.ARCHIVED
         business.updated_by = actor
         business.save(update_fields=["status", "updated_by", "updated_at"])
@@ -509,6 +540,10 @@ class BusinessAccountService:
         Returns:
             BusinessAccount: Deleted business.
         """
+        from apps.organization.business.transitions import validate_transition
+
+        validate_transition(business.status, BusinessStatus.DELETED)
+
         business.soft_delete(user=actor)
         business.status = BusinessStatus.DELETED
         business.updated_by = actor

@@ -38,6 +38,7 @@ from apps.cms.api.serializers import (  # Input serializers; Output serializers
 )
 from apps.cms.constants import PageStatus
 from apps.cms.models import Page
+from apps.cms.policies import CMSPolicy
 from apps.cms.selectors import (
     CMSApiKeySelector,
     CMSBlockPlacementSelector,
@@ -53,11 +54,15 @@ from apps.cms.services import (
     CMSMediaService,
     CMSPageService,
     CMSSiteService,
+    CMSTemplateActivationService,
     CMSTemplateService,
 )
 from apps.core.pagination import StandardPagination
-from apps.core.permissions import IsAuthenticated
+from apps.core.permissions import FeatureRequired, IsAuthenticated
+from apps.core.views import PermissionInjectMixin
 from apps.rbac.views import PlatformContextMixin
+
+_CmsGate = FeatureRequired("platform.cms")
 
 # ---------------------------------------------------------------------------
 # Admin — Sites
@@ -70,7 +75,7 @@ class AdminSiteListCreateView(PlatformContextMixin, APIView):
     POST /api/v1/cms/admin/sites/  -> Create site (superuser)
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(responses=SiteOutputSerializer(many=True))
     def get(self, request):
@@ -101,23 +106,28 @@ class AdminSiteListCreateView(PlatformContextMixin, APIView):
         )
 
 
-class AdminSiteDetailView(PlatformContextMixin, APIView):
+class AdminSiteDetailView(PermissionInjectMixin, PlatformContextMixin, APIView):
     """
-    GET    /api/v1/cms/admin/sites/{slug}/  -> Get site details
+    GET    /api/v1/cms/admin/sites/{slug}/  -> Get site details (with _permissions)
     PATCH  /api/v1/cms/admin/sites/{slug}/  -> Update site
     DELETE /api/v1/cms/admin/sites/{slug}/  -> Delete site (superuser)
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
+    policy_class = CMSPolicy
+
+    def _build_policy_kwargs(self):
+        return {"user": self.request.user, "actor_context": self._actor_context}
 
     @extend_schema(responses=SiteOutputSerializer)
     def get(self, request, slug):
-        actor_context = self.get_actor_context()
+        self._actor_context = self.get_actor_context()
         site = CMSSiteSelector.get_by_slug(
-            owner_type=actor_context.account_type,
-            owner_id=actor_context.account_id,
+            owner_type=self._actor_context.account_type,
+            owner_id=self._actor_context.account_id,
             slug=slug,
         )
+        self._inject_permissions = True
         return Response(SiteOutputSerializer(site).data)
 
     @extend_schema(request=SiteUpdateSerializer, responses=SiteOutputSerializer)
@@ -159,7 +169,7 @@ class AdminPageListCreateView(PlatformContextMixin, APIView):
     POST /api/v1/cms/admin/pages/  -> Create page (superuser)
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(responses=PageOutputSerializer(many=True))
     def get(self, request):
@@ -205,28 +215,73 @@ class AdminPageListCreateView(PlatformContextMixin, APIView):
         )
 
 
-class AdminPageDetailView(PlatformContextMixin, APIView):
+class AdminPageDetailView(PermissionInjectMixin, PlatformContextMixin, APIView):
     """
-    GET    /api/v1/cms/admin/pages/{slug}/  -> Get page (with optional depth)
+    GET    /api/v1/cms/admin/pages/{slug}/  -> Get page (with _permissions)
+    PATCH  /api/v1/cms/admin/pages/{slug}/  -> Update page metadata
+    DELETE /api/v1/cms/admin/pages/{slug}/  -> Delete page
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
+    policy_class = CMSPolicy
+
+    def _build_policy_kwargs(self):
+        return {"user": self.request.user, "actor_context": self._actor_context}
+
+    def patch(self, request, slug):
+        from apps.cms.api.serializers import PageUpdateSerializer
+
+        serializer = PageUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        actor_context = self.get_actor_context()
+        site_slug = request.query_params.get("site")
+        site = CMSSiteSelector.get_by_slug(
+            owner_type=actor_context.account_type,
+            owner_id=actor_context.account_id,
+            slug=site_slug,
+        )
+        page = CMSPageSelector.get_by_slug(site_id=site.id, slug=slug)
+        page = CMSPageService.update_page(
+            actor_context=actor_context,
+            page_id=page.id,
+            request=request,
+            **serializer.validated_data,
+        )
+        return Response(PageOutputSerializer(page).data)
+
+    def delete(self, request, slug):
+        actor_context = self.get_actor_context()
+        site_slug = request.query_params.get("site")
+        site = CMSSiteSelector.get_by_slug(
+            owner_type=actor_context.account_type,
+            owner_id=actor_context.account_id,
+            slug=site_slug,
+        )
+        page = CMSPageSelector.get_by_slug(site_id=site.id, slug=slug)
+        CMSPageService.delete_page(
+            actor_context=actor_context,
+            page_id=page.id,
+            request=request,
+        )
+        return Response(status=http_status.HTTP_204_NO_CONTENT)
 
     @extend_schema(responses=PageDetailOutputSerializer)
     def get(self, request, slug):
-        actor_context = self.get_actor_context()
+        self._actor_context = self.get_actor_context()
         depth = request.query_params.get("depth", None)
         site_slug = request.query_params.get("site")
 
         site = (
             CMSSiteSelector.get_by_slug(
-                owner_type=actor_context.account_type,
-                owner_id=actor_context.account_id,
+                owner_type=self._actor_context.account_type,
+                owner_id=self._actor_context.account_id,
                 slug=site_slug,
             )
             if site_slug
             else None
         )
+
+        self._inject_permissions = True
 
         if depth == "full" and site:
             page = CMSPageSelector.get_by_slug(site_id=site.id, slug=slug)
@@ -248,7 +303,7 @@ class AdminPageDetailView(PlatformContextMixin, APIView):
 class AdminPagePublishView(PlatformContextMixin, APIView):
     """POST /api/v1/cms/admin/pages/{slug}/publish/ -> Validate & publish page."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="Publish page",
@@ -276,7 +331,7 @@ class AdminPagePublishView(PlatformContextMixin, APIView):
 class AdminPageUnpublishView(PlatformContextMixin, APIView):
     """POST /api/v1/cms/admin/pages/{slug}/unpublish/ -> Revert to draft."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="Unpublish page",
@@ -304,7 +359,7 @@ class AdminPageUnpublishView(PlatformContextMixin, APIView):
 class AdminPageExportView(PlatformContextMixin, APIView):
     """POST /api/v1/cms/admin/pages/{slug}/export/ -> Export page tree as JSON."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="Export page",
@@ -331,7 +386,7 @@ class AdminPageExportView(PlatformContextMixin, APIView):
 class AdminPageImportView(PlatformContextMixin, APIView):
     """POST /api/v1/cms/admin/pages/{slug}/import/ -> Import page content."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="Import page",
@@ -370,7 +425,7 @@ class AdminSectionTemplateListCreateView(PlatformContextMixin, APIView):
     POST /api/v1/cms/admin/templates/sections/  -> Create section template
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="List section templates",
@@ -414,7 +469,7 @@ class AdminBlockTemplateListCreateView(PlatformContextMixin, APIView):
     POST /api/v1/cms/admin/templates/blocks/  -> Create block template
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="List block templates",
@@ -461,7 +516,7 @@ class AdminBlockPlacementDetailView(PlatformContextMixin, APIView):
     PATCH /api/v1/cms/admin/block-placements/{uuid}/ -> Update draft_content
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="Get block placement",
@@ -494,7 +549,7 @@ class AdminBlockPlacementDetailView(PlatformContextMixin, APIView):
 class AdminBlockPlacementHistoryView(PlatformContextMixin, APIView):
     """GET /api/v1/cms/admin/block-placements/{uuid}/history/ -> List versions."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="List content versions",
@@ -514,7 +569,7 @@ class AdminBlockPlacementHistoryView(PlatformContextMixin, APIView):
 class AdminBlockPlacementRollbackView(PlatformContextMixin, APIView):
     """POST /api/v1/cms/admin/block-placements/{uuid}/rollback/{version}/ -> Rollback."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="Rollback content",
@@ -544,7 +599,7 @@ class AdminMediaFileListCreateView(PlatformContextMixin, APIView):
     POST /api/v1/cms/admin/media/files/  -> Upload file
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @extend_schema(
@@ -598,7 +653,7 @@ class AdminMediaFileDetailView(PlatformContextMixin, APIView):
     DELETE /api/v1/cms/admin/media/files/{uuid}/ -> Delete file
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="Get media file",
@@ -653,7 +708,7 @@ class AdminApiKeyListCreateView(PlatformContextMixin, APIView):
     POST /api/v1/cms/admin/api-keys/ -> Create API key (returns full key ONCE)
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="List API keys",
@@ -691,7 +746,7 @@ class AdminApiKeyDetailView(PlatformContextMixin, APIView):
     DELETE /api/v1/cms/admin/api-keys/{uuid}/ -> Revoke key
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, _CmsGate]
 
     @extend_schema(
         summary="Revoke API key",
@@ -706,6 +761,138 @@ class AdminApiKeyDetailView(PlatformContextMixin, APIView):
             request=request,
         )
         return Response(status=http_status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# Admin — Business CMS Management
+# ---------------------------------------------------------------------------
+
+
+class AdminBusinessCMSListView(PlatformContextMixin, APIView):
+    """GET /api/v1/cms/admin/businesses/ -> List businesses with CMS status."""
+
+    permission_classes = [IsAuthenticated, _CmsGate]
+
+    def get(self, request):
+        from apps.cms.api.serializers import BusinessCMSStatusSerializer
+        from apps.organization.business.models import BusinessAccount
+        from apps.rbac.policies import MembershipPolicy
+
+        actor_context = self.get_actor_context()
+        MembershipPolicy.authorize_action(
+            actor_context=actor_context,
+            required_permission="can_manage_business_cms",
+        )
+        businesses = BusinessAccount.objects.active().values(
+            "id", "slug", "legal_name", "cms_enabled"
+        )
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(businesses, request)
+        serializer = BusinessCMSStatusSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class AdminBusinessCMSToggleView(PlatformContextMixin, APIView):
+    """PATCH /api/v1/cms/admin/businesses/<uuid>/ -> Toggle CMS for a business."""
+
+    permission_classes = [IsAuthenticated, _CmsGate]
+
+    def patch(self, request, uuid):
+        from apps.cms.api.serializers import BusinessCMSToggleSerializer
+        from apps.core.constants import OwnerType
+        from apps.core.observability import AuditLog, AuditService
+        from apps.organization.business.models import BusinessAccount
+        from apps.rbac.policies import MembershipPolicy
+
+        actor_context = self.get_actor_context()
+        MembershipPolicy.authorize_action(
+            actor_context=actor_context,
+            required_permission="can_manage_business_cms",
+        )
+
+        serializer = BusinessCMSToggleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        cms_enabled = serializer.validated_data["cms_enabled"]
+
+        business = BusinessAccount.objects.get(id=uuid)
+        business.cms_enabled = cms_enabled
+        business.save(update_fields=["cms_enabled", "updated_at"])
+
+        if cms_enabled:
+            CMSTemplateActivationService.auto_provision_defaults(
+                org_type=OwnerType.BUSINESS,
+                org_id=business.id,
+                user=request.user,
+            )
+
+        action = (
+            AuditLog.Action.CMS_BUSINESS_ENABLED
+            if cms_enabled
+            else AuditLog.Action.CMS_BUSINESS_DISABLED
+        )
+        AuditService.log(
+            action=action,
+            actor=request.user,
+            resource=business,
+            request=request,
+            details={"business_id": str(business.id), "cms_enabled": cms_enabled},
+        )
+
+        from apps.core.observability import get_logger
+
+        logger = get_logger(__name__)
+        logger.info(
+            "cms.business.toggled",
+            business_id=str(business.id),
+            cms_enabled=cms_enabled,
+        )
+
+        return Response({"id": str(business.id), "cms_enabled": business.cms_enabled})
+
+
+class AdminBusinessCMSActivationsView(PlatformContextMixin, APIView):
+    """GET /api/v1/cms/admin/businesses/<uuid>/activations/ -> View business activations."""
+
+    permission_classes = [IsAuthenticated, _CmsGate]
+
+    def get(self, request, uuid):
+        from apps.cms.api.serializers import (
+            BlockActivationOutputSerializer,
+            SectionActivationOutputSerializer,
+        )
+        from apps.cms.selectors import CMSTemplateActivationSelector
+        from apps.core.constants import OwnerType
+        from apps.rbac.policies import MembershipPolicy
+
+        actor_context = self.get_actor_context()
+        MembershipPolicy.authorize_action(
+            actor_context=actor_context,
+            required_permission="can_manage_business_cms",
+        )
+
+        section_activations = (
+            CMSTemplateActivationSelector.list_activated_section_templates(
+                org_type=OwnerType.BUSINESS,
+                org_id=uuid,
+            )
+        )
+        block_activations = (
+            CMSTemplateActivationSelector.list_activated_block_templates(
+                org_type=OwnerType.BUSINESS,
+                org_id=uuid,
+            )
+        )
+
+        return Response(
+            {
+                "section_templates": SectionActivationOutputSerializer(
+                    section_activations, many=True
+                ).data,
+                "block_templates": BlockActivationOutputSerializer(
+                    block_activations, many=True
+                ).data,
+            }
+        )
 
 
 # ---------------------------------------------------------------------------

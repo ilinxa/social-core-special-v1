@@ -9,6 +9,15 @@ because the two systems have different field needs.
 from django.db import models
 
 
+class TemplateOrgType(models.TextChoices):
+    """Which organization types can activate and use a template."""
+
+    SYSTEM = "system", "System"  # Internal only, not activatable
+    PLATFORM = "platform", "Platform"  # Platform orgs only
+    BUSINESS = "business", "Business"  # Business orgs only
+    ALL = "all", "All"  # Both platform and business
+
+
 class PageStatus(models.TextChoices):
     """Page lifecycle states."""
 
@@ -94,6 +103,14 @@ ALLOWED_MEDIA_TYPES = frozenset(
         "audio/ogg",
     }
 )
+
+# Template eligibility: given an org's OwnerType, which TemplateOrgTypes are visible?
+# Uses string values (matching OwnerType.PLATFORM/BUSINESS) as keys for dict lookup.
+TEMPLATE_ELIGIBILITY = {
+    "platform": frozenset({TemplateOrgType.PLATFORM, TemplateOrgType.ALL}),
+    "business": frozenset({TemplateOrgType.BUSINESS, TemplateOrgType.ALL}),
+}
+
 
 ALLOWED_MEDIA_EXTENSIONS = frozenset(
     {

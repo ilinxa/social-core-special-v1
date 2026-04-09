@@ -842,9 +842,11 @@ class RequestFormCheckView(APIView):
     """Check if a form is required before creating a request, and submit responses.
 
     GET  ?transaction_type=X&account_type=Y&account_id=Z
-         Returns form mapping + form template fields if mapping exists.
-    POST {form_mapping_id, data: {...}}
-         Creates and submits a form response for the form template in the mapping.
+         Returns form mapping + form template fields if a dynamic mapping exists,
+         or falls back to the static form requirement from the transaction type config.
+    POST {form_mapping_id, data: {...}} or {form_template_id, account_type, account_id, data: {...}}
+         Creates and submits a form response for the form template in the mapping
+         or directly against a static template.
     """
 
     permission_classes = []  # GET is public, POST checks auth inline
@@ -855,6 +857,8 @@ class RequestFormCheckView(APIView):
         tags=["Transaction"],
     )
     def get(self, request):
+        from apps.forms.api.serializers import FormTemplateDetailOutputSerializer
+
         transaction_type = request.query_params.get("transaction_type")
         account_type = request.query_params.get("account_type")
         account_id = request.query_params.get("account_id")
@@ -862,6 +866,7 @@ class RequestFormCheckView(APIView):
         if not all([transaction_type, account_type, account_id]):
             return Response({"form_required": False})
 
+        # 1. Check dynamic mapping (per-account override)
         mapping = (
             TransactionFormMapping.objects.filter(
                 account_type=account_type,
@@ -873,21 +878,42 @@ class RequestFormCheckView(APIView):
             .first()
         )
 
-        if not mapping:
-            return Response({"form_required": False})
+        if mapping:
+            return Response(
+                {
+                    "form_required": mapping.is_required,
+                    "form_mapping_id": str(mapping.id),
+                    "form_template": FormTemplateDetailOutputSerializer(
+                        mapping.form_template,
+                        context={"request": request},
+                    ).data,
+                }
+            )
 
-        from apps.forms.api.serializers import FormTemplateDetailOutputSerializer
+        # 2. Fallback: check static form requirement from type config
+        from apps.transaction.types import TRANSACTION_TYPES
 
-        return Response(
-            {
-                "form_required": mapping.is_required,
-                "form_mapping_id": str(mapping.id),
-                "form_template": FormTemplateDetailOutputSerializer(
-                    mapping.form_template,
-                    context={"request": request},
-                ).data,
-            }
-        )
+        config = TRANSACTION_TYPES.get(transaction_type)
+        if config and config.required_form_template_slug:
+            from apps.forms.models import FormTemplate
+
+            template = FormTemplate.objects.filter(
+                slug=config.required_form_template_slug,
+                is_deleted=False,
+            ).first()
+            if template:
+                return Response(
+                    {
+                        "form_required": True,
+                        "form_template_id": str(template.id),
+                        "form_template": FormTemplateDetailOutputSerializer(
+                            template,
+                            context={"request": request},
+                        ).data,
+                    }
+                )
+
+        return Response({"form_required": False})
 
     @extend_schema(
         summary="Submit form for request",
@@ -906,40 +932,70 @@ class RequestFormCheckView(APIView):
             )
 
         mapping_id = request.data.get("form_mapping_id")
+        form_template_id = request.data.get("form_template_id")
         form_data = request.data.get("data", {})
 
-        if not mapping_id:
+        if not mapping_id and not form_template_id:
             from apps.core.exceptions import ValidationError
 
             raise ValidationError(
-                message="form_mapping_id is required",
+                message="form_mapping_id or form_template_id is required",
                 field="form_mapping_id",
             )
 
-        mapping = (
-            TransactionFormMapping.objects.filter(
-                id=mapping_id,
-                is_deleted=False,
+        if mapping_id:
+            # Dynamic mapping path (existing behavior)
+            mapping = (
+                TransactionFormMapping.objects.filter(
+                    id=mapping_id,
+                    is_deleted=False,
+                )
+                .select_related("form_template")
+                .first()
             )
-            .select_related("form_template")
-            .first()
-        )
-        if not mapping:
-            from apps.core.exceptions import NotFound
+            if not mapping:
+                from apps.core.exceptions import NotFound
 
-            raise NotFound(
-                resource="TransactionFormMapping",
-                resource_id=str(mapping_id),
-            )
+                raise NotFound(
+                    resource="TransactionFormMapping",
+                    resource_id=str(mapping_id),
+                )
+            template = mapping.form_template
+            context_type = mapping.account_type
+            context_id = mapping.account_id
+        else:
+            # Static template path (for type configs with required_form_template_slug)
+            from apps.forms.models import FormTemplate
+
+            template = FormTemplate.objects.filter(
+                id=form_template_id,
+                is_deleted=False,
+            ).first()
+            if not template:
+                from apps.core.exceptions import NotFound
+
+                raise NotFound(
+                    resource="FormTemplate",
+                    resource_id=str(form_template_id),
+                )
+            context_type = request.data.get("account_type")
+            context_id = request.data.get("account_id")
+            if not context_type or not context_id:
+                from apps.core.exceptions import ValidationError
+
+                raise ValidationError(
+                    message="account_type and account_id are required when using form_template_id",
+                    field="account_type",
+                )
 
         from apps.forms.services import FormResponseService
 
         actor_context = ActorContext.for_user_context(request.user, request)
         response = FormResponseService.create_and_submit(
-            form_template=mapping.form_template,
+            form_template=template,
             data=form_data,
-            context_type=mapping.account_type,
-            context_id=mapping.account_id,
+            context_type=context_type,
+            context_id=context_id,
             actor_context=actor_context,
             actor=request.user,
             request=request,

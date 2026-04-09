@@ -20,6 +20,8 @@ urlpatterns = [
     ),
     # History
     path("history/", views.NotificationHistoryView.as_view(), name="history"),
+    # Scopes summary
+    path("scopes/", views.NotificationScopesView.as_view(), name="scopes"),
     # Types
     path("types/", views.ConfigurableTypesView.as_view(), name="configurable-types"),
 ]

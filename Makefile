@@ -395,18 +395,63 @@ setup: install env-example dev-up dev-migrate superuser ## Complete setup for ne
 # =============================================================================
 # E2E TESTS (Playwright)
 # =============================================================================
-# Requires: Docker infra running, Django server (make dev), Next.js (cd frontend && npm run dev)
+# Isolated Docker stack: PG:5433, Redis:6380, Backend:8001, Frontend:3001
 # =============================================================================
 
 E2E_DIR := e2e
+DOCKER_COMPOSE_E2E := docker compose -f e2e/docker/docker-compose.e2e.yml
 
 .PHONY: e2e-install
 e2e-install: ## Install E2E test dependencies + Playwright browsers
 	cd $(E2E_DIR) && npm install && npx playwright install --with-deps chromium
 
+.PHONY: e2e-up
+e2e-up: ## Start E2E Docker stack (PG:5433, Redis:6380, Backend:8001, Frontend:3001)
+	@echo "$(GREEN)Starting E2E Docker stack...$(NC)"
+	$(DOCKER_COMPOSE_E2E) up -d --build
+	@echo "$(GREEN)Waiting for services to be healthy...$(NC)"
+	@$(DOCKER_COMPOSE_E2E) exec -T backend-e2e python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')" 2>/dev/null || sleep 15
+	@echo "$(GREEN)E2E stack ready!$(NC)"
+	@echo "$(YELLOW)  Backend:  http://localhost:8001$(NC)"
+	@echo "$(YELLOW)  Frontend: http://localhost:3001$(NC)"
+	@echo "$(YELLOW)  PG:       localhost:5433$(NC)"
+	@echo "$(YELLOW)  Redis:    localhost:6380$(NC)"
+
+.PHONY: e2e-down
+e2e-down: ## Stop E2E Docker stack
+	@echo "$(YELLOW)Stopping E2E Docker stack...$(NC)"
+	$(DOCKER_COMPOSE_E2E) down
+
+.PHONY: e2e-reset
+e2e-reset: ## Reset E2E database (drop volumes, rebuild, migrate fresh)
+	@echo "$(YELLOW)Resetting E2E stack (full rebuild)...$(NC)"
+	$(DOCKER_COMPOSE_E2E) down -v
+	$(DOCKER_COMPOSE_E2E) up -d --build
+	@echo "$(GREEN)E2E stack reset complete!$(NC)"
+
+.PHONY: e2e-logs
+e2e-logs: ## View E2E Docker logs
+	$(DOCKER_COMPOSE_E2E) logs -f
+
 .PHONY: e2e
 e2e: ## Run all E2E tests (headless)
 	cd $(E2E_DIR) && npx playwright test
+
+.PHONY: e2e-smoke
+e2e-smoke: ## Run L1 smoke tests only (desktop)
+	cd $(E2E_DIR) && npx playwright test --project=smoke-desktop
+
+.PHONY: e2e-mobile
+e2e-mobile: ## Run L1 smoke tests (mobile)
+	cd $(E2E_DIR) && npx playwright test --project=smoke-mobile
+
+.PHONY: e2e-workflows
+e2e-workflows: ## Run L2 workflow tests
+	cd $(E2E_DIR) && npx playwright test --project=workflows
+
+.PHONY: e2e-scenarios
+e2e-scenarios: ## Run L3 persona scenarios
+	cd $(E2E_DIR) && npx playwright test --project=scenarios
 
 .PHONY: e2e-ui
 e2e-ui: ## Run E2E tests with interactive UI

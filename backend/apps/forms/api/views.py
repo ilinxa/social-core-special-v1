@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.pagination import StandardPagination
-from apps.core.permissions import IsAuthenticated
+from apps.core.permissions import FeatureRequired, IsAuthenticated
 from apps.core.views import PermissionInjectMixin
 from apps.forms.api.serializers import (
     ForkTemplateInputSerializer,
@@ -42,7 +42,23 @@ from apps.rbac.services import RBACService
 class FormViewMixin:
     """Resolve membership and ActorContext for form views."""
 
+    _FORMS_GATE_PATHS = {
+        "business": "business.forms.enabled",
+        "platform": "platform.forms",
+    }
+
+    def _check_forms_feature_gate(self, account_type):
+        """FG module gate: check forms feature for the account type."""
+        path = self._FORMS_GATE_PATHS.get(account_type)
+        if path:
+            from apps.core.exceptions import FeatureDisabled
+            from apps.core.feature_config import feature_config
+
+            if not feature_config.is_feature_enabled(path):
+                raise FeatureDisabled(feature=path)
+
     def get_membership_or_403(self, request, account_type, account_id):
+        self._check_forms_feature_gate(account_type)
         membership = MembershipSelector.get_active_membership_for_user_account(
             user=request.user,
             account_type=account_type,
@@ -95,7 +111,7 @@ class FormViewMixin:
 class SystemFormTemplateView(APIView):
     """Look up a system form template by slug. Read-only, authenticated."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FeatureRequired("user.forms")]
 
     @extend_schema(
         summary="Get system form template by slug",

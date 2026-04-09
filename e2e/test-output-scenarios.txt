@@ -1,0 +1,398 @@
+=== E2E Global Setup ===
+  [1/8] Waiting for backend health...
+  [1/8] Backend healthy.
+  [1/8] Waiting for frontend...
+  [1/8] Frontend ready.
+  [2/8] Resetting E2E database (drop → create)...
+  [2/8] Database recreated.
+  [3/8] Running Django migrations...
+  [3/8] Migrations complete.
+  [4/8] Creating test users...
+  [4/8] Created 5 users.
+  [5/8] Setting up business owner...
+  [5/8] Business created: e2e-test-biz (max_members=10, open_member_request=true)
+  [5/8] Owner membership verified: 1 membership(s).
+  [6/8] Setting up platform admin...
+  [6/8] Platform configured.
+  [6/8] Platform owner membership created: 042a8353-be8c-4870-96c3-0daf179c49c4
+  [6b/8] Seeding CMS templates...
+  [6b/8] CMS templates seeded (2 sections, 2 blocks).
+  [7/8] Setting up business member...
+  [7/8] Business member user ready (invitations tested in L1/L2).
+  [8/8] Saving storage states...
+  [8/8] Storage states saved.
+=== Global Setup Complete (17.3s) ===
+
+Running 238 tests using 1 worker
+
+  ok   1 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:39:7 › Multi-Persona Interaction › Step 1: Register all 5 actors (2.5s)
+  ok   2 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:52:7 › Multi-Persona Interaction › Step 2: Alpha creates a business (281ms)
+  ok   3 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:64:7 › Multi-Persona Interaction › Step 3: Alpha invites Beta and Gamma (427ms)
+  ok   4 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:72:7 › Multi-Persona Interaction › Step 4: Beta accepts invitation (281ms)
+  ok   5 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:83:7 › Multi-Persona Interaction › Step 5: Gamma accepts invitation (307ms)
+  ok   6 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:94:7 › Multi-Persona Interaction › Step 6: Business has 3 members (191ms)
+  ok   7 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:106:7 › Multi-Persona Interaction › Step 7: Delta follows the business (272ms)
+  ok   8 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:114:7 › Multi-Persona Interaction › Step 8: Echo follows the business (200ms)
+  ok   9 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:126:7 › Multi-Persona Interaction › Step 9: Delta sends connection request to Alpha (179ms)
+  ok  10 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:133:7 › Multi-Persona Interaction › Step 10: Alpha accepts Delta's connection (266ms)
+  ok  11 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:144:7 › Multi-Persona Interaction › Step 11: Echo sends connection request to Beta (175ms)
+  ok  12 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:151:7 › Multi-Persona Interaction › Step 12: Beta accepts Echo's connection (277ms)
+  ok  13 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:162:7 › Multi-Persona Interaction › Step 13: Alpha verifies connections (168ms)
+  ok  14 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:174:7 › Multi-Persona Interaction › Step 14: Alpha creates a group conversation with Beta and Gamma (191ms)
+  ok  15 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:189:7 › Multi-Persona Interaction › Step 15: Alpha sends a message to the group (227ms)
+  ok  16 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:200:7 › Multi-Persona Interaction › Step 16: Beta sends a reply (208ms)
+  ok  17 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:211:7 › Multi-Persona Interaction › Step 17: Gamma sends a reply (190ms)
+  ok  18 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:222:7 › Multi-Persona Interaction › Step 18: Alpha opens chat in browser and sees group (1.3s)
+  ok  19 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:234:7 › Multi-Persona Interaction › Step 19: Beta opens chat and sees the group conversation (1.2s)
+  ok  20 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:248:7 › Multi-Persona Interaction › Step 20: All actors can still log in (809ms)
+  ok  21 [scenarios] › tests\scenarios\multi-persona-interaction.spec.ts:257:7 › Multi-Persona Interaction › Step 21: Multi-persona interaction complete — final state verified (169ms)
+  ok  22 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:51:7 › Alice: The Newcomer › Step 1: Alice visits the landing page anonymously (559ms)
+  ok  23 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:58:7 › Alice: The Newcomer › Step 2: Alice browses public navigation links (365ms)
+  ok  24 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:66:7 › Alice: The Newcomer › Step 3: Alice navigates to the about page (435ms)
+  ok  25 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:73:7 › Alice: The Newcomer › Step 4: Alice views the explore page as anonymous user (468ms)
+  ok  26 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:84:7 › Alice: The Newcomer › Step 5: Alice clicks register from landing page (545ms)
+  ok  27 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:91:7 › Alice: The Newcomer › Step 6: Alice fills out the registration form (842ms)
+  ok  28 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:99:7 › Alice: The Newcomer › Step 7: Alice verifies her email via DB code (95ms)
+  ok  29 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:111:7 › Alice: The Newcomer › Step 8: Alice logs in for the first time (965ms)
+  ok  30 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:122:7 › Alice: The Newcomer › Step 9: Alice sees the home page after login (1.4s)
+  ok  31 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:131:7 › Alice: The Newcomer › Step 10: Alice navigates to her profile (1.1s)
+  ok  32 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:141:7 › Alice: The Newcomer › Step 11: Alice verifies her avatar area is visible (851ms)
+  ok  33 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:154:7 › Alice: The Newcomer › Step 12: Setup — create a business for Alice to discover (901ms)
+  ok  34 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:179:7 › Alice: The Newcomer › Step 13: Alice searches for the business on explore (814ms)
+  ok  35 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:193:7 › Alice: The Newcomer › Step 14: Alice views the business public profile (921ms)
+  ok  36 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:208:7 › Alice: The Newcomer › Step 15: Alice follows the business via API (197ms)
+  ok  37 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:216:7 › Alice: The Newcomer › Step 16: Alice sees follow confirmed on business profile (872ms)
+  ok  38 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:228:7 › Alice: The Newcomer › Step 17: Business owner invites Alice (301ms)
+  ok  39 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:237:7 › Alice: The Newcomer › Step 18: Alice accepts the invitation (275ms)
+  ok  40 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:244:7 › Alice: The Newcomer › Step 19: Alice can access the business console (1.2s)
+  ok  41 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:258:7 › Alice: The Newcomer › Step 20: Setup — create a conversation with business owner (225ms)
+  ok  42 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:266:7 › Alice: The Newcomer › Step 21: Business owner sends a welcome message (224ms)
+  ok  43 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:273:7 › Alice: The Newcomer › Step 22: Alice opens the chat page (1.2s)
+  ok  44 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:286:7 › Alice: The Newcomer › Step 23: Alice sees the conversation in her list (1.2s)
+  ok  45 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:297:7 › Alice: The Newcomer › Step 24: Alice opens the conversation and sees the welcome message (786ms)
+  ok  46 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:317:7 › Alice: The Newcomer › Step 25: Alice sends a reply (798ms)
+  ok  47 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:340:7 › Alice: The Newcomer › Step 26: Alice navigates to settings (885ms)
+  ok  48 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:348:7 › Alice: The Newcomer › Step 27: Alice verifies her username in settings (703ms)
+  ok  49 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:359:7 › Alice: The Newcomer › Step 28: Alice logs out (477ms)
+  ok  50 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:376:7 › Alice: The Newcomer › Step 29: Alice cannot access protected routes after logout (363ms)
+  ok  51 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:382:7 › Alice: The Newcomer › Step 30: Alice logs back in successfully (875ms)
+  ok  52 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:393:7 › Alice: The Newcomer › Step 31: Alice revisits the explore page (764ms)
+  ok  53 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:402:7 › Alice: The Newcomer › Step 32: Alice verifies her profile still shows correct info (1.1s)
+  ok  54 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:411:7 › Alice: The Newcomer › Step 33: Alice clicks edit on her profile (1.1s)
+  ok  55 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:421:7 › Alice: The Newcomer › Step 34: Alice views the home feed again (1.2s)
+  ok  56 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:431:7 › Alice: The Newcomer › Step 35: Alice verifies navigation links work (827ms)
+  ok  57 [scenarios] › tests\scenarios\persona-alice-newcomer.spec.ts:444:7 › Alice: The Newcomer › Step 36: Alice's full journey is complete — final state check (1.1s)
+  ok  58 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:65:7 › Bob: The Entrepreneur › Step 1: Bob registers and verifies via API (485ms)
+  ok  59 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:74:7 › Bob: The Entrepreneur › Step 2: Bob logs in (836ms)
+  ok  60 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:81:7 › Bob: The Entrepreneur › Step 3: Bob creates a business via API (214ms)
+  ok  61 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:90:7 › Bob: The Entrepreneur › Step 4: Bob views his business dashboard (872ms)
+  ok  62 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:99:7 › Bob: The Entrepreneur › Step 5: Bob views the public business profile (515ms)
+  ok  63 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:109:7 › Bob: The Entrepreneur › Step 6: Bob creates a form template via API (176ms)
+  ok  64 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:120:7 › Bob: The Entrepreneur › Step 7: Bob adds fields to the form (261ms)
+  ok  65 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:147:7 › Bob: The Entrepreneur › Step 8: Bob publishes the form template (181ms)
+  ok  66 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:154:7 › Bob: The Entrepreneur › Step 9: Bob creates a form-transaction mapping (174ms)
+  ok  67 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:171:7 › Bob: The Entrepreneur › Step 10: Register member A via API (529ms)
+  ok  68 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:179:7 › Bob: The Entrepreneur › Step 11: Register member B via API (523ms)
+  ok  69 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:187:7 › Bob: The Entrepreneur › Step 12: Bob invites member A (288ms)
+  ok  70 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:193:7 › Bob: The Entrepreneur › Step 13: Member A accepts the invitation (289ms)
+  ok  71 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:203:7 › Bob: The Entrepreneur › Step 14: Bob invites member B (297ms)
+  ok  72 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:209:7 › Bob: The Entrepreneur › Step 15: Member B accepts the invitation (335ms)
+  ok  73 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:218:7 › Bob: The Entrepreneur › Step 16: Bob verifies member count is 3 (173ms)
+  ok  74 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:228:7 › Bob: The Entrepreneur › Step 17: Bob lists available roles (165ms)
+  -   75 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:240:7 › Bob: The Entrepreneur › Step 18: Bob assigns admin role to member A
+  ok  76 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:253:7 › Bob: The Entrepreneur › Step 19: Bob views member A detail — role should be admin (1.2s)
+  -   77 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:263:7 › Bob: The Entrepreneur › Step 20: Member A logs in and accesses business settings
+  ok  78 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:278:7 › Bob: The Entrepreneur › Step 21: A form response is submitted via API (183ms)
+  ok  79 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:290:7 › Bob: The Entrepreneur › Step 22: Bob views form responses page in console (884ms)
+  ok  80 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:304:7 › Bob: The Entrepreneur › Step 23: Bob sets member quota to 3 (at capacity) (26ms)
+  ok  81 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:308:7 › Bob: The Entrepreneur › Step 24: Bob attempts to invite a 4th member — quota exceeded (719ms)
+  ok  82 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:325:7 › Bob: The Entrepreneur › Step 25: Bob removes member B to free quota (222ms)
+  ok  83 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:336:7 › Bob: The Entrepreneur › Step 26: Bob verifies member count is now 2 (171ms)
+  ok  84 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:346:7 › Bob: The Entrepreneur › Step 27: Bob views business settings page (1.2s)
+  ok  85 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:355:7 › Bob: The Entrepreneur › Step 28: Bob sees transfer ownership button (1.0s)
+  ok  86 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:364:7 › Bob: The Entrepreneur › Step 29: Bob sees archive button (869ms)
+  ok  87 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:377:7 › Bob: The Entrepreneur › Step 30: Bob initiates ownership transfer to member A (234ms)
+  ok  88 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:387:7 › Bob: The Entrepreneur › Step 31: Member A accepts the ownership transfer (285ms)
+  ok  89 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:400:7 › Bob: The Entrepreneur › Step 32: Member A is now the owner — can access settings (970ms)
+  ok  90 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:410:7 › Bob: The Entrepreneur › Step 33: Bob is no longer owner — reduced access (971ms)
+  ok  91 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:424:7 › Bob: The Entrepreneur › Step 34: Bob views the business public profile (520ms)
+  ok  92 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:430:7 › Bob: The Entrepreneur › Step 35: Bob verifies business dashboard still accessible (892ms)
+  ok  93 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:439:7 › Bob: The Entrepreneur › Step 36: Bob navigates home — session still valid (907ms)
+  ok  94 [scenarios] › tests\scenarios\persona-bob-entrepreneur.spec.ts:448:7 › Bob: The Entrepreneur › Step 37: Bob's entrepreneurial journey is complete (1.1s)
+  ok  95 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:38:7 › Carol: The Platform Admin › Step 1: Carol logs into the platform (838ms)
+  ok  96 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:45:7 › Carol: The Platform Admin › Step 2: Carol navigates to platform console dashboard (861ms)
+  ok  97 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:53:7 › Carol: The Platform Admin › Step 3: Carol views the platform account via API (171ms)
+  ok  98 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:59:7 › Carol: The Platform Admin › Step 4: Carol views platform members (220ms)
+  ok  99 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:69:7 › Carol: The Platform Admin › Step 5: Carol views the business list page (1.1s)
+  ok 100 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:79:7 › Carol: The Platform Admin › Step 6: Carol creates a test business for admin management (694ms)
+  ok 101 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:100:7 › Carol: The Platform Admin › Step 7: Carol creates a CMS site via API (171ms)
+  ok 102 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:114:7 › Carol: The Platform Admin › Step 8: Carol creates a CMS page (174ms)
+  ok 103 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:130:7 › Carol: The Platform Admin › Step 9: Carol publishes the CMS page (220ms)
+  ok 104 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:137:7 › Carol: The Platform Admin › Step 10: Carol views the CMS section in platform console (733ms)
+  ok 105 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:151:7 › Carol: The Platform Admin › Step 11: Carol creates a platform-scoped form template (353ms)
+  ok 106 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:177:7 › Carol: The Platform Admin › Step 12: Carol views forms section in platform console (869ms)
+  ok 107 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:191:7 › Carol: The Platform Admin › Step 13: Carol views platform transactions page (859ms)
+  ok 108 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:199:7 › Carol: The Platform Admin › Step 14: Carol views platform audit page (914ms)
+  ok 109 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:208:7 › Carol: The Platform Admin › Step 15: Carol navigates back to dashboard (912ms)
+  ok 110 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:216:7 › Carol: The Platform Admin › Step 16: Carol returns to personal home (1.2s)
+  ok 111 [scenarios] › tests\scenarios\persona-carol-admin.spec.ts:225:7 › Carol: The Platform Admin › Step 17: Carol's admin journey is complete (1.2s)
+  ok 112 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:40:7 › Dave: The Social Butterfly › Step 1: Dave registers and verifies (604ms)
+  ok 113 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:48:7 › Dave: The Social Butterfly › Step 2: Create 3 friends for Dave (1.5s)
+  ok 114 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:57:7 › Dave: The Social Butterfly › Step 3: Create 2 businesses for Dave to follow (1.5s)
+  ok 115 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:76:7 › Dave: The Social Butterfly › Step 4: Dave follows business 1 (190ms)
+  ok 116 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:84:7 › Dave: The Social Butterfly › Step 5: Dave follows business 2 (217ms)
+  ok 117 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:92:7 › Dave: The Social Butterfly › Step 6: Dave verifies following count is 2 (163ms)
+  ok 118 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:105:7 › Dave: The Social Butterfly › Step 7: Dave sends connection request to friend 1 (174ms)
+  ok 119 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:112:7 › Dave: The Social Butterfly › Step 8: Friend 1 accepts Dave's connection (256ms)
+  ok 120 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:124:7 › Dave: The Social Butterfly › Step 9: Dave sends connection request to friend 2 (181ms)
+  ok 121 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:131:7 › Dave: The Social Butterfly › Step 10: Friend 2 accepts Dave's connection (254ms)
+  ok 122 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:143:7 › Dave: The Social Butterfly › Step 11: Dave verifies connections count (162ms)
+  ok 123 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:155:7 › Dave: The Social Butterfly › Step 12: Dave creates a conversation with friend 1 (192ms)
+  ok 124 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:163:7 › Dave: The Social Butterfly › Step 13: Dave sends rapid messages (417ms)
+  ok 125 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:172:7 › Dave: The Social Butterfly › Step 14: Friend 1 replies (224ms)
+  ok 126 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:179:7 › Dave: The Social Butterfly › Step 15: Dave opens chat page in browser (1.1s)
+  ok 127 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:191:7 › Dave: The Social Butterfly › Step 16: Dave sees messages in the conversation (728ms)
+  ok 128 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:206:7 › Dave: The Social Butterfly › Step 17: Dave verifies conversation count (180ms)
+  ok 129 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:218:7 › Dave: The Social Butterfly › Step 18: Dave browses explore page (731ms)
+  ok 130 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:226:7 › Dave: The Social Butterfly › Step 19: Dave searches for businesses (762ms)
+  ok 131 [scenarios] › tests\scenarios\persona-dave-social.spec.ts:235:7 › Dave: The Social Butterfly › Step 20: Dave's social journey is complete (1.2s)
+  ok 132 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:33:7 › Eve: The Adversarial User › Step 1: Eve registers normally first (493ms)
+  x  133 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:40:7 › Eve: The Adversarial User › Step 2: Eve attempts XSS in login email field (464ms)
+  -  134 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:63:7 › Eve: The Adversarial User › Step 3: Eve attempts XSS in registration username
+  -  135 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:80:7 › Eve: The Adversarial User › Step 4: Eve attempts SQL injection in search
+  -  136 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:92:7 › Eve: The Adversarial User › Step 5: Eve attempts path traversal in URL
+  -  137 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:103:7 › Eve: The Adversarial User › Step 6: Eve attempts to access other user profile edit
+  -  138 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:119:7 › Eve: The Adversarial User › Step 7: Eve attempts login with wrong password — attempt 1
+  -  139 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:126:7 › Eve: The Adversarial User › Step 8: Eve attempts login with wrong password — attempt 2
+  -  140 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:133:7 › Eve: The Adversarial User › Step 9: Eve attempts login with wrong password — attempt 3
+  -  141 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:140:7 › Eve: The Adversarial User › Step 10: Eve attempts login with wrong password — attempt 4
+  -  142 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:147:7 › Eve: The Adversarial User › Step 11: Eve attempts login with wrong password — attempt 5
+  -  143 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:154:7 › Eve: The Adversarial User › Step 12: Eve can still login with correct password after 5 failed attempts
+  -  144 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:168:7 › Eve: The Adversarial User › Step 13: Eve tries to access business console without membership
+  -  145 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:190:7 › Eve: The Adversarial User › Step 14: Eve tries to access platform console without admin role
+  -  146 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:212:7 › Eve: The Adversarial User › Step 15: Eve tries direct API access to admin endpoint
+  -  147 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:225:7 › Eve: The Adversarial User › Step 16: Eve tries to modify another user via API
+  -  148 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:243:7 › Eve: The Adversarial User › Step 17: Eve sends rapid requests to test rate limiting
+  -  149 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:262:7 › Eve: The Adversarial User › Step 18: Eve tries extremely long input in search
+  -  150 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:275:7 › Eve: The Adversarial User › Step 19: Eve tries special characters in login
+  -  151 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:292:7 › Eve: The Adversarial User › Step 20: Eve logs in and views her profile
+  -  152 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:301:7 › Eve: The Adversarial User › Step 21: Eve navigates to profile edit
+  -  153 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:311:7 › Eve: The Adversarial User › Step 22: Eve tries to set XSS payload as display name via UI
+  -  154 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:337:7 › Eve: The Adversarial User › Step 23: Eve navigates to settings
+  -  155 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:345:7 › Eve: The Adversarial User › Step 24: Eve sees the deactivate button
+  -  156 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:354:7 › Eve: The Adversarial User › Step 25: Eve opens deactivation dialog
+  -  157 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:365:7 › Eve: The Adversarial User › Step 26: Eve types wrong confirmation text
+  -  158 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:377:7 › Eve: The Adversarial User › Step 27: Eve types correct confirmation — button enables
+  -  159 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:392:7 › Eve: The Adversarial User › Step 28: Eve verifies account is still active after cancel
+  -  160 [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:399:7 › Eve: The Adversarial User › Step 29: Eve's adversarial journey is complete — no breaches
+  ok 161 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:40:7 › Frank: The Multi-Context User › Step 1: Frank registers and verifies (542ms)
+  ok 162 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:48:7 › Frank: The Multi-Context User › Step 2: Create 3 businesses with different owners (2.1s)
+  ok 163 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:65:7 › Frank: The Multi-Context User › Step 3: Invite Frank to all 3 businesses (901ms)
+  ok 164 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:72:7 › Frank: The Multi-Context User › Step 4: Frank accepts all 3 invitations (679ms)
+  ok 165 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:86:7 › Frank: The Multi-Context User › Step 5: Frank logs in and sees home (1.1s)
+  ok 166 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:93:7 › Frank: The Multi-Context User › Step 6: Frank navigates to business 1 dashboard (986ms)
+  ok 167 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:101:7 › Frank: The Multi-Context User › Step 7: Frank navigates to business 2 dashboard (920ms)
+  ok 168 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:109:7 › Frank: The Multi-Context User › Step 8: Frank navigates to business 3 dashboard (1.2s)
+  ok 169 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:121:7 › Frank: The Multi-Context User › Step 9: Business 1 has correct member count (210ms)
+  ok 170 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:127:7 › Frank: The Multi-Context User › Step 10: Business 2 has correct member count (201ms)
+  ok 171 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:133:7 › Frank: The Multi-Context User › Step 11: Business 3 has correct member count (223ms)
+  ok 172 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:139:7 › Frank: The Multi-Context User › Step 12: Frank views each business public profile (974ms)
+  ok 173 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:151:7 › Frank: The Multi-Context User › Step 13: Frank views settings of business 1 (885ms)
+  ok 174 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:160:7 › Frank: The Multi-Context User › Step 14: Frank views settings of business 2 (1.1s)
+  ok 175 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:168:7 › Frank: The Multi-Context User › Step 15: Frank returns to personal home (855ms)
+  ok 176 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:180:7 › Frank: The Multi-Context User › Step 16: Frank rapidly switches between all 3 businesses (1.3s)
+  ok 177 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:191:7 › Frank: The Multi-Context User › Step 17: Frank navigates from biz 3 back to home without issues (932ms)
+  ok 178 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:204:7 › Frank: The Multi-Context User › Step 18: Frank views explore page from personal context (792ms)
+  ok 179 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:211:7 › Frank: The Multi-Context User › Step 19: Frank views profile from personal context (1.2s)
+  ok 180 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:218:7 › Frank: The Multi-Context User › Step 20: Frank's multi-context journey is complete (850ms)
+  ok 181 [scenarios] › tests\scenarios\persona-frank-multi-context.spec.ts:226:7 › Frank: The Multi-Context User › Step 21: All 3 businesses still have correct state (683ms)
+  ok 182 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:49:7 › Gary: The CMS Manager › Step 1: Gary logs in (878ms)
+  ok 183 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:56:7 › Gary: The CMS Manager › Step 2: Gary creates a CMS site (191ms)
+  ok 184 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:68:7 › Gary: The CMS Manager › Step 3: Gary lists sites — sees his site (175ms)
+  ok 185 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:81:7 › Gary: The CMS Manager › Step 4: Gary creates page 1 — Home (210ms)
+  ok 186 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:95:7 › Gary: The CMS Manager › Step 5: Gary creates page 2 — About (191ms)
+  ok 187 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:109:7 › Gary: The CMS Manager › Step 6: Gary publishes page 1 (198ms)
+  ok 188 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:114:7 › Gary: The CMS Manager › Step 7: Gary publishes page 2 (192ms)
+  ok 189 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:123:7 › Gary: The CMS Manager › Step 8: Gary unpublishes page 2 (back to draft) (189ms)
+  ok 190 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:128:7 › Gary: The CMS Manager › Step 9: Gary re-publishes page 2 (228ms)
+  ok 191 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:137:7 › Gary: The CMS Manager › Step 10: Gary navigates to page editor UI (1.2s)
+  ok 192 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:148:7 › Gary: The CMS Manager › Step 11: Gary clicks a block in the content tree (1.2s)
+  ok 193 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:167:7 › Gary: The CMS Manager › Step 12: Gary edits a block and sees saved indicator (1.1s)
+  ok 194 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:188:7 › Gary: The CMS Manager › Step 13: Gary verifies export/import buttons exist (1.2s)
+  ok 195 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:206:7 › Gary: The CMS Manager › Step 14: Gary opens version history panel (767ms)
+  ok 196 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:225:7 › Gary: The CMS Manager › Step 15: Gary verifies version history has entries (190ms)
+  ok 197 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:238:7 › Gary: The CMS Manager › Step 16: Gary navigates to site detail API Keys tab (1.2s)
+  ok 198 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:253:7 › Gary: The CMS Manager › Step 17: Gary creates an API key via API (224ms)
+  ok 199 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:267:7 › Gary: The CMS Manager › Step 18: Gary unpublishes page 1 (189ms)
+  ok 200 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:272:7 › Gary: The CMS Manager › Step 19: Gary re-publishes page 1 for final state (210ms)
+  ok 201 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:279:7 › Gary: The CMS Manager › Step 20: Gary verifies public API with API key (35ms)
+  ok 202 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:284:7 › Gary: The CMS Manager › Step 21: Gary verifies site list still shows site (176ms)
+  ok 203 [scenarios] › tests\scenarios\persona-gary-cms.spec.ts:295:7 › Gary: The CMS Manager › Step 22: Gary's CMS management journey is complete (764ms)
+  ok 204 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:58:7 › Helen: The Business CMS Owner › Step 1: Helen registers and creates a business (564ms)
+  x  205 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:80:7 › Helen: The Business CMS Owner › Step 2: Helen navigates to CMS — sees activation page (10.7s)
+  -  206 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:102:7 › Helen: The Business CMS Owner › Step 3: Platform admin enables CMS for Helen
+  -  207 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:111:7 › Helen: The Business CMS Owner › Step 4: Helen re-logins — CMS is now accessible
+  -  208 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:118:7 › Helen: The Business CMS Owner › Step 5: Helen navigates to CMS — passes CmsAccessGate
+  -  209 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:140:7 › Helen: The Business CMS Owner › Step 6: Helen browses template catalog and activates templates
+  -  210 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:167:7 › Helen: The Business CMS Owner › Step 7: Helen checks library — activated templates visible
+  -  211 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:177:7 › Helen: The Business CMS Owner › Step 8: Helen creates site 'Helen's Blog'
+  -  212 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:187:7 › Helen: The Business CMS Owner › Step 9: Helen creates page 'Home'
+  -  213 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:201:7 › Helen: The Business CMS Owner › Step 10: Helen navigates to page editor — content tree renders
+  -  214 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:221:7 › Helen: The Business CMS Owner › Step 11: Helen edits a block and sees saved indicator
+  -  215 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:246:7 › Helen: The Business CMS Owner › Step 12: Helen publishes page
+  -  216 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:251:7 › Helen: The Business CMS Owner › Step 13: Helen creates API key for site
+  -  217 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:261:7 › Helen: The Business CMS Owner › Step 14: Helen verifies public API returns published content
+  -  218 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:270:7 › Helen: The Business CMS Owner › Step 15: Helen creates page 'About'
+  -  219 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:283:7 › Helen: The Business CMS Owner › Step 16: Helen publishes 'About'
+  -  220 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:288:7 › Helen: The Business CMS Owner › Step 17: Helen unpublishes 'Home' — public: Home=404, About=200
+  -  221 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:303:7 › Helen: The Business CMS Owner › Step 18: Helen re-publishes 'Home'
+  -  222 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:308:7 › Helen: The Business CMS Owner › Step 19: Helen views site detail via UI
+  -  223 [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:323:7 › Helen: The Business CMS Owner › Step 20: Helen's business CMS journey is complete
+  ok 224 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:45:7 › Nina: The Notification Explorer › Step 1: Nina registers and verifies (515ms)
+  x  225 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:52:7 › Nina: The Notification Explorer › Step 2: Nina sees notification bell in topbar (870ms)
+  -  226 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:66:7 › Nina: The Notification Explorer › Step 3: Nina navigates to notifications page — sees empty or initial state
+  -  227 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:91:7 › Nina: The Notification Explorer › Step 4: Nina navigates to settings — preferences visible
+  -  228 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:107:7 › Nina: The Notification Explorer › Step 5: Nina verifies all 5 category cards
+  -  229 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:126:7 › Nina: The Notification Explorer › Step 6: Nina toggles email off for New Login Alert
+  -  230 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:136:7 › Nina: The Notification Explorer › Step 7: Nina verifies preference persisted
+  -  231 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:146:7 › Nina: The Notification Explorer › Step 8: Nina triggers a new_login notification
+  -  232 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:153:7 › Nina: The Notification Explorer › Step 9: Nina checks notification in history via API
+  -  233 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:163:7 › Nina: The Notification Explorer › Step 10: Nina navigates to notifications page — sees items
+  -  234 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:183:7 › Nina: The Notification Explorer › Step 11: Nina resets preference to defaults
+  -  235 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:192:7 › Nina: The Notification Explorer › Step 12: Nina creates a business
+  -  236 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:205:7 › Nina: The Notification Explorer › Step 13: Nina checks history — registration notifications visible
+  -  237 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:212:7 › Nina: The Notification Explorer › Step 14: Nina checks scopes endpoint
+  -  238 [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:224:7 › Nina: The Notification Explorer › Step 15: Nina's notification exploration is complete
+=== E2E Global Teardown ===
+  Tests complete. Docker stack remains running.
+  Run `make e2e-down` to stop the E2E stack.
+=== Teardown Done ===
+
+
+  1) [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:40:7 › Eve: The Adversarial User › Step 2: Eve attempts XSS in login email field 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('alert').filter({ hasNot: locator('#__next-route-announcer__') }).or(getByText(/enter a valid email|invalid email/i))
+    Expected: visible
+    Error: strict mode violation: getByRole('alert').filter({ hasNot: locator('#__next-route-announcer__') }).or(getByText(/enter a valid email|invalid email/i)) resolved to 2 elements:
+        1) <p id="email-error" class="text-destructive text-sm">Enter a valid email address</p> aka getByText('Enter a valid email address')
+        2) <div role="alert" aria-live="assertive" id="__next-route-announcer__"></div> aka locator('[id="__next-route-announcer__"]')
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('alert').filter({ hasNot: locator('#__next-route-announcer__') }).or(getByText(/enter a valid email|invalid email/i))[22m
+
+
+      56 |     // Should show validation error (inline paragraph or role=alert), NOT execute script
+      57 |     const validationMsg = page.getByText(/enter a valid email|invalid email/i);
+    > 58 |     await expect(loginPage.formError.or(validationMsg)).toBeVisible({ timeout: 5000 });
+         |                                                         ^
+      59 |     // Verify no alert dialog (XSS did not execute)
+      60 |     expect(dialogs).toHaveLength(0);
+      61 |   });
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\scenarios\persona-eve-adversarial.spec.ts:58:57
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\persona-eve-adversarial-Ev-ada34-ts-XSS-in-login-email-field-scenarios\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\persona-eve-adversarial-Ev-ada34-ts-XSS-in-login-email-field-scenarios\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\persona-eve-adversarial-Ev-ada34-ts-XSS-in-login-email-field-scenarios\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\persona-eve-adversarial-Ev-ada34-ts-XSS-in-login-email-field-scenarios\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\persona-eve-adversarial-Ev-ada34-ts-XSS-in-login-email-field-scenarios\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:80:7 › Helen: The Business CMS Owner › Step 2: Helen navigates to CMS — sees activation page 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('heading', { name: /cms not enabled/i })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('heading', { name: /cms not enabled/i })[22m
+
+
+      91 |
+      92 |     // CMS is not enabled yet
+    > 93 |     await expect(activation.notEnabledHeading).toBeVisible();
+         |                                                ^
+      94 |
+      95 |     await context.close();
+      96 |   });
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\scenarios\persona-helen-business-cms.spec.ts:93:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\persona-helen-business-cms-7bd64--CMS-—-sees-activation-page-scenarios\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\persona-helen-business-cms-7bd64--CMS-—-sees-activation-page-scenarios\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\persona-helen-business-cms-7bd64--CMS-—-sees-activation-page-scenarios\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\persona-helen-business-cms-7bd64--CMS-—-sees-activation-page-scenarios\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:52:7 › Nina: The Notification Explorer › Step 2: Nina sees notification bell in topbar 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByLabel('Notifications')
+    Expected: visible
+    Error: strict mode violation: getByLabel('Notifications') resolved to 3 elements:
+        1) <button type="button" data-size="icon" data-state="closed" data-variant="ghost" aria-expanded="false" aria-haspopup="dialog" aria-label="Notifications" data-slot="popover-trigger" aria-controls="radix-_r_0_" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive …>…</button> aka getByRole('button', { name: 'Notifications' })
+        2) <a data-size="icon" data-slot="button" data-variant="ghost" href="/notifications" aria-label="Notifications" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-…>…</a> aka getByLabel('Notifications').nth(1)
+        3) <section tabindex="-1" aria-live="polite" aria-atomic="false" aria-relevant="additions text" aria-label="Notifications alt+T"></section> aka getByRole('region', { name: 'Notifications alt+T' })
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByLabel('Notifications')[22m
+    [2m    2 × locator resolved to <section tabindex="-1" aria-live="polite" aria-atomic="false" aria-relevant="additions text" aria-label="Notifications alt+T"></section>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      59 |     await page.goto('/home');
+      60 |     const bell = new NotificationBellComponent(page);
+    > 61 |     await expect(bell.bellButton).toBeVisible();
+         |                                   ^
+      62 |
+      63 |     await context.close();
+      64 |   });
+        at E:\2026\socialmedia_adv_app\socialmedia_adv_app_v1\e2e\tests\scenarios\persona-nina-notifications.spec.ts:61:35
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\persona-nina-notifications-d491d-notification-bell-in-topbar-scenarios\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\persona-nina-notifications-d491d-notification-bell-in-topbar-scenarios\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\persona-nina-notifications-d491d-notification-bell-in-topbar-scenarios\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\persona-nina-notifications-d491d-notification-bell-in-topbar-scenarios\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    [scenarios] › tests\scenarios\persona-eve-adversarial.spec.ts:40:7 › Eve: The Adversarial User › Step 2: Eve attempts XSS in login email field 
+    [scenarios] › tests\scenarios\persona-helen-business-cms.spec.ts:80:7 › Helen: The Business CMS Owner › Step 2: Helen navigates to CMS — sees activation page 
+    [scenarios] › tests\scenarios\persona-nina-notifications.spec.ts:52:7 › Nina: The Notification Explorer › Step 2: Nina sees notification bell in topbar 
+  2 skipped
+  58 did not run
+  175 passed (2.5m)

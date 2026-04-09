@@ -27,28 +27,47 @@ class PreferenceService:
     """
 
     @staticmethod
-    def get_enabled_channels(*, user, notification_type: str) -> List[str]:
+    def get_enabled_channels(
+        *,
+        user,
+        notification_type: str,
+        scope_type: str = "user",
+        scope_id=None,
+    ) -> List[str]:
         """
         Get enabled channels for a user and notification type.
 
-        Returns list of channel names based on:
-        1. User preferences (if exists)
-        2. Type defaults (if no preference)
-        3. Empty list if type not user_configurable and defaults disabled
+        Resolution order:
+        1. Scoped preference (user + type + scope_type + scope_id) — if scope provided
+        2. Global user preference (user + type + scope_type='user')
+        3. Type defaults from NotificationTypeConfig.default_channels
         """
         type_config = get_notification_type(notification_type)
         if not type_config:
             return []
 
-        # Check if user has preference override
-        preference = NotificationPreference.objects.filter(
-            user=user, notification_type=notification_type
+        # 1. Check scoped preference (if org scope provided)
+        if scope_type != "user" and scope_id is not None:
+            scoped_pref = NotificationPreference.objects.filter(
+                user=user,
+                notification_type=notification_type,
+                scope_type=scope_type,
+                scope_id=scope_id,
+            ).first()
+            if scoped_pref:
+                return scoped_pref.get_enabled_channels()
+
+        # 2. Check global user preference
+        global_pref = NotificationPreference.objects.filter(
+            user=user,
+            notification_type=notification_type,
+            scope_type="user",
+            scope_id__isnull=True,
         ).first()
+        if global_pref:
+            return global_pref.get_enabled_channels()
 
-        if preference:
-            return preference.get_enabled_channels()
-
-        # Return defaults
+        # 3. Return type defaults
         return [c.value for c in type_config.default_channels]
 
     @staticmethod
@@ -217,6 +236,11 @@ class PreferenceService:
             raise NotFound(
                 message=f"Unknown notification type: {notification_type}",
                 resource="NotificationType",
+            )
+
+        if not type_config.user_configurable:
+            raise ValidationError(
+                message=f"Cannot modify preferences for '{notification_type}'"
             )
 
         NotificationPreference.objects.filter(
