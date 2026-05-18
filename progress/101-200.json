@@ -470,6 +470,29 @@
         "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
       ],
       "related_doc": "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
+    },
+    {
+      "id": 123,
+      "title": "PR3 - Auth throttles wired on 7 public views (register/verify/pwd-reset/OAuth) + 2 new rates",
+      "category": "developing",
+      "tags": [
+        "auth",
+        "throttle",
+        "security-hardening",
+        "consistency-cleanup"
+      ],
+      "timestamp": "2026-05-18T02:00:00Z",
+      "summary": "Closed 7 unthrottled public auth endpoints flagged by the consistency audit. Added 'register': '5/hour' and 'oauth': '10/minute' rates to DEFAULT_THROTTLE_RATES in base.py (OAuthRateThrottle was a silent no-op before because the scope key was missing). Added new RegisterRateThrottle class. Wired throttle_classes on RegisterView, VerifyEmailLinkView, PasswordResetConfirmView, GoogleOAuthView, GoogleOAuthCallbackView, AppleOAuthView, AppleOAuthCallbackView -- 7 views total. Updated each view docstring's Rate Limiting section. Added autouse cache.clear() fixture in apps/auth/tests/conftest.py to keep throttle state isolated between tests (DummyCache mostly hides this, but defense in depth for when tests run against Redis). New test_throttles.py adds 7 wire-up tests verifying throttle_classes attribute + 2 rate-config tests; 19/19 throttle tests pass, full auth suite 403/403 green.",
+      "critical": "DRF caches THROTTLE_RATES as a SimpleRateThrottle class attribute at module-import time -- overriding `settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']` via the `settings` fixture does NOT propagate to already-loaded throttle classes. Also: backend_core.settings.local uses DummyCache, which silently no-ops cache.set/get, so DRF throttle counters never persist under unit-test settings -- end-to-end 429 testing requires the integration suite (`make test-api`, Redis-backed).",
+      "files_changed": [
+        "backend/backend_core/settings/base.py",
+        "backend/apps/auth/throttles.py",
+        "backend/apps/auth/views.py",
+        "backend/apps/auth/tests/conftest.py",
+        "backend/apps/auth/tests/test_throttles.py",
+        "progress/101-200.json"
+      ],
+      "related_doc": "C:/Users/AsiaData/.claude/plans/create-a-comprehensive-verifying-stateful-newell.md"
     }
   ]
 }

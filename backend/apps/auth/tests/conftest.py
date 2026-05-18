@@ -6,6 +6,7 @@ These fixtures are available to all tests in the auth app.
 """
 
 import pytest
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from apps.auth.tests.factories import (
@@ -30,6 +31,24 @@ from apps.users.tests.factories import (
     UserFactory,
     VerifiedUserFactory,
 )
+
+# =============================================================================
+# THROTTLE ISOLATION
+# =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _clear_throttle_cache():
+    """Reset DRF throttle counters between tests.
+
+    DRF throttles use Django's cache; under LocMemCache the counter persists
+    across tests in the same module and causes spurious 429s. Clearing before
+    and after each test keeps test isolation.
+    """
+    cache.clear()
+    yield
+    cache.clear()
+
 
 # =============================================================================
 # ON-COMMIT FIXTURE
