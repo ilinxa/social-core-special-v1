@@ -31,15 +31,15 @@ Usage:
     user_info = GoogleOAuthBackend.verify_id_token(tokens['id_token'])
 """
 
-import logging
 from urllib.parse import urlencode
 
 import requests
 from django.conf import settings
 
 from apps.core.exceptions import OAuthError
+from apps.core.observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class GoogleOAuthBackend:
@@ -131,7 +131,8 @@ class GoogleOAuthBackend:
                 error_data = response.json() if response.content else {}
                 logger.error(
                     "oauth.google.exchange_failed",
-                    extra={"status": response.status_code, "error": error_data},
+                    status=response.status_code,
+                    error=error_data,
                 )
                 raise OAuthError(
                     message="Failed to exchange authorization code",
@@ -142,7 +143,7 @@ class GoogleOAuthBackend:
             return response.json()
 
         except requests.RequestException as e:
-            logger.error(f"Google OAuth request failed: {e}")
+            logger.error("oauth.google.request_failed", error=str(e))
             raise OAuthError(
                 message="Failed to connect to Google", provider="google"
             ) from e
@@ -181,7 +182,7 @@ class GoogleOAuthBackend:
             return cls._get_userinfo_fallback(id_token)
 
         except ValueError as e:
-            logger.error(f"Google ID token verification failed: {e}")
+            logger.error("oauth.google.id_token_invalid", error=str(e))
             raise OAuthError(message=f"Invalid ID token: {e}", provider="google") from e
 
     @classmethod
@@ -206,7 +207,7 @@ class GoogleOAuthBackend:
             return response.json()
 
         except requests.RequestException as e:
-            logger.error(f"Google userinfo request failed: {e}")
+            logger.error("oauth.google.userinfo_failed", error=str(e))
             raise OAuthError(
                 message="Failed to connect to Google", provider="google"
             ) from e
@@ -237,7 +238,7 @@ class GoogleOAuthBackend:
             return response.json()
 
         except requests.RequestException as e:
-            logger.error(f"Google userinfo request failed: {e}")
+            logger.error("oauth.google.userinfo_failed", error=str(e))
             raise OAuthError(
                 message="Failed to connect to Google", provider="google"
             ) from e

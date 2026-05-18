@@ -22,12 +22,12 @@ Usage:
             )
 """
 
-import logging
-
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
-logger = logging.getLogger(__name__)
+from apps.core.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 class AuthenticatedConsumer(AsyncJsonWebsocketConsumer):
@@ -54,9 +54,7 @@ class AuthenticatedConsumer(AsyncJsonWebsocketConsumer):
 
         # If already authenticated via query param (JWTAuthMiddleware)
         if self.scope["user"].is_authenticated:
-            logger.debug(
-                "ws.connect.authenticated", extra={"user_id": self.scope["user"].id}
-            )
+            logger.debug("ws.connect.authenticated", user_id=self.scope["user"].id)
             await self.on_authenticated()
         else:
             # Wait for auth message
@@ -69,10 +67,8 @@ class AuthenticatedConsumer(AsyncJsonWebsocketConsumer):
             await self.on_disconnect()
         logger.debug(
             "ws.disconnect",
-            extra={
-                "user_id": getattr(self.scope.get("user"), "id", None),
-                "close_code": close_code,
-            },
+            user_id=getattr(self.scope.get("user"), "id", None),
+            close_code=close_code,
         )
 
     async def receive_json(self, content):
@@ -119,7 +115,7 @@ class AuthenticatedConsumer(AsyncJsonWebsocketConsumer):
         user = await self.get_user_from_token(token)
         if user and user.is_authenticated:
             self.scope["user"] = user
-            logger.debug("ws.auth.success", extra={"user_id": user.id})
+            logger.debug("ws.auth.success", user_id=user.id)
             return True
         logger.debug("ws.auth.failed")
         return False
@@ -133,7 +129,7 @@ class AuthenticatedConsumer(AsyncJsonWebsocketConsumer):
             user, payload = AuthService.validate_access_token(token)
             return user
         except Exception as e:
-            logger.debug(f"Token validation failed: {e}")
+            logger.debug("ws.auth.token_invalid", error=str(e))
             return None
 
     async def on_authenticated(self):
@@ -207,9 +203,7 @@ class OptionalAuthConsumer(AsyncJsonWebsocketConsumer):
         await self.accept()
 
         if self.is_authenticated:
-            logger.debug(
-                "ws.connect.authenticated", extra={"user_id": self.scope["user"].id}
-            )
+            logger.debug("ws.connect.authenticated", user_id=self.scope["user"].id)
         else:
             logger.debug("ws.connect.anonymous")
 

@@ -27,7 +27,6 @@ Configuration Required:
     APPLE_OAUTH_PRIVATE_KEY: Private key content (PEM format)
 """
 
-import logging
 import time
 from urllib.parse import urlencode
 
@@ -36,8 +35,9 @@ import requests
 from django.conf import settings
 
 from apps.core.exceptions import OAuthError
+from apps.core.observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AppleOAuthBackend:
@@ -169,7 +169,8 @@ class AppleOAuthBackend:
                 error_data = response.json() if response.content else {}
                 logger.error(
                     "oauth.apple.exchange_failed",
-                    extra={"status": response.status_code, "error": error_data},
+                    status=response.status_code,
+                    error=error_data,
                 )
                 raise OAuthError(
                     message="Failed to exchange authorization code",
@@ -180,7 +181,7 @@ class AppleOAuthBackend:
             return response.json()
 
         except requests.RequestException as e:
-            logger.error(f"Apple OAuth request failed: {e}")
+            logger.error("oauth.apple.request_failed", error=str(e))
             raise OAuthError(
                 message="Failed to connect to Apple", provider="apple"
             ) from e
@@ -245,7 +246,7 @@ class AppleOAuthBackend:
             if payload.get("nonce") != expected_nonce:
                 logger.error(
                     "oauth.apple.nonce_mismatch",
-                    extra={"expected_hash": hash(expected_nonce)},
+                    expected_hash=hash(expected_nonce),
                 )
                 raise OAuthError(
                     message="Nonce mismatch - possible replay attack", provider="apple"
@@ -254,13 +255,13 @@ class AppleOAuthBackend:
             return payload
 
         except jwt.InvalidTokenError as e:
-            logger.error(f"Apple ID token verification failed: {e}")
+            logger.error("oauth.apple.id_token_invalid", error=str(e))
             raise OAuthError(
                 message=f"Invalid Apple ID token: {e}", provider="apple"
             ) from e
 
         except requests.RequestException as e:
-            logger.error(f"Apple keys request failed: {e}")
+            logger.error("oauth.apple.keys_request_failed", error=str(e))
             raise OAuthError(
                 message="Failed to connect to Apple", provider="apple"
             ) from e

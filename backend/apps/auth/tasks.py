@@ -10,14 +10,15 @@ Tasks:
 Schedule via Celery Beat in backend_core/celery.py
 """
 
-import logging
 from datetime import timedelta
 
 from celery import shared_task
 from django.db import models
 from django.utils import timezone
 
-logger = logging.getLogger(__name__)
+from apps.core.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 @shared_task(name="auth.cleanup_expired_tokens", soft_time_limit=240, time_limit=300)
@@ -63,7 +64,7 @@ def cleanup_expired_tokens():
         "password_reset_tokens_deleted": deleted_reset,
     }
 
-    logger.info("auth.cleanup.completed", extra=result)
+    logger.info("auth.cleanup.completed", **result)
 
     return result
 
@@ -94,7 +95,7 @@ def cleanup_inactive_sessions():
 
     result = {"sessions_deleted": deleted}
 
-    logger.info("auth.session_cleanup.completed", extra=result)
+    logger.info("auth.session_cleanup.completed", **result)
 
     return result
 
@@ -137,6 +138,6 @@ def revoke_user_tokens(user_id: int, reason: str = "security"):
         "sessions_deactivated": session_count,
     }
 
-    logger.info("auth.revoke_user.completed", extra={"user_id": user_id, **result})
+    logger.info("auth.revoke_user.completed", user_id=user_id, **result)
 
     return result
