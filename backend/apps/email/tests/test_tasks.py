@@ -306,9 +306,9 @@ class TestCleanupOldEmailLogs:
         assert EmailLog.objects.filter(id=recent_log.id).exists()
         assert "Deleted 0 old email logs" in result
 
-    def test_cleanup_respects_retention_setting(self, settings):
-        """Should honor the EMAIL_LOG_RETENTION_DAYS setting."""
-        settings.EMAIL_LOG_RETENTION_DAYS = 30
+    def test_cleanup_respects_retention_setting(self, feature_config_override):
+        """Should honor the ``infra.email_log_retention_days`` deployment config value."""
+        feature_config_override({"infra": {"email_log_retention_days": 30}})
 
         # Create a log 35 days old (beyond 30-day retention)
         log_beyond = EmailLogFactory()

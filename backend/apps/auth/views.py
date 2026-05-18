@@ -52,6 +52,7 @@ from apps.auth.throttles import (
 )
 from apps.core.exceptions import TokenExpired, TokenInvalid
 from apps.core.observability import get_logger
+from apps.core.permissions import FeatureRequired
 from apps.core.utils.request import get_client_ip, parse_user_agent
 from apps.users.selectors import UserSelector
 from apps.users.services import UserService
@@ -92,7 +93,7 @@ class RegisterView(APIView):
     POST /api/v1/auth/register/
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.signup.email_password")]
     throttle_classes = [RegisterRateThrottle]
 
     @extend_schema(
@@ -690,7 +691,7 @@ class PasswordResetRequestView(APIView):
     POST /api/v1/auth/password/reset/
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.password_reset.enabled")]
     throttle_classes = [PasswordResetRateThrottle]
 
     @extend_schema(
@@ -957,7 +958,7 @@ class GoogleOAuthView(APIView):
     **Rate Limiting:** 10 requests per minute per IP (shared OAuth scope).
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.oauth.google")]
     throttle_classes = [OAuthRateThrottle]
 
     @extend_schema(
@@ -1031,7 +1032,7 @@ class GoogleOAuthCallbackView(APIView):
     **Rate Limiting:** 10 requests per minute per IP (shared OAuth scope).
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.oauth.google")]
     throttle_classes = [OAuthRateThrottle]
 
     @extend_schema(
@@ -1170,7 +1171,7 @@ class AppleOAuthView(APIView):
     **Rate Limiting:** 10 requests per minute per IP (shared OAuth scope).
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.oauth.apple")]
     throttle_classes = [OAuthRateThrottle]
 
     @extend_schema(
@@ -1248,7 +1249,7 @@ class AppleOAuthCallbackView(APIView):
     **Rate Limiting:** 10 requests per minute per IP (shared OAuth scope).
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.oauth.apple")]
     throttle_classes = [OAuthRateThrottle]
 
     @extend_schema(
