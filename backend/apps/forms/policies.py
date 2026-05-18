@@ -207,3 +207,54 @@ class FormResponsePolicy:
                 action="export",
                 resource="FormResponse",
             )
+
+    @staticmethod
+    def get_viewer_permissions(
+        *,
+        user,
+        response: FormResponse,
+        actor_context: ActorContext | None = None,
+    ) -> dict:
+        """Boolean permission flags for the requesting user on this response.
+
+        Mirrors ``FormTemplatePolicy.get_viewer_permissions`` shape. The
+        ``actor_context`` is optional because some checks (own-response view
+        and edit) only need the User; process and export need full RBAC
+        context, which the view supplies when the user is a member of the
+        form's owner account.
+        """
+
+        def _safe_check(fn, **kwargs) -> bool:
+            try:
+                fn(**kwargs)
+                return True
+            except PermissionDenied:
+                return False
+
+        perms: dict = {
+            "can_view": _safe_check(
+                FormResponsePolicy.can_view_own_response,
+                user=user,
+                response=response,
+            ),
+            "can_edit": _safe_check(
+                FormResponsePolicy.can_edit_response,
+                user=user,
+                response=response,
+            ),
+        }
+        if actor_context is not None:
+            perms["can_process"] = _safe_check(
+                FormResponsePolicy.can_process_response,
+                actor_context=actor_context,
+                response=response,
+            )
+            perms["can_export"] = _safe_check(
+                FormResponsePolicy.can_export_responses,
+                actor_context=actor_context,
+                form_template=response.form_template,
+            )
+        else:
+            perms["can_process"] = False
+            perms["can_export"] = False
+        return perms
