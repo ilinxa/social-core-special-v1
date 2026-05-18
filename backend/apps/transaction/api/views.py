@@ -1126,13 +1126,16 @@ class TransactionFormMappingListCreateView(APIView):
         ser.is_valid(raise_exception=True)
         data = ser.validated_data
 
-        mapping = TransactionFormMapping.objects.create(
+        from apps.transaction.services import TransactionFormMappingService
+
+        mapping = TransactionFormMappingService.create(
             account_type=account_type,
             account_id=account_id,
             transaction_type=data["transaction_type"],
             form_template_id=data["form_template_id"],
             is_required=data.get("is_required", False),
-            created_by=request.user,
+            actor=request.user,
+            request=request,
         )
         return Response(
             TransactionFormMappingOutputSerializer(mapping).data,

@@ -470,6 +470,36 @@
         "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
       ],
       "related_doc": "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
+    },
+    {
+      "id": 124,
+      "title": "PR4 - View-to-Service refactors: 5 sites + 1 new AuditLog action + 1 migration",
+      "category": "refactoring",
+      "tags": [
+        "architecture",
+        "services",
+        "audit-logging",
+        "consistency-cleanup"
+      ],
+      "timestamp": "2026-05-18T03:00:00Z",
+      "summary": "Removed 5 direct model writes from views, moving them into the service layer per the project's mandated 'thin view -> service.do_x -> response' pattern. (1) ChatService.mute_conversation / unmute_conversation -- views at chat/views.py:380-419 now delegate; new methods follow ChatService.edit_message shape (kwargs-only, @transaction.atomic, structlog event log). (2) UserService.update_visibility_overrides -- merges visibility_overrides + AuditLog.Action.PROFILE_UPDATED. (3) BusinessProfileService.update_visibility_overrides -- same pattern, business-scoped. (4) BusinessAccountService.set_cms_enabled (cross-app fix) -- the CMS view at cms/api/views.py:800 was directly mutating BusinessAccount.cms_enabled and emitting CMS_BUSINESS_ENABLED/DISABLED audits inline; both write and audit now live in the owning app's service. (5) TransactionFormMappingService.create -- inline .objects.create() at transaction/api/views.py:1129 with no audit log replaced with service call. Added 2 new AuditLog.Action values: TRANSACTION_FORM_MAPPING_CREATED + TRANSACTION_FORM_MAPPING_DELETED (deletion not yet wired but reserved). Generated migration core/0009_alter_auditlog_action.py via makemigrations. Tests: 1709/1709 pass across chat + users + organization + cms + transaction (1 PostgreSQL-only skip).",
+      "critical": "BusinessAccountService.set_cms_enabled is a cross-app entry point: the front-door endpoint lives in cms/api/views.py but the write + audit log live in apps.organization.business.services per the architecture mandate. CMS view keeps the policy authorization + the CMSTemplateActivationService.auto_provision_defaults side effect; it no longer touches the model or emits audit events itself. Also: pre-existing test_create_business_reserved_slug_raises_error fix duplicated here from PR1 because PR1 hasn't merged yet; rebase against main after PR1 lands will be a no-op (same one-line change).",
+      "files_changed": [
+        "backend/apps/chat/services.py",
+        "backend/apps/chat/views.py",
+        "backend/apps/users/services.py",
+        "backend/apps/users/views.py",
+        "backend/apps/organization/business/services.py",
+        "backend/apps/organization/business/views.py",
+        "backend/apps/cms/api/views.py",
+        "backend/apps/transaction/services.py",
+        "backend/apps/transaction/api/views.py",
+        "backend/apps/core/observability/audit/models.py",
+        "backend/apps/core/migrations/0009_alter_auditlog_action.py",
+        "backend/apps/organization/tests/business/test_services.py",
+        "progress/101-200.json"
+      ],
+      "related_doc": "C:/Users/AsiaData/.claude/plans/create-a-comprehensive-verifying-stateful-newell.md"
     }
   ]
 }

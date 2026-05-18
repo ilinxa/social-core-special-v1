@@ -630,6 +630,54 @@ class BusinessAccountService:
 
         return business
 
+    @staticmethod
+    @transaction.atomic
+    def set_cms_enabled(
+        *,
+        business: BusinessAccount,
+        enabled: bool,
+        actor: "User",
+        request=None,
+    ) -> BusinessAccount:
+        """Toggle CMS for a business account (cross-app entry point).
+
+        Called by ``apps.cms.api.views.AdminBusinessCMSToggleView``. The CMS
+        view is the front door for the toggle action, but the actual write
+        belongs in the owning app (organization.business) and audit logging
+        lives here to stay consistent with the rest of the service layer.
+        """
+        if business.cms_enabled == enabled:
+            return business
+
+        old_enabled = business.cms_enabled
+        business.cms_enabled = enabled
+        business.save(update_fields=["cms_enabled", "updated_at"])
+
+        action = (
+            AuditLog.Action.CMS_BUSINESS_ENABLED
+            if enabled
+            else AuditLog.Action.CMS_BUSINESS_DISABLED
+        )
+        AuditService.log(
+            action=action,
+            actor=actor,
+            resource=business,
+            resource_type="BusinessAccount",
+            resource_id=business.id,
+            request=request,
+            changes={"cms_enabled": {"old": old_enabled, "new": enabled}},
+            details={"business_id": str(business.id), "cms_enabled": enabled},
+        )
+
+        logger.info(
+            "business.cms_enabled_toggled",
+            business_id=str(business.id),
+            cms_enabled=enabled,
+            actor_id=str(actor.id) if actor else None,
+        )
+
+        return business
+
 
 class BusinessProfileService:
     """Service for BusinessProfile operations."""
@@ -792,3 +840,52 @@ class BusinessProfileService:
             )
 
         return profile
+
+    @staticmethod
+    @transaction.atomic
+    def update_visibility_overrides(
+        *,
+        business,
+        overrides: dict,
+        actor: "User",
+        request=None,
+    ) -> dict:
+        """Merge partial visibility overrides into the business profile.
+
+        Returns the resolved visibility overrides (post-merge) so the view can
+        send them back to the client without re-fetching. Mirrors
+        ``BusinessProfileService.update``'s changes-dict + AuditService pattern.
+        """
+        profile = business.profile
+        old_overrides = profile.visibility_overrides or {}
+        new_overrides = {**old_overrides, **overrides}
+
+        if new_overrides == old_overrides:
+            return new_overrides
+
+        profile.visibility_overrides = new_overrides
+        profile.save(update_fields=["visibility_overrides", "updated_at"])
+
+        logger.info(
+            "business.profile.visibility_overrides_updated",
+            business_id=str(business.id),
+            actor_id=str(actor.id),
+            changed_fields=list(overrides.keys()),
+        )
+
+        AuditService.log(
+            action=AuditLog.Action.BUSINESS_PROFILE_UPDATED,
+            actor=actor,
+            resource=profile,
+            resource_type="BusinessProfile",
+            resource_id=profile.business_id,
+            request=request,
+            changes={
+                "visibility_overrides": {
+                    "old": old_overrides,
+                    "new": new_overrides,
+                }
+            },
+        )
+
+        return new_overrides

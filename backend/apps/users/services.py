@@ -760,3 +760,48 @@ class UserService:
         )
 
         return user
+
+    @staticmethod
+    @transaction.atomic
+    def update_visibility_overrides(
+        *,
+        user: User,
+        overrides: dict,
+        request: HttpRequest | None = None,
+    ) -> dict:
+        """Merge partial visibility overrides into the user's profile.
+
+        Returns the resolved visibility settings (post-merge) so the view can
+        send them back to the client without re-fetching. Mirrors
+        ``BusinessAccountService.update``'s changes-dict + AuditService pattern.
+        """
+        profile = user.profile
+        old_overrides = profile.visibility_overrides or {}
+        new_overrides = {**old_overrides, **overrides}
+
+        if new_overrides == old_overrides:
+            return new_overrides
+
+        profile.visibility_overrides = new_overrides
+        profile.save(update_fields=["visibility_overrides", "updated_at"])
+
+        logger.info(
+            "user.profile.visibility_overrides_updated",
+            user_id=str(user.id),
+            changed_fields=list(overrides.keys()),
+        )
+
+        AuditService.log(
+            action=AuditLog.Action.PROFILE_UPDATED,
+            actor=user,
+            resource=user,
+            request=request,
+            changes={
+                "visibility_overrides": {
+                    "old": old_overrides,
+                    "new": new_overrides,
+                }
+            },
+        )
+
+        return new_overrides

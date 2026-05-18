@@ -800,8 +800,8 @@ class AdminBusinessCMSToggleView(PlatformContextMixin, APIView):
     def patch(self, request, uuid):
         from apps.cms.api.serializers import BusinessCMSToggleSerializer
         from apps.core.constants import OwnerType
-        from apps.core.observability import AuditLog, AuditService
         from apps.organization.business.models import BusinessAccount
+        from apps.organization.business.services import BusinessAccountService
         from apps.rbac.policies import MembershipPolicy
 
         actor_context = self.get_actor_context()
@@ -815,8 +815,12 @@ class AdminBusinessCMSToggleView(PlatformContextMixin, APIView):
         cms_enabled = serializer.validated_data["cms_enabled"]
 
         business = BusinessAccount.objects.get(id=uuid)
-        business.cms_enabled = cms_enabled
-        business.save(update_fields=["cms_enabled", "updated_at"])
+        business = BusinessAccountService.set_cms_enabled(
+            business=business,
+            enabled=cms_enabled,
+            actor=request.user,
+            request=request,
+        )
 
         if cms_enabled:
             CMSTemplateActivationService.auto_provision_defaults(
@@ -824,28 +828,6 @@ class AdminBusinessCMSToggleView(PlatformContextMixin, APIView):
                 org_id=business.id,
                 user=request.user,
             )
-
-        action = (
-            AuditLog.Action.CMS_BUSINESS_ENABLED
-            if cms_enabled
-            else AuditLog.Action.CMS_BUSINESS_DISABLED
-        )
-        AuditService.log(
-            action=action,
-            actor=request.user,
-            resource=business,
-            request=request,
-            details={"business_id": str(business.id), "cms_enabled": cms_enabled},
-        )
-
-        from apps.core.observability import get_logger
-
-        logger = get_logger(__name__)
-        logger.info(
-            "cms.business.toggled",
-            business_id=str(business.id),
-            cms_enabled=cms_enabled,
-        )
 
         return Response({"id": str(business.id), "cms_enabled": business.cms_enabled})
 

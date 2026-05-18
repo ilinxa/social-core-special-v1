@@ -966,16 +966,15 @@ class BusinessProfileVisibilityView(APIView):
         )
         serializer.is_valid(raise_exception=True)
 
-        profile = business.profile
-        # Merge overrides (partial update)
-        current_overrides = profile.visibility_overrides or {}
-        current_overrides.update(serializer.validated_data["overrides"])
-        profile.visibility_overrides = current_overrides
-        profile.save(update_fields=["visibility_overrides", "updated_at"])
+        new_overrides = BusinessProfileService.update_visibility_overrides(
+            business=business,
+            overrides=serializer.validated_data["overrides"],
+            actor=request.user,
+            request=request,
+        )
 
-        # Return updated settings
         settings = VisibilityResolver.get_visibility_settings(
             registry_key=self.REGISTRY_KEY,
-            visibility_overrides=profile.visibility_overrides,
+            visibility_overrides=new_overrides,
         )
         return Response(settings)

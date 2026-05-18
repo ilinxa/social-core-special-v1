@@ -583,15 +583,15 @@ class UserProfileVisibilityView(APIView):
         )
         serializer.is_valid(raise_exception=True)
 
-        profile = request.user.profile
-        current_overrides = profile.visibility_overrides or {}
-        current_overrides.update(serializer.validated_data["overrides"])
-        profile.visibility_overrides = current_overrides
-        profile.save(update_fields=["visibility_overrides", "updated_at"])
+        new_overrides = UserService.update_visibility_overrides(
+            user=request.user,
+            overrides=serializer.validated_data["overrides"],
+            request=request,
+        )
 
         settings = VisibilityResolver.get_visibility_settings(
             registry_key=self.REGISTRY_KEY,
-            visibility_overrides=profile.visibility_overrides,
+            visibility_overrides=new_overrides,
         )
         return Response(settings)
 
