@@ -470,6 +470,33 @@
         "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
       ],
       "related_doc": "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
+    },
+    {
+      "id": 125,
+      "title": "PR5 - Chat hygiene: silent excepts logged + DELETE-with-body removed + raw request.data serialized",
+      "category": "bug-fixing",
+      "tags": [
+        "chat",
+        "observability",
+        "validation",
+        "rest-conventions",
+        "consistency-cleanup"
+      ],
+      "timestamp": "2026-05-18T04:00:00Z",
+      "summary": "Stopped 9 silent failure paths in chat from masking real bugs and fixed a DELETE-with-body anti-pattern plus one raw request.data read in transactions. (1) Added logger = get_logger(__name__) to chat/views.py + chat/serializers.py (neither had a logger). (2) Replaced 6 broadcast 'except Exception: pass' blocks in chat/views.py:79,179,288,319,337,374 with logger.warning('chat.broadcast.failed', broadcast_kind=..., ...). (3) Added logger.debug() to 3 best-effort excepts (chat/services.py:1313 PIL image sizing, chat/serializers.py:134 avatar resolution, chat/tasks.py:75 storage delete). (4) ParticipantRemoveView no longer reads participant_type from the DELETE body; the service now takes only the ConversationParticipant.id (row PK) and reads participant_type from the row. The previous code passed participant_type from request.data into the service, which then used it as the entity-ID filter -- view comment and service contract were inconsistent. Updated 6 test call sites in test_services.py and 1 in test_audit.py. (5) Added RequestFormCheckInputSerializer for transaction/api/views.py:925-989; previously read form_mapping_id/form_template_id/data/account_type/account_id directly from request.data. Tests: 965/965 pass across chat + transaction.",
+      "critical": "structlog reserves 'event' as a keyword for the event name -- never pass it as a kwarg or you'll hit 'BoundLogger.warning() got multiple values for argument event' at runtime (caught by existing test_broadcast_wiring.py during PR5 dev). Use a different key like broadcast_kind. Also: ChatService.remove_participant signature changed from (participant_type, participant_id) to (participant_pk). The previous call shape was passing entity IDs but the view comment said row PKs -- the contract was ambiguous; PR5 makes it row-PK only.",
+      "files_changed": [
+        "backend/apps/chat/views.py",
+        "backend/apps/chat/services.py",
+        "backend/apps/chat/serializers.py",
+        "backend/apps/chat/tasks.py",
+        "backend/apps/chat/tests/test_services.py",
+        "backend/apps/chat/tests/test_audit.py",
+        "backend/apps/transaction/api/serializers.py",
+        "backend/apps/transaction/api/views.py",
+        "progress/101-200.json"
+      ],
+      "related_doc": "C:/Users/AsiaData/.claude/plans/create-a-comprehensive-verifying-stateful-newell.md"
     }
   ]
 }

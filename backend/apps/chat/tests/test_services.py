@@ -898,11 +898,18 @@ class TestAddParticipant:
 
 
 class TestRemoveParticipant:
+    @staticmethod
+    def _row_pk(conversation, participant_id):
+        return ConversationParticipant.objects.get(
+            conversation=conversation,
+            participant_type=ParticipantType.USER,
+            participant_id=participant_id,
+        ).id
+
     def test_remove_participant_from_group(self, user, user_b, group_conversation):
         ChatService.remove_participant(
             conversation_id=group_conversation.id,
-            participant_type=ParticipantType.USER,
-            participant_id=user_b.id,
+            participant_pk=self._row_pk(group_conversation, user_b.id),
             removed_by=user,
         )
         cp = ConversationParticipant.objects.get(
@@ -917,8 +924,7 @@ class TestRemoveParticipant:
         with pytest.raises(BusinessRuleViolation) as exc:
             ChatService.remove_participant(
                 conversation_id=dm_conversation.id,
-                participant_type=ParticipantType.USER,
-                participant_id=user_b.id,
+                participant_pk=self._row_pk(dm_conversation, user_b.id),
                 removed_by=user,
             )
         assert exc.value.details["rule"] == "dm_no_remove_participant"
@@ -927,8 +933,7 @@ class TestRemoveParticipant:
         with pytest.raises(PermissionDenied):
             ChatService.remove_participant(
                 conversation_id=group_conversation.id,
-                participant_type=ParticipantType.USER,
-                participant_id=user_c.id,
+                participant_pk=self._row_pk(group_conversation, user_c.id),
                 removed_by=user_b,
             )
 
@@ -936,16 +941,14 @@ class TestRemoveParticipant:
         with pytest.raises(NotFound):
             ChatService.remove_participant(
                 conversation_id=group_conversation.id,
-                participant_type=ParticipantType.USER,
-                participant_id=uuid.uuid4(),
+                participant_pk=uuid.uuid4(),
                 removed_by=user,
             )
 
     def test_system_message_sent_on_remove(self, user, user_b, group_conversation):
         ChatService.remove_participant(
             conversation_id=group_conversation.id,
-            participant_type=ParticipantType.USER,
-            participant_id=user_b.id,
+            participant_pk=self._row_pk(group_conversation, user_b.id),
             removed_by=user,
         )
         sys_msg = Message.objects.filter(
