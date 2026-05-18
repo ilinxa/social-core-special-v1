@@ -334,3 +334,41 @@ class TransactionFormMappingInputSerializer(BaseInputSerializer):
     transaction_type = serializers.CharField(max_length=100)
     form_template_id = serializers.UUIDField()
     is_required = serializers.BooleanField(default=False)
+
+
+class RequestFormCheckInputSerializer(BaseInputSerializer):
+    """Validation for POST to `request-form-check` -- submit a form before
+    creating a request transaction.
+
+    Either ``form_mapping_id`` (the dynamic mapping path) OR ``form_template_id``
+    (the static template path, requires ``account_type`` + ``account_id``) must
+    be provided. Replaces raw ``request.data.get(...)`` reads in the view.
+    """
+
+    form_mapping_id = serializers.UUIDField(required=False, allow_null=True)
+    form_template_id = serializers.UUIDField(required=False, allow_null=True)
+    account_type = serializers.CharField(
+        max_length=20, required=False, allow_blank=True, allow_null=True
+    )
+    account_id = serializers.UUIDField(required=False, allow_null=True)
+    data = serializers.JSONField(required=False, default=dict)
+
+    def validate(self, attrs):
+        mapping_id = attrs.get("form_mapping_id")
+        template_id = attrs.get("form_template_id")
+        if not mapping_id and not template_id:
+            raise serializers.ValidationError(
+                {"form_mapping_id": "form_mapping_id or form_template_id is required"}
+            )
+        if template_id and (
+            not attrs.get("account_type") or not attrs.get("account_id")
+        ):
+            raise serializers.ValidationError(
+                {
+                    "account_type": (
+                        "account_type and account_id are required when using "
+                        "form_template_id"
+                    )
+                }
+            )
+        return attrs

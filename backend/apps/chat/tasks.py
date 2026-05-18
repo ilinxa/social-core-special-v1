@@ -72,8 +72,13 @@ def cleanup_orphan_attachments():
     for orphan in orphans:
         try:
             default_storage.delete(orphan.storage_key)
-        except Exception:
-            pass  # Storage deletion is best-effort
+        except Exception as e:
+            # Storage deletion is best-effort; row still gets removed.
+            logger.debug(
+                "chat.attachment.orphan_delete_failed",
+                storage_key=orphan.storage_key,
+                error=str(e),
+            )
         orphan.delete()
         count += 1
 

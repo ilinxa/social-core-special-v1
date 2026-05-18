@@ -14,6 +14,9 @@ from apps.chat.constants import (
     ReactionType,
     ScopeType,
 )
+from apps.core.observability import get_logger
+
+logger = get_logger(__name__)
 
 # =============================================================================
 # INPUT SERIALIZERS
@@ -131,8 +134,13 @@ def _resolve_participant_display(participant_type: str, participant_id):
                 display_name = profile.name or ""
                 if profile.logo:
                     avatar_url = profile.logo.url
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(
+            "chat.profile.lookup_failed",
+            participant_type=str(participant_type),
+            participant_id=str(participant_id),
+            error=str(e),
+        )
 
     return display_name, avatar_url
 

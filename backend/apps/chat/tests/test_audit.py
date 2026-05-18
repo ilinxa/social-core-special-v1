@@ -216,10 +216,14 @@ class TestParticipantAudit:
         assert log.details["added_by"] == str(user.id)
 
     def test_remove_participant_logs_audit(self, group_conversation, user, user_b):
-        ChatService.remove_participant(
-            conversation_id=group_conversation.id,
+        cp = ConversationParticipant.objects.get(
+            conversation=group_conversation,
             participant_type=ParticipantType.USER,
             participant_id=user_b.id,
+        )
+        ChatService.remove_participant(
+            conversation_id=group_conversation.id,
+            participant_pk=cp.id,
             removed_by=user,
         )
 

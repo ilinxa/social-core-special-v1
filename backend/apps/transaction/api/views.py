@@ -19,6 +19,7 @@ from apps.transaction.api.serializers import (
     CreateRequestInputSerializer,
     DenyTransactionInputSerializer,
     FormResponseUpdateInputSerializer,
+    RequestFormCheckInputSerializer,
     RequestInfoInputSerializer,
     TransactionFormMappingInputSerializer,
     TransactionFormMappingOutputSerializer,
@@ -931,17 +932,13 @@ class RequestFormCheckView(APIView):
                 resource="FormResponse",
             )
 
-        mapping_id = request.data.get("form_mapping_id")
-        form_template_id = request.data.get("form_template_id")
-        form_data = request.data.get("data", {})
+        ser = RequestFormCheckInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        validated = ser.validated_data
 
-        if not mapping_id and not form_template_id:
-            from apps.core.exceptions import ValidationError
-
-            raise ValidationError(
-                message="form_mapping_id or form_template_id is required",
-                field="form_mapping_id",
-            )
+        mapping_id = validated.get("form_mapping_id")
+        form_template_id = validated.get("form_template_id")
+        form_data = validated.get("data") or {}
 
         if mapping_id:
             # Dynamic mapping path (existing behavior)
@@ -978,15 +975,9 @@ class RequestFormCheckView(APIView):
                     resource="FormTemplate",
                     resource_id=str(form_template_id),
                 )
-            context_type = request.data.get("account_type")
-            context_id = request.data.get("account_id")
-            if not context_type or not context_id:
-                from apps.core.exceptions import ValidationError
-
-                raise ValidationError(
-                    message="account_type and account_id are required when using form_template_id",
-                    field="account_type",
-                )
+            # Serializer already enforces presence when using form_template_id.
+            context_type = validated.get("account_type")
+            context_id = validated.get("account_id")
 
         from apps.forms.services import FormResponseService
 

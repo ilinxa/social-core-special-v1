@@ -919,12 +919,19 @@ class ChatService:
     def remove_participant(
         *,
         conversation_id: UUID,
-        participant_type: str,
-        participant_id: UUID,
+        participant_pk: UUID,
         removed_by,
         request=None,
     ) -> None:
-        """Remove a participant from a group conversation."""
+        """Remove a participant from a group conversation.
+
+        ``participant_pk`` is the ``ConversationParticipant.id`` (row primary
+        key). ``participant_type`` and ``participant_id`` (entity id) are read
+        from the row itself — the client only knows the participant row, not
+        the underlying polymorphic identity it points to. This replaces the
+        previous signature that took ``participant_type`` from the request
+        body on DELETE (an HTTP anti-pattern).
+        """
         conversation = ChatSelector.get_conversation_by_id(
             conversation_id=conversation_id
         )
@@ -944,13 +951,16 @@ class ChatService:
 
         participant = ConversationParticipant.objects.filter(
             conversation=conversation,
-            participant_type=participant_type,
-            participant_id=participant_id,
+            id=participant_pk,
             is_active=True,
         ).first()
 
         if not participant:
             raise NotFound(resource="ConversationParticipant")
+
+        # Cache the polymorphic identity for the system message + audit log.
+        participant_type = participant.participant_type
+        participant_id = participant.participant_id
 
         participant.is_active = False
         participant.removed_at = timezone.now()
@@ -1375,8 +1385,12 @@ class ChatService:
             file.seek(0)
             img = Image.open(file)
             width, height = img.size
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(
+                "chat.attachment.image_size_failed",
+                conversation_id=str(conversation_id),
+                error=str(e),
+            )
 
         attachment = MessageAttachment.objects.create(
             message=None,

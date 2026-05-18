@@ -11,8 +11,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.chat.policies import ChatPolicy
+from apps.core.observability import get_logger
 from apps.core.permissions import IsAuthenticated
 from apps.core.views import PermissionInjectMixin
+
+logger = get_logger(__name__)
 
 # =============================================================================
 # CONVERSATION VIEWS
@@ -76,8 +79,13 @@ class ConversationListCreateView(APIView):
 
             uids = [str(p["participant_id"]) for p in data["participant_ids"]]
             broadcast_new_conversation(conversation, uids)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(
+                "chat.broadcast.failed",
+                broadcast_kind="new_conversation",
+                conversation_id=str(conversation.id),
+                error=str(e),
+            )
 
         return Response(output.data, status=status.HTTP_201_CREATED)
 
@@ -176,8 +184,13 @@ class ParticipantListAddView(APIView):
                 conversation_id=conversation_id
             )
             broadcast_new_conversation(conversation, [str(data["participant_id"])])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(
+                "chat.broadcast.failed",
+                broadcast_kind="participant_added",
+                conversation_id=str(conversation_id),
+                error=str(e),
+            )
 
         return Response(output.data, status=status.HTTP_201_CREATED)
 
@@ -188,11 +201,12 @@ class ParticipantRemoveView(APIView):
     def delete(self, request, conversation_id, participant_id):
         from apps.chat.services import ChatService
 
-        # participant_id here is the ConversationParticipant.id
+        # `participant_id` is the ConversationParticipant.id (row PK).
+        # The service reads participant_type from the row itself; we no
+        # longer accept it via the request body (DELETE-with-body antipattern).
         ChatService.remove_participant(
             conversation_id=conversation_id,
-            participant_type=request.data.get("participant_type", "user"),
-            participant_id=participant_id,
+            participant_pk=participant_id,
             removed_by=request.user,
             request=request,
         )
@@ -285,8 +299,14 @@ class MessageListCreateView(APIView):
             from apps.chat.broadcast import broadcast_message_new
 
             broadcast_message_new(message)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(
+                "chat.broadcast.failed",
+                broadcast_kind="message_new",
+                conversation_id=str(message.conversation_id),
+                message_id=str(message.id),
+                error=str(e),
+            )
 
         return Response(output.data, status=status.HTTP_201_CREATED)
 
@@ -316,8 +336,14 @@ class MessageEditDeleteView(APIView):
             from apps.chat.broadcast import broadcast_message_edited
 
             broadcast_message_edited(message)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(
+                "chat.broadcast.failed",
+                broadcast_kind="message_edited",
+                conversation_id=str(message.conversation_id),
+                message_id=str(message.id),
+                error=str(e),
+            )
 
         return Response(output.data)
 
@@ -334,8 +360,14 @@ class MessageEditDeleteView(APIView):
             from apps.chat.broadcast import broadcast_message_deleted_by_ids
 
             broadcast_message_deleted_by_ids(conversation_id, message_id)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(
+                "chat.broadcast.failed",
+                broadcast_kind="message_deleted",
+                conversation_id=str(conversation_id),
+                message_id=str(message_id),
+                error=str(e),
+            )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -371,8 +403,14 @@ class MarkSeenView(APIView):
             broadcast_seen_update(
                 conversation_id, request.user.id, last_seen_message_id
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(
+                "chat.broadcast.failed",
+                broadcast_kind="seen_update",
+                conversation_id=str(conversation_id),
+                user_id=str(request.user.id),
+                error=str(e),
+            )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
