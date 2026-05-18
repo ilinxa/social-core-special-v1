@@ -470,6 +470,29 @@
         "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
       ],
       "related_doc": "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
+    },
+    {
+      "id": 122,
+      "title": "PR2 — Observability: structlog migration (5 files in auth + core)",
+      "category": "refactoring",
+      "tags": [
+        "observability",
+        "structlog",
+        "auth",
+        "consistency-cleanup"
+      ],
+      "timestamp": "2026-05-18T01:00:00Z",
+      "summary": "Migrated 5 modules from bare `logging.getLogger(__name__)` to `apps.core.observability.get_logger`, per the CLAUDE.md mandate ('Never use print(), bare logging.getLogger(), or custom audit logic.'). Files: apps/auth/backends/google.py, apps/auth/backends/apple.py, apps/auth/consumers.py, apps/auth/tasks.py, apps/core/exceptions/handler.py. Also converted ALL logger.X() call sites in those files to structlog idiom: 6 f-string error messages flattened to ('oauth.google.id_token_invalid', error=str(e)) style, 5 `extra={...}` kwargs flattened to direct kwargs, handler.py's `logger.log(level, ...)` with positional %s formatting rewritten as `logger.warning`/`logger.error` method dispatch (also dropped `import logging` entirely). feature_config.py migration deferred to PR6 due to Django-startup import-order risk. Tests: 592/592 passing across apps/auth/tests + apps/core/tests/test_exceptions. Black formatted 2 of the 5 files after the migration.",
+      "critical": "structlog idiom is event-name + kwargs. NEVER use `extra={}` (it bypasses structlog processors) and NEVER use `%s` positional formatting. When migrating handler.py, removed `import logging` — use `logger.warning`/`logger.error` method dispatch instead of `logger.log(logging.WARNING/ERROR, ...)`. ID 122 reserved here to avoid collision with PR1's entry 121 already on pr1/lint-formatting branch.",
+      "files_changed": [
+        "backend/apps/auth/backends/google.py",
+        "backend/apps/auth/backends/apple.py",
+        "backend/apps/auth/consumers.py",
+        "backend/apps/auth/tasks.py",
+        "backend/apps/core/exceptions/handler.py",
+        "progress/101-200.json"
+      ],
+      "related_doc": "C:/Users/AsiaData/.claude/plans/create-a-comprehensive-verifying-stateful-newell.md"
     }
   ]
 }

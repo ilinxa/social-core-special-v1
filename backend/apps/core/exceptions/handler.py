@@ -24,7 +24,6 @@ Configuration:
         }
 """
 
-import logging
 import math
 
 from django.conf import settings as django_settings
@@ -33,8 +32,9 @@ from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
 
 from apps.core.exceptions.domain import DomainException
+from apps.core.observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _audit_log_authorization_denied(exc, context):
@@ -57,8 +57,10 @@ def _audit_log_authorization_denied(exc, context):
                 "path": request.path if request else "unknown",
             },
         )
-    except Exception:
-        logger.debug("Failed to audit-log authorization denial", exc_info=True)
+    except Exception as e:
+        logger.debug(
+            "audit.authorization_denied.log_failed", error=str(e), exc_info=True
+        )
 
 
 # =============================================================================
@@ -167,16 +169,13 @@ def exception_handler(exc, context):
         status_code = get_status_code(exc.code)
 
         # Log the exception with context
-        log_level = logging.WARNING if status_code < 500 else logging.ERROR
-        logger.log(
-            log_level,
-            "Domain exception: %s",
-            exc,
-            extra={
-                "exception_code": exc.code,
-                "status_code": status_code,
-                "view": _get_view_name(context),
-            },
+        log_method = logger.warning if status_code < 500 else logger.error
+        log_method(
+            "exception.domain",
+            exception=str(exc),
+            exception_code=exc.code,
+            status_code=status_code,
+            view=_get_view_name(context),
             exc_info=status_code >= 500,
         )
 
@@ -188,9 +187,9 @@ def exception_handler(exc, context):
     # Unhandled exception - log and return generic error
     # In DEBUG mode, Django will show the full traceback
     logger.exception(
-        "Unhandled exception in %s: %s",
-        _get_view_name(context),
-        str(exc),
+        "exception.unhandled",
+        view=_get_view_name(context),
+        error=str(exc),
     )
 
     # In development: return None → Django debug traceback page
