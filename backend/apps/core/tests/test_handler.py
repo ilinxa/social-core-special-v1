@@ -1095,7 +1095,7 @@ class TestExceptionHandlerLogging:
             exc = NotFound(resource="User", resource_id="123")
             exception_handler(exc, handler_context)
 
-        assert any("Domain exception" in record.message for record in caplog.records)
+        assert any("exception.domain" in record.message for record in caplog.records)
 
     def test_domain_exception_logs_error_for_5xx(self, handler_context, caplog):
         """Domain exceptions with 5xx status should log at ERROR level."""
@@ -1105,7 +1105,7 @@ class TestExceptionHandlerLogging:
             exc = ServiceUnavailable(service="email")
             exception_handler(exc, handler_context)
 
-        assert any("Domain exception" in record.message for record in caplog.records)
+        assert any("exception.domain" in record.message for record in caplog.records)
 
     def test_unhandled_exception_logs_exception(self, handler_context, caplog):
         """Unhandled exceptions should log at ERROR level with full traceback."""
@@ -1115,4 +1115,4 @@ class TestExceptionHandlerLogging:
             exc = ValueError("Unexpected error")
             exception_handler(exc, handler_context)
 
-        assert any("Unhandled exception" in record.message for record in caplog.records)
+        assert any("exception.unhandled" in record.message for record in caplog.records)
