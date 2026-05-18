@@ -468,17 +468,13 @@ class TestGovernanceMemberBanEnforcement:
         assert response.data["status"] == "banned"
 
         # Step 2: Verify appears in banned filter
-        response = gov_client.get(
-            "/api/v1/governance/members/", {"status": "banned"}
-        )
+        response = gov_client.get("/api/v1/governance/members/", {"status": "banned"})
         assert response.status_code == 200
         banned_ids = [m["id"] for m in response.data["results"]]
         assert str(mem.id) in banned_ids
 
         # Step 3: Verify NOT in active filter
-        response = gov_client.get(
-            "/api/v1/governance/members/", {"status": "active"}
-        )
+        response = gov_client.get("/api/v1/governance/members/", {"status": "active"})
         assert response.status_code == 200
         active_ids = [m["id"] for m in response.data["results"]]
         assert str(mem.id) not in active_ids
@@ -612,15 +608,11 @@ class TestGovernanceMemberCountConsistency:
 class TestGovernanceVerificationListing:
     """Verify businesses with pending verification appear in the listing."""
 
-    def test_pending_verification_appears_in_list(
-        self, gov_client, platform_profile
-    ):
+    def test_pending_verification_appears_in_list(self, gov_client, platform_profile):
         """Create a business with pending verification, verify it appears."""
         from apps.core.constants import VerificationStatus
 
-        owner = UserFactory(
-            username="verif_owner", email="verif_owner@example.com"
-        )
+        owner = UserFactory(username="verif_owner", email="verif_owner@example.com")
         business = BusinessAccountFactory(
             status="active",
             verification_status=VerificationStatus.PENDING,
@@ -634,9 +626,7 @@ class TestGovernanceVerificationListing:
         biz_ids = [b["id"] for b in response.data["results"]]
         assert str(business.id) in biz_ids
 
-    def test_verified_business_not_in_pending_list(
-        self, gov_client, platform_profile
-    ):
+    def test_verified_business_not_in_pending_list(self, gov_client, platform_profile):
         """Verified businesses should NOT appear in pending verification list."""
         from apps.core.constants import VerificationStatus
 
@@ -702,9 +692,7 @@ class TestGovernanceAuditTrailFiltering:
             if entry["actor_id"] == str(global_moderator.id):
                 assert entry["outcome"] == "success"
 
-    def test_audit_filter_by_resource_type(
-        self, gov_client, business_with_members
-    ):
+    def test_audit_filter_by_resource_type(self, gov_client, business_with_members):
         """Filter audit log by resource_type to isolate business vs member actions."""
         biz = business_with_members["business"]
         mem = business_with_members["membership_a"]

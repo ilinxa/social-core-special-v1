@@ -321,9 +321,7 @@ class GovernanceAuthService:
                 lockout_duration = feature_config.get_value(
                     "auth.lockout.duration", 900
                 )
-                user.locked_until = timezone.now() + timedelta(
-                    seconds=lockout_duration
-                )
+                user.locked_until = timezone.now() + timedelta(seconds=lockout_duration)
             user.save(update_fields=["failed_login_attempts", "locked_until"])
 
             AuditService.log_failure(
@@ -349,16 +347,12 @@ class GovernanceAuthService:
                 actor=user,
                 request=request,
             )
-            raise PermissionDenied(
-                message="You do not have governance access"
-            )
+            raise PermissionDenied(message="You do not have governance access")
 
     @staticmethod
     def _issue_governance_token(user) -> GovernanceToken:
         """Create a short-lived JWT with governance scope."""
-        expires_in = feature_config.get_value(
-            "auth.governance.token_lifetime", 1800
-        )
+        expires_in = feature_config.get_value("auth.governance.token_lifetime", 1800)
         jti = uuid.uuid4()
 
         access_token = encode_token(

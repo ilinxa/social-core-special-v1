@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('organization', '0006_add_visibility_overrides'),
+        ("organization", "0006_add_visibility_overrides"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='businessaccount',
-            name='cms_enabled',
-            field=models.BooleanField(db_index=True, default=False, help_text='Whether this business has CMS access enabled.'),
+            model_name="businessaccount",
+            name="cms_enabled",
+            field=models.BooleanField(
+                db_index=True,
+                default=False,
+                help_text="Whether this business has CMS access enabled.",
+            ),
         ),
     ]

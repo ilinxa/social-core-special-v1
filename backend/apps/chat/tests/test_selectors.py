@@ -5,10 +5,9 @@ Tests for ChatSelector read-only query layer.
 """
 
 import uuid
+from unittest.mock import patch
 
 import pytest
-
-from unittest.mock import patch
 
 from apps.chat.constants import (
     ConversationType,

@@ -1373,9 +1373,7 @@ class GovernancePasswordAuthView(APIView):
         tags=["Governance Auth"],
     )
     def post(self, request):
-        serializer = serializers.GovernancePasswordAuthSerializer(
-            data=request.data
-        )
+        serializer = serializers.GovernancePasswordAuthSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         token = GovernanceAuthService.authenticate_with_password(
@@ -1405,11 +1403,7 @@ class GovernanceOTPSendView(APIView):
 
     @extend_schema(
         request=None,
-        responses={
-            200: inline_serializer(
-                "GovernanceOTPSendResponse", fields={}
-            )
-        },
+        responses={200: inline_serializer("GovernanceOTPSendResponse", fields={})},
         tags=["Governance Auth"],
     )
     def post(self, request):
@@ -1442,9 +1436,7 @@ class GovernanceOTPVerifyView(APIView):
         tags=["Governance Auth"],
     )
     def post(self, request):
-        serializer = serializers.GovernanceOTPVerifySerializer(
-            data=request.data
-        )
+        serializer = serializers.GovernanceOTPVerifySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         token = GovernanceAuthService.verify_otp(
