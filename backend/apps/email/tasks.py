@@ -124,13 +124,12 @@ def cleanup_old_email_logs():
     Clean up email logs older than retention period.
 
     Run daily via Celery Beat.
-    Default retention: 90 days (configurable via EMAIL_LOG_RETENTION_DAYS setting)
+    Default retention: 90 days (configurable via deployment config ``infra.email_log_retention_days``).
     """
-    from django.conf import settings
-
+    from apps.core.feature_config import feature_config
     from apps.email.models import EmailLog
 
-    retention_days = getattr(settings, "EMAIL_LOG_RETENTION_DAYS", 90)
+    retention_days = int(feature_config.get_value("infra.email_log_retention_days", 90))
     cutoff = timezone.now() - timedelta(days=retention_days)
 
     # Delete in batches to avoid long-running transactions

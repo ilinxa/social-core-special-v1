@@ -263,6 +263,7 @@
     },
 
     "password_reset": {
+      "enabled": true,
       "method": "link",
       "expiry_minutes": 60
     },

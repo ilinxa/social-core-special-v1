@@ -203,7 +203,7 @@ _FULL_FEATURE_CONFIG = {
     "auth": {
         "signup": {"email_password": True, "email_verification_required": True},
         "verification": {"method": "both", "code_length": 6, "expiry_minutes": 15},
-        "password_reset": {"method": "link", "expiry_minutes": 60},
+        "password_reset": {"enabled": True, "method": "link", "expiry_minutes": 60},
         "sessions": {
             "max_per_user": 5,
             "access_token_lifetime": 900,

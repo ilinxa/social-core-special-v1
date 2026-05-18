@@ -470,6 +470,35 @@
         "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
       ],
       "related_doc": "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
+    },
+    {
+      "id": 127,
+      "title": "PR8 - Feature gate enforcement on auth, email retention, and governance endpoints",
+      "category": "developing",
+      "tags": [
+        "feature-gates",
+        "auth",
+        "governance",
+        "email",
+        "consistency-cleanup"
+      ],
+      "timestamp": "2026-05-19T03:00:00Z",
+      "summary": "Closed feature-gate enforcement gaps flagged by the May 2026 audit (MAJOR #1). Eight new FeatureRequired permission classes wired on previously-unguarded endpoints: RegisterView gated on auth.signup.email_password; PasswordResetRequestView on auth.password_reset.enabled (new key, added to deployment_config.json + full_example + conftest FULL_FEATURE_CONFIG); GoogleOAuthView + GoogleOAuthCallbackView on auth.oauth.google; AppleOAuthView + AppleOAuthCallbackView on auth.oauth.apple; the 6 Business governance views on platform.governance.business_approval; GovernanceVerificationListView on platform.governance.business_verification; GovernanceApprovedCreatorsView on platform.governance.approved_creators; the 3 RBAC governance member views + GovernanceTransactionListView on platform.governance.global_moderation. cleanup_old_email_logs now reads infra.email_log_retention_days via feature_config.get_value instead of settings.EMAIL_LOG_RETENTION_DAYS (removed from base.py — was an undocumented env-var fallback that bypassed the deployment config). 10 new view-level FG/VG tests in apps/core/tests/test_feature_gate_enforcement.py; existing email retention test refactored to feature_config_override. Stacked on verify/all-prs-merged: 4614/41/0 (baseline 4604/41/0 + 10 new tests, zero regressions).",
+      "critical": "DRF runs permission_classes in order; on governance views the chain is [IsAuthenticated, GovernanceTokenRequired, FeatureRequired(...)]. To unit-test the FG gate in isolation the test must authenticate AND bypass GovernanceAuthService.has_any_global_permission via mock — otherwise the request is denied earlier by GovernanceTokenRequired and FeatureRequired never fires. The AllowAny auth views (Register/OAuth/PasswordReset) need no setup since AllowAny.has_permission always returns True.",
+      "files_changed": [
+        "backend/apps/auth/views.py",
+        "backend/apps/email/tasks.py",
+        "backend/apps/email/tests/test_tasks.py",
+        "backend/apps/organization/business/governance_views.py",
+        "backend/apps/rbac/governance_views.py",
+        "backend/apps/transaction/governance_views.py",
+        "backend/apps/core/tests/test_feature_gate_enforcement.py",
+        "backend/backend_core/settings/base.py",
+        "backend/conftest.py",
+        "backend/deployment_config.json",
+        "docs/descriptions/backend/deployment_config_full_example.json",
+        "progress/101-200.json"
+      ]
     }
   ]
 }

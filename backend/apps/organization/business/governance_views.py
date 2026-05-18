@@ -27,7 +27,7 @@ from rest_framework.views import APIView
 
 from apps.core.exceptions import PermissionDenied
 from apps.core.pagination import StandardPagination
-from apps.core.permissions import IsAuthenticated
+from apps.core.permissions import FeatureRequired, IsAuthenticated
 from apps.core.permissions.governance import GovernanceTokenRequired
 from apps.organization.business.governance_serializers import (
     GovernanceBusinessDetailOutput,
@@ -47,7 +47,11 @@ class GovernanceBusinessListView(APIView):
     GET /api/v1/governance/businesses/
     """
 
-    permission_classes = [IsAuthenticated, GovernanceTokenRequired]
+    permission_classes = [
+        IsAuthenticated,
+        GovernanceTokenRequired,
+        FeatureRequired("platform.governance.business_approval"),
+    ]
 
     @extend_schema(
         summary="List businesses (governance)",
@@ -97,7 +101,11 @@ class GovernanceBusinessDetailView(APIView):
     GET /api/v1/governance/businesses/{uuid}/
     """
 
-    permission_classes = [IsAuthenticated, GovernanceTokenRequired]
+    permission_classes = [
+        IsAuthenticated,
+        GovernanceTokenRequired,
+        FeatureRequired("platform.governance.business_approval"),
+    ]
 
     @extend_schema(
         summary="Get business detail (governance)",
@@ -148,7 +156,11 @@ class GovernanceBusinessSuspendView(APIView):
     POST /api/v1/governance/businesses/{uuid}/suspend/
     """
 
-    permission_classes = [IsAuthenticated, GovernanceTokenRequired]
+    permission_classes = [
+        IsAuthenticated,
+        GovernanceTokenRequired,
+        FeatureRequired("platform.governance.business_approval"),
+    ]
 
     @extend_schema(
         summary="Suspend business (governance)",
@@ -194,7 +206,11 @@ class GovernanceBusinessReactivateView(APIView):
     POST /api/v1/governance/businesses/{uuid}/reactivate/
     """
 
-    permission_classes = [IsAuthenticated, GovernanceTokenRequired]
+    permission_classes = [
+        IsAuthenticated,
+        GovernanceTokenRequired,
+        FeatureRequired("platform.governance.business_approval"),
+    ]
 
     @extend_schema(
         summary="Reactivate business (governance)",
@@ -237,7 +253,11 @@ class GovernanceBusinessArchiveView(APIView):
     POST /api/v1/governance/businesses/{uuid}/archive/
     """
 
-    permission_classes = [IsAuthenticated, GovernanceTokenRequired]
+    permission_classes = [
+        IsAuthenticated,
+        GovernanceTokenRequired,
+        FeatureRequired("platform.governance.business_approval"),
+    ]
 
     @extend_schema(
         summary="Archive business (governance)",
@@ -278,7 +298,11 @@ class GovernanceBusinessTransferView(APIView):
     POST /api/v1/governance/businesses/{uuid}/transfer-ownership/
     """
 
-    permission_classes = [IsAuthenticated, GovernanceTokenRequired]
+    permission_classes = [
+        IsAuthenticated,
+        GovernanceTokenRequired,
+        FeatureRequired("platform.governance.business_approval"),
+    ]
 
     @extend_schema(
         summary="Transfer business ownership (governance)",
@@ -344,7 +368,11 @@ class GovernanceVerificationListView(APIView):
     GET /api/v1/governance/verification/
     """
 
-    permission_classes = [IsAuthenticated, GovernanceTokenRequired]
+    permission_classes = [
+        IsAuthenticated,
+        GovernanceTokenRequired,
+        FeatureRequired("platform.governance.business_verification"),
+    ]
 
     @extend_schema(
         summary="List pending verifications (governance)",
@@ -381,7 +409,11 @@ class GovernanceApprovedCreatorsView(APIView):
     GET /api/v1/governance/approved-creators/
     """
 
-    permission_classes = [IsAuthenticated, GovernanceTokenRequired]
+    permission_classes = [
+        IsAuthenticated,
+        GovernanceTokenRequired,
+        FeatureRequired("platform.governance.approved_creators"),
+    ]
 
     @extend_schema(
         summary="List approved creators (governance)",

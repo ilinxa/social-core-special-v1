@@ -50,6 +50,7 @@ from apps.auth.throttles import (
 )
 from apps.core.exceptions import TokenExpired, TokenInvalid
 from apps.core.observability import get_logger
+from apps.core.permissions import FeatureRequired
 from apps.core.utils.request import get_client_ip, parse_user_agent
 from apps.users.selectors import UserSelector
 from apps.users.services import UserService
@@ -90,7 +91,7 @@ class RegisterView(APIView):
     POST /api/v1/auth/register/
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.signup.email_password")]
 
     @extend_schema(
         summary="Register a new user",
@@ -684,7 +685,7 @@ class PasswordResetRequestView(APIView):
     POST /api/v1/auth/password/reset/
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.password_reset.enabled")]
     throttle_classes = [PasswordResetRateThrottle]
 
     @extend_schema(
@@ -946,7 +947,7 @@ class GoogleOAuthView(APIView):
     GET /api/v1/auth/oauth/google/
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.oauth.google")]
 
     @extend_schema(
         summary="Start Google OAuth",
@@ -1017,7 +1018,7 @@ class GoogleOAuthCallbackView(APIView):
     GET /api/v1/auth/oauth/google/callback/
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.oauth.google")]
 
     @extend_schema(
         summary="Google OAuth callback",
@@ -1153,7 +1154,7 @@ class AppleOAuthView(APIView):
     GET /api/v1/auth/oauth/apple/
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.oauth.apple")]
 
     @extend_schema(
         summary="Start Apple OAuth",
@@ -1228,7 +1229,7 @@ class AppleOAuthCallbackView(APIView):
     (Apple uses form_post, not GET)
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny, FeatureRequired("auth.oauth.apple")]
 
     @extend_schema(
         summary="Apple OAuth callback",
@@ -1373,9 +1374,7 @@ class GovernancePasswordAuthView(APIView):
         tags=["Governance Auth"],
     )
     def post(self, request):
-        serializer = serializers.GovernancePasswordAuthSerializer(
-            data=request.data
-        )
+        serializer = serializers.GovernancePasswordAuthSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         token = GovernanceAuthService.authenticate_with_password(
@@ -1405,11 +1404,7 @@ class GovernanceOTPSendView(APIView):
 
     @extend_schema(
         request=None,
-        responses={
-            200: inline_serializer(
-                "GovernanceOTPSendResponse", fields={}
-            )
-        },
+        responses={200: inline_serializer("GovernanceOTPSendResponse", fields={})},
         tags=["Governance Auth"],
     )
     def post(self, request):
@@ -1442,9 +1437,7 @@ class GovernanceOTPVerifyView(APIView):
         tags=["Governance Auth"],
     )
     def post(self, request):
-        serializer = serializers.GovernanceOTPVerifySerializer(
-            data=request.data
-        )
+        serializer = serializers.GovernanceOTPVerifySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         token = GovernanceAuthService.verify_otp(

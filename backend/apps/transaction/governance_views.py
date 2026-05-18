@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 
 from apps.core.exceptions import PermissionDenied
 from apps.core.pagination import StandardPagination
-from apps.core.permissions import IsAuthenticated
+from apps.core.permissions import FeatureRequired, IsAuthenticated
 from apps.core.permissions.governance import GovernanceTokenRequired
 from apps.organization.business.policies import BusinessPolicy
 from apps.transaction.api.serializers import TransactionListSerializer
@@ -29,7 +29,11 @@ class GovernanceTransactionListView(APIView):
     GET /api/v1/governance/transactions/
     """
 
-    permission_classes = [IsAuthenticated, GovernanceTokenRequired]
+    permission_classes = [
+        IsAuthenticated,
+        GovernanceTokenRequired,
+        FeatureRequired("platform.governance.global_moderation"),
+    ]
 
     @extend_schema(
         summary="List transactions (governance)",
