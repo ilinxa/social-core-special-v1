@@ -19,30 +19,15 @@ import factory
 from factory.django import DjangoModelFactory
 
 from apps.core.constants import AccountType, MembershipStatus, PermissionScope
-from apps.organization.platform.models import PlatformAccount
 
-# Canonical BusinessAccountFactory lives in organization — re-export for compatibility
-from apps.organization.tests.factories import BusinessAccountFactory  # noqa: F401
+# Canonical BusinessAccountFactory and PlatformAccountFactory live in organization
+# — re-export for compatibility
+from apps.organization.tests.factories import (  # noqa: F401
+    BusinessAccountFactory,
+    PlatformAccountFactory,
+)
 from apps.rbac.models import Membership, Permission, Role, RolePermission
 from apps.users.tests.factories import UserFactory, VerifiedUserFactory  # noqa: F401
-
-# =============================================================================
-# ACCOUNT FACTORIES
-# =============================================================================
-
-
-class PlatformAccountFactory(DjangoModelFactory):
-    """Factory for PlatformAccount (singleton)."""
-
-    class Meta:
-        model = PlatformAccount
-        django_get_or_create = ("singleton_key",)
-
-    singleton_key = 1
-    is_configured = True
-    max_members = 5  # Matches production default
-    settings = factory.LazyFunction(dict)
-
 
 # =============================================================================
 # PERMISSION FACTORIES
