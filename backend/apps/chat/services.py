@@ -1046,6 +1046,71 @@ class ChatService:
             user_id=str(user.id),
         )
 
+    @staticmethod
+    @transaction.atomic
+    def mute_conversation(
+        *,
+        conversation_id: UUID,
+        user,
+        request=None,
+    ) -> ConversationParticipant:
+        """Mute notifications for a conversation for the calling user.
+
+        Mirrors edit_message's shape: kwargs-only, atomic, structlog event log.
+        """
+        participant = ChatSelector.get_participant(
+            conversation_id=conversation_id,
+            participant_type=ParticipantType.USER,
+            participant_id=user.id,
+        )
+        if not participant:
+            raise NotFound(resource="ConversationParticipant")
+
+        if participant.is_muted:
+            return participant
+
+        participant.is_muted = True
+        participant.save(update_fields=["is_muted", "updated_at"])
+
+        logger.info(
+            "chat.conversation.muted",
+            conversation_id=str(conversation_id),
+            user_id=str(user.id),
+        )
+
+        return participant
+
+    @staticmethod
+    @transaction.atomic
+    def unmute_conversation(
+        *,
+        conversation_id: UUID,
+        user,
+        request=None,
+    ) -> ConversationParticipant:
+        """Unmute notifications for a conversation for the calling user."""
+        participant = ChatSelector.get_participant(
+            conversation_id=conversation_id,
+            participant_type=ParticipantType.USER,
+            participant_id=user.id,
+        )
+        if not participant:
+            raise NotFound(resource="ConversationParticipant")
+
+        if not participant.is_muted:
+            return participant
+
+        participant.is_muted = False
+        participant.save(update_fields=["is_muted", "updated_at"])
+
+        logger.info(
+            "chat.conversation.unmuted",
+            conversation_id=str(conversation_id),
+            user_id=str(user.id),
+        )
+
+        return participant
+
     # =========================================================================
     # BLOCKS
     # =========================================================================

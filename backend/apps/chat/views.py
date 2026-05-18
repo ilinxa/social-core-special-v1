@@ -381,20 +381,13 @@ class MuteConversationView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, conversation_id):
-        from apps.chat.selectors import ChatSelector
+        from apps.chat.services import ChatService
 
-        participant = ChatSelector.get_participant(
+        ChatService.mute_conversation(
             conversation_id=conversation_id,
-            participant_type="user",
-            participant_id=request.user.id,
+            user=request.user,
+            request=request,
         )
-        if not participant:
-            from apps.core.exceptions import NotFound
-
-            raise NotFound(resource="ConversationParticipant")
-
-        participant.is_muted = True
-        participant.save(update_fields=["is_muted", "updated_at"])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -402,20 +395,13 @@ class UnmuteConversationView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, conversation_id):
-        from apps.chat.selectors import ChatSelector
+        from apps.chat.services import ChatService
 
-        participant = ChatSelector.get_participant(
+        ChatService.unmute_conversation(
             conversation_id=conversation_id,
-            participant_type="user",
-            participant_id=request.user.id,
+            user=request.user,
+            request=request,
         )
-        if not participant:
-            from apps.core.exceptions import NotFound
-
-            raise NotFound(resource="ConversationParticipant")
-
-        participant.is_muted = False
-        participant.save(update_fields=["is_muted", "updated_at"])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

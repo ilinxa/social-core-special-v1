@@ -201,6 +201,14 @@ class AuditLog(models.Model):
             "txn.review_approved",
             "Transaction Review Approved",
         )
+        TRANSACTION_FORM_MAPPING_CREATED = (
+            "txn.form_mapping.created",
+            "Transaction Form Mapping Created",
+        )
+        TRANSACTION_FORM_MAPPING_DELETED = (
+            "txn.form_mapping.deleted",
+            "Transaction Form Mapping Deleted",
+        )
 
         # Forms - Templates
         FORM_TEMPLATE_CREATED = "forms.template.created", "Form Template Created"

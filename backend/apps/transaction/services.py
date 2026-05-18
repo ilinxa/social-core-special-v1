@@ -1732,3 +1732,68 @@ class TransactionService:
     def _notify_resubmitted(txn, NS):
         """Notify approvers that a request/form has been resubmitted."""
         TransactionService._notify_request_created(txn, NS)
+
+
+# =============================================================================
+# FORM MAPPING SERVICE
+# =============================================================================
+
+
+class TransactionFormMappingService:
+    """Service for TransactionFormMapping CRUD operations.
+
+    Mirrors ``TransactionService.create_invitation`` shape: ``@staticmethod
+    @transaction.atomic``, kwargs-only, AuditService.log after the model
+    create. The view used to call ``TransactionFormMapping.objects.create``
+    inline with no audit log.
+    """
+
+    @staticmethod
+    @db_transaction.atomic
+    def create(
+        *,
+        account_type: str,
+        account_id,
+        transaction_type: str,
+        form_template_id,
+        is_required: bool,
+        actor,
+        request=None,
+    ):
+        """Create a new transaction-form mapping for an account."""
+        from apps.transaction.models import TransactionFormMapping
+
+        mapping = TransactionFormMapping.objects.create(
+            account_type=account_type,
+            account_id=account_id,
+            transaction_type=transaction_type,
+            form_template_id=form_template_id,
+            is_required=is_required,
+            created_by=actor,
+        )
+
+        AuditService.log(
+            action=AuditLog.Action.TRANSACTION_FORM_MAPPING_CREATED,
+            actor=actor,
+            resource=mapping,
+            resource_type="TransactionFormMapping",
+            resource_id=mapping.id,
+            request=request,
+            details={
+                "account_type": account_type,
+                "account_id": str(account_id),
+                "transaction_type": transaction_type,
+                "form_template_id": str(form_template_id),
+                "is_required": is_required,
+            },
+        )
+
+        logger.info(
+            "transaction.form_mapping.created",
+            account_type=account_type,
+            account_id=str(account_id),
+            transaction_type=transaction_type,
+            actor_id=str(actor.id) if actor else None,
+        )
+
+        return mapping
