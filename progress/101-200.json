@@ -470,6 +470,90 @@
         "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
       ],
       "related_doc": "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
+    },
+    {
+      "id": 118,
+      "title": "Project Inventory — Full Two-Level Map of Every System (18 layers, 71 top-level items)",
+      "category": "documentation",
+      "tags": [
+        "documentation",
+        "inventory",
+        "planning",
+        "cross-cutting"
+      ],
+      "timestamp": "2026-05-13T00:00:00Z",
+      "summary": "Built a complete, layered, two-level inventory of the entire project to break the 'too big to finish' feeling into closeable units. Scanned backend/apps/, backend_core/, frontend/src/, deployment_config.json, settings/base.py, requirements/, package.json, urls/, and docs/ to extract every system, sub-feature, API surface, third-party integration, scheduled job, test suite, and storage backend. 18 layers covering: foundation (core, observability, visibility 3-tier+T1.5), identity (auth, users), orgs (business+platform), RBAC, transaction state machine, domain features (forms, cms, network, chat, notifications, email, explore), feature gates + deployment config, security hardening, admin (Django+governance), APIs (REST+WS+swagger+versioning+throttles+middleware), DBs+cache+queues (Postgres/SQLite/Redis-4-roles/Celery-3-queues/10-beat-jobs), storage (local/S3/R2), third-party (AWS SES/SNS/S3, Google+Apple OAuth, Sentry, SMS-not-wired), tech stack, test system (unit+integration-13-phases+E2E-planned+manual+smoke-gap), frontend (14 features+5 consoles+shared+state), tooling, docs, and placeholders (mobile, subscriptions, payments, ads). 71 top-level systems, ~250 sub-features. Flagged 4 gaps to confirm: SMS provider, Playwright E2E code, dedicated smoke suite, mobile push provider.",
+      "files_changed": [
+        "docs/descriptions/project_inventory.md"
+      ],
+      "related_doc": "docs/descriptions/project_inventory.md"
+    },
+    {
+      "id": 119,
+      "title": "Project Inventory — Independent Verification Pass + Corrections",
+      "category": "reviewing",
+      "tags": [
+        "documentation",
+        "inventory",
+        "verification"
+      ],
+      "timestamp": "2026-05-13T00:30:00Z",
+      "summary": "Verified project_inventory.md against the actual codebase via Explore agent + targeted grep checks. Fixed count errors: CMS models 11→13 (full names listed), auth endpoints ~22→20, chat endpoints ~20→23. Added 6 missing chat sub-features (Unread Counts, Participant Promote/Demote, Attachment Upload, Media Gallery, Message Search, Entity Inbox). Added per-app model counts + names for all 14 backend apps (revealed BusinessSlugHistory for slug redirects, TransactionFormMapping as the real forms↔transaction bridge, 7 typed field index tables in forms). Fixed numbering collisions in sections 7 (RBAC) and 13 (Notifications). Clarified that mobile/ directory doesn't exist yet (only docs folders). Verified correct: 14 admin.py files, 14 frontend features, 14 integration tests, 11 URL groups, 10 Celery beat jobs, all 6 chat models, all console routes. Also created docs/descriptions/project_inventory_handoff.md for fresh-session continuation.",
+      "files_changed": [
+        "docs/descriptions/project_inventory.md",
+        "docs/descriptions/project_inventory_handoff.md"
+      ],
+      "related_doc": "docs/descriptions/project_inventory.md"
+    },
+    {
+      "id": 120,
+      "title": "Project Inventory — Verification of 4 Open Gaps (E2E Suite Found, Inventory Corrected)",
+      "category": "reviewing",
+      "tags": [
+        "documentation",
+        "inventory",
+        "verification",
+        "e2e"
+      ],
+      "timestamp": "2026-05-13T01:00:00Z",
+      "summary": "Verified the 4 open gaps from #118. Two real: SMS + mobile push channels are explicit placeholder stubs (Twilio/Firebase planned, no libraries in requirements). DISCOVERED major miss: the original inventory missed the entire `e2e/` directory — a 145-file / 581-test Playwright suite (4 projects, 3 layers L1/L2/L3, own CLAUDE.md + test-map.json v1.2). Rewrote §50 and §53, updated §13/§17/§65, restructured §45 as 'Unwired Notification Channel Providers' (§45.1 SMS, §45.2 Push), replaced 'Open questions' tail with 'Verification status'. .gitignore: added _test_login.json, flake8_output.txt, test_output*.txt.",
+      "critical": "Original inventory missed the entire e2e/ directory — a 145-file Playwright suite that is its own top-level system alongside backend/ and frontend/. Future 'audit across whole project' tasks MUST scan the repo root for top-level peer directories, not just backend/ + frontend/.",
+      "files_changed": [
+        "docs/descriptions/project_inventory.md",
+        ".gitignore",
+        "progress/101-200.json"
+      ],
+      "related_doc": "docs/descriptions/project_inventory.md"
+    },
+    {
+      "id": 121,
+      "title": "PR1 — Backend lint sweep: black + isort cleanup (11 files) + test contract fix",
+      "category": "refactoring",
+      "tags": [
+        "lint",
+        "black",
+        "isort",
+        "formatting",
+        "consistency-cleanup"
+      ],
+      "timestamp": "2026-05-18T00:00:00Z",
+      "summary": "First PR of the 6-PR consistency cleanup. Reformatted 10 files via black (5 auth files including views/models/serializers/governance_service/migration, 1 chat test file, 3 organization files including 1 migration and 2 tests, 1 core migration) and 1 file via isort (chat/tests/test_selectors.py). Pre-existing lint state went from 10+1 to 0+0; flake8 was already 0. While re-running the touched test suites, discovered 6 pre-existing failures in test_services.py::test_create_business_reserved_slug_raises_error that the audits had missed: test was asserting exc_info.value.conflict_type but ConflictError stores conflict_type in self.details. Fixed the assertion to use exc_info.value.details.get('conflict_type'). Targeted suite (auth + chat + organization): 1113/1113 pass after fix, up from 1107/1113.",
+      "critical": "ConflictError exposes conflict_type only via self.details['conflict_type'], not as a top-level attribute. Future tests must use exc_info.value.details.get('conflict_type'). If a top-level attribute is desired, update apps/core/exceptions/domain.py:279-285 to also set self.conflict_type = conflict_type.",
+      "files_changed": [
+        "backend/apps/auth/migrations/0003_governance_otp_token.py",
+        "backend/apps/auth/models.py",
+        "backend/apps/auth/serializers.py",
+        "backend/apps/auth/services/governance_service.py",
+        "backend/apps/auth/views.py",
+        "backend/apps/chat/tests/test_selectors.py",
+        "backend/apps/chat/tests/test_views.py",
+        "backend/apps/core/migrations/0008_governance_audit_actions.py",
+        "backend/apps/organization/migrations/0007_add_business_cms_enabled.py",
+        "backend/apps/organization/tests/business/test_governance_e2e.py",
+        "backend/apps/organization/tests/business/test_services.py",
+        "progress/101-200.json"
+      ],
+      "related_doc": "C:/Users/AsiaData/.claude/plans/create-a-comprehensive-verifying-stateful-newell.md"
     }
   ]
 }

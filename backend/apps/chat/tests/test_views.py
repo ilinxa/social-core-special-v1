@@ -149,7 +149,9 @@ class TestConversationDetailView:
         }
         assert set(perms.keys()) == expected_keys
 
-    def test_permissions_for_dm_member(self, authenticated_client, dm_conversation, user):
+    def test_permissions_for_dm_member(
+        self, authenticated_client, dm_conversation, user
+    ):
         """DM member should have participant permissions but not admin permissions."""
         url = reverse(
             "chat:conversation-detail",
@@ -182,9 +184,7 @@ class TestConversationDetailView:
         assert perms["can_remove_participant"] is True
         assert perms["can_edit_group"] is True
 
-    def test_permissions_for_group_member(
-        self, api_client, user_b, group_conversation
-    ):
+    def test_permissions_for_group_member(self, api_client, user_b, group_conversation):
         """Group member (non-admin) should not have admin permissions."""
         api_client.force_authenticate(user=user_b)
         url = reverse(
@@ -668,7 +668,9 @@ class TestMediaGalleryView:
         assert resp.data["results"] == []
         assert resp.data["next_cursor"] is None
 
-    def test_returns_linked_attachments(self, authenticated_client, user, dm_conversation):
+    def test_returns_linked_attachments(
+        self, authenticated_client, user, dm_conversation
+    ):
         from apps.chat.models import MessageAttachment
 
         msg = MessageFactory(
@@ -697,7 +699,9 @@ class TestMediaGalleryView:
         assert len(resp.data["results"]) == 1
         assert resp.data["results"][0]["original_filename"] == "image.jpg"
 
-    def test_excludes_orphan_attachments(self, authenticated_client, user, dm_conversation):
+    def test_excludes_orphan_attachments(
+        self, authenticated_client, user, dm_conversation
+    ):
         """Orphan attachments (message=None) should not appear in gallery."""
         from apps.chat.models import MessageAttachment
 

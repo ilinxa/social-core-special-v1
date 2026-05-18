@@ -343,6 +343,4 @@ class GovernanceTokenResponseSerializer(serializers.Serializer):
     """Governance token response (no refresh token)."""
 
     access = serializers.CharField(help_text="Governance-scoped JWT")
-    expires_in = serializers.IntegerField(
-        help_text="Token lifetime in seconds"
-    )
+    expires_in = serializers.IntegerField(help_text="Token lifetime in seconds")

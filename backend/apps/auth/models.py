@@ -468,9 +468,7 @@ class GovernanceOTPToken(TimeStampedModel):
     @property
     def is_max_attempts_reached(self) -> bool:
         """Check if max verification attempts have been exceeded."""
-        max_attempts = feature_config.get_value(
-            "auth.governance.otp_max_attempts", 5
-        )
+        max_attempts = feature_config.get_value("auth.governance.otp_max_attempts", 5)
         return self.attempts >= max_attempts
 
     @staticmethod
