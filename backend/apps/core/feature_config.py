@@ -22,11 +22,22 @@ Usage:
 """
 
 import json
-import logging
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+
+def _logger():
+    """Return a structlog BoundLogger for this module.
+
+    Imported lazily because ``feature_config`` is loaded during Django URL
+    assembly (see ``backend/conftest.py``), which can run before
+    ``CoreConfig.ready()`` has called ``configure_logging()``. The lazy
+    import here defers the structlog initialization until the first log
+    emission, by which time Django startup is complete.
+    """
+    from apps.core.observability import get_logger
+
+    return get_logger(__name__)
 
 
 class FeatureConfig:
@@ -56,26 +67,30 @@ class FeatureConfig:
         """Read JSON config file. Returns empty dict if missing or invalid."""
         config_path = Path(path)
         if not config_path.exists():
-            logger.info(
-                "Deployment config not found at %s — using minimal defaults", path
+            _logger().info(
+                "feature_config.missing",
+                path=str(path),
+                note="using minimal defaults",
             )
             return {}
         try:
             with open(config_path) as f:
                 data = json.load(f)
             if not isinstance(data, dict):
-                logger.warning(
-                    "Deployment config at %s is not a JSON object — using minimal defaults",
-                    path,
+                _logger().warning(
+                    "feature_config.invalid_shape",
+                    path=str(path),
+                    note="not a JSON object; using minimal defaults",
                 )
                 return {}
-            logger.info("Loaded deployment config from %s", path)
+            _logger().info("feature_config.loaded", path=str(path))
             return data
         except (json.JSONDecodeError, OSError) as e:
-            logger.warning(
-                "Failed to read deployment config at %s: %s — using minimal defaults",
-                path,
-                e,
+            _logger().warning(
+                "feature_config.read_failed",
+                path=str(path),
+                error=str(e),
+                note="using minimal defaults",
             )
             return {}
 

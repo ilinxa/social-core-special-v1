@@ -709,8 +709,16 @@ class FormResponseListView(FormViewMixin, APIView):
         return Response(output.data, status=http_status.HTTP_201_CREATED)
 
 
-class FormResponseDetailView(APIView):
+class FormResponseDetailView(PermissionInjectMixin, APIView):
     permission_classes = [IsAuthenticated]
+    policy_class = FormResponsePolicy
+
+    def _build_policy_kwargs(self) -> dict:
+        return {
+            "user": self.request.user,
+            "response": self._response,
+            "actor_context": getattr(self, "_actor_context", None),
+        }
 
     @extend_schema(
         summary="Get response details",
@@ -719,6 +727,7 @@ class FormResponseDetailView(APIView):
     )
     def get(self, request, response_id: UUID):
         response = FormResponseSelector.get_by_id(response_id=response_id)
+        actor_context = None
         if response.submitted_by_id != request.user.id:
             form = response.form_template
             membership = MembershipSelector.get_active_membership_for_user_account(
@@ -742,6 +751,10 @@ class FormResponseDetailView(APIView):
                 actor_context=actor_context,
                 form_template=form,
             )
+
+        self._response = response
+        self._actor_context = actor_context
+        self._inject_permissions = True
 
         serializer = FormResponseDetailOutputSerializer(response)
         return Response(serializer.data)

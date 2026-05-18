@@ -192,8 +192,8 @@
   "notifications": {
     "log_retention_days": 90,
     "email_enabled": true,
-    "push_enabled": true,
-    "sms_enabled": true
+    "push_enabled": false,
+    "sms_enabled": false
   },
   "explore": {
     "results_per_page": 20,

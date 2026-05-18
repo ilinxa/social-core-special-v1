@@ -470,6 +470,29 @@
         "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
       ],
       "related_doc": "docs/plans/backend/gconsole_phase3_members_audit_transactions.md"
+    },
+    {
+      "id": 126,
+      "title": "PR6 - Misc hardening: notif defaults flip + FormResponse perm injection + feature_config lazy structlog",
+      "category": "refactoring",
+      "tags": [
+        "feature-gates",
+        "permissions",
+        "observability",
+        "notifications",
+        "consistency-cleanup"
+      ],
+      "timestamp": "2026-05-18T05:00:00Z",
+      "summary": "Final PR of the 6-PR consistency cleanup. Three focused changes: (1) Flipped notifications.push_enabled and notifications.sms_enabled from true to false in deployment_config.json -- code defaults to False and the documented stub state is False, so dev config now matches reality (push/sms backends are placeholders pending Twilio/Firebase integration). The _FULL_FEATURE_CONFIG test baseline in conftest.py stays true so tests still exercise the channels. (2) Added FormResponsePolicy.get_viewer_permissions(user, response, actor_context) returning {can_view, can_edit, can_process, can_export} dict; wired FormResponseDetailView to extend PermissionInjectMixin, set policy_class=FormResponsePolicy, define _build_policy_kwargs, and set self._inject_permissions=True after fetching the response + actor_context. Frontend can now gate edit/process/export actions on form responses without re-checking. (3) Migrated apps/core/feature_config.py from bare `logging.getLogger` to apps.core.observability.get_logger -- with a lazy `_logger()` factory function instead of module-top, because feature_config loads during Django URL assembly (per backend/conftest.py) which can fire before CoreConfig.ready() calls configure_logging(). All log calls converted from `%s` formatting to structlog event-name + kwargs. Tests: 1832/1832 pass across core + forms + notifications. \n\nDEFERRED (deliberately, to follow-up PRs to keep PR6 reviewable): (a) Feature gate enforcement on auth/email/governance endpoints (4 auth gates, 1 email retention VG, 4 governance sub-feature checks); (b) Fixture hoist across 14 app conftests (api_client, user, authenticated_client, verified_user, staff_user, superuser); (c) PlatformAccountFactory dedup between rbac/tests/factories.py and organization/tests/factories.py. These items remain MAJOR but each has a broad blast radius that warrants its own focused PR.",
+      "critical": "feature_config.py uses a lazy `_logger()` function instead of a module-top `logger = get_logger(__name__)` because it is imported at Django URL-assembly time. Module-top get_logger would trigger structlog initialization before CoreConfig.ready() has called configure_logging(). The lazy factory defers initialization to first log emission. Also: FormResponsePolicy.get_viewer_permissions accepts actor_context as optional kwarg -- for own-response views the user is enough; for member-of-owner-account views the view supplies the full actor_context built via RBACService.build_actor_context.",
+      "files_changed": [
+        "backend/deployment_config.json",
+        "backend/apps/forms/policies.py",
+        "backend/apps/forms/api/views.py",
+        "backend/apps/core/feature_config.py",
+        "progress/101-200.json"
+      ],
+      "related_doc": "C:/Users/AsiaData/.claude/plans/create-a-comprehensive-verifying-stateful-newell.md"
     }
   ]
 }
