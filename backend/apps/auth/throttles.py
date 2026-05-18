@@ -26,6 +26,18 @@ class LoginRateThrottle(AnonRateThrottle):
     scope = "login"
 
 
+class RegisterRateThrottle(AnonRateThrottle):
+    """
+    Rate limit for new-account registration attempts.
+
+    Registration is a primary abuse vector (account enumeration, spam accounts).
+
+    Default: 5 attempts per hour per IP.
+    """
+
+    scope = "register"
+
+
 class PasswordResetRateThrottle(AnonRateThrottle):
     """
     Rate limit for password reset requests.

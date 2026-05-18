@@ -44,8 +44,10 @@ from apps.auth.services import (
 from apps.auth.services.oauth_service import OAuthService, OAuthStateManager
 from apps.auth.throttles import (
     LoginRateThrottle,
+    OAuthRateThrottle,
     PasswordResetRateThrottle,
     RefreshRateThrottle,
+    RegisterRateThrottle,
     VerificationRateThrottle,
 )
 from apps.core.exceptions import TokenExpired, TokenInvalid
@@ -91,6 +93,7 @@ class RegisterView(APIView):
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [RegisterRateThrottle]
 
     @extend_schema(
         summary="Register a new user",
@@ -107,7 +110,7 @@ class RegisterView(APIView):
         - Mobile clients (X-Client-Type: mobile): Refresh token is returned in response body
 
         **Rate Limiting:**
-        - No explicit rate limit (relies on general API limits)
+        - 5 requests per hour per IP (registration is an account-creation abuse vector)
         """,
         tags=["Authentication"],
         request=serializers.RegisterSerializer,
@@ -567,9 +570,12 @@ class VerifyEmailLinkView(APIView):
     Verify email with magic link token.
 
     GET /api/v1/auth/verify-email/<uuid:token>/
+
+    **Rate Limiting:** 5 requests per minute per IP (brute-force protection).
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [VerificationRateThrottle]
 
     @extend_schema(
         summary="Verify email with magic link",
@@ -736,9 +742,12 @@ class PasswordResetConfirmView(APIView):
     Confirm password reset with new password.
 
     POST /api/v1/auth/password/reset/confirm/
+
+    **Rate Limiting:** 3 requests per hour per IP (reset-token brute-force protection).
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetRateThrottle]
 
     @extend_schema(
         summary="Confirm password reset",
@@ -944,9 +953,12 @@ class GoogleOAuthView(APIView):
     Start Google OAuth flow.
 
     GET /api/v1/auth/oauth/google/
+
+    **Rate Limiting:** 10 requests per minute per IP (shared OAuth scope).
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [OAuthRateThrottle]
 
     @extend_schema(
         summary="Start Google OAuth",
@@ -1015,9 +1027,12 @@ class GoogleOAuthCallbackView(APIView):
     Google OAuth callback.
 
     GET /api/v1/auth/oauth/google/callback/
+
+    **Rate Limiting:** 10 requests per minute per IP (shared OAuth scope).
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [OAuthRateThrottle]
 
     @extend_schema(
         summary="Google OAuth callback",
@@ -1151,9 +1166,12 @@ class AppleOAuthView(APIView):
     Start Apple OAuth flow.
 
     GET /api/v1/auth/oauth/apple/
+
+    **Rate Limiting:** 10 requests per minute per IP (shared OAuth scope).
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [OAuthRateThrottle]
 
     @extend_schema(
         summary="Start Apple OAuth",
@@ -1226,9 +1244,12 @@ class AppleOAuthCallbackView(APIView):
 
     POST /api/v1/auth/oauth/apple/callback/
     (Apple uses form_post, not GET)
+
+    **Rate Limiting:** 10 requests per minute per IP (shared OAuth scope).
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [OAuthRateThrottle]
 
     @extend_schema(
         summary="Apple OAuth callback",

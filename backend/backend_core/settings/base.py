@@ -232,9 +232,11 @@ REST_FRAMEWORK = {
         "user": "1000/hour",  # Authenticated users (global)
         "burst": "60/minute",  # For views with throttle_scope='burst'
         "login": "5/minute",  # For login endpoints
+        "register": "5/hour",  # For new-account registration (abuse vector)
         "password_reset": "3/hour",  # For password reset endpoints
         "verification": "5/minute",  # For email verification code attempts
         "refresh": "30/minute",  # For token refresh endpoint
+        "oauth": "10/minute",  # For OAuth initiation + callback endpoints
     },
     # Exception handler
     # Defines how exceptions are converted into HTTP responses (Python => HTTP)
