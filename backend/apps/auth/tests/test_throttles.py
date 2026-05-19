@@ -102,20 +102,6 @@ class TestViewThrottleWireUp:
         assert AppleOAuthCallbackView.throttle_classes == [OAuthRateThrottle]
 
 
-class TestThrottleRatesConfigured:
-    """Confirm DEFAULT_THROTTLE_RATES has rates for every scope we declare."""
-
-    def test_register_scope_has_rate(self, settings):
-        rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
-        assert "register" in rates
-        assert rates["register"] == "5/hour"
-
-    def test_oauth_scope_has_rate(self, settings):
-        rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
-        assert "oauth" in rates
-        assert rates["oauth"] == "10/minute"
-
-
 # =============================================================================
 # Drift Guard: every declared scope must appear in every settings file
 # =============================================================================

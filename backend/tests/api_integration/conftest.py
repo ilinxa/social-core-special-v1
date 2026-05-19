@@ -746,9 +746,7 @@ def _cleanup_previous_run(db_helper):
 
     # ── Collect ALL test user IDs ───────────────────────────────────────
     try:
-        rows = db_helper.execute(
-            "SELECT id FROM users WHERE email LIKE '%@test.com'"
-        )
+        rows = db_helper.execute("SELECT id FROM users WHERE email LIKE '%@test.com'")
         if not rows:
             return
         test_user_ids = tuple(str(r[0]) for r in rows)
@@ -846,16 +844,29 @@ def _cleanup_previous_run(db_helper):
     _exec("DELETE FROM cms_site")
 
     # CMS templates created by test users
-    _exec(f"DELETE FROM cms_section_template_activation WHERE activated_by_id IN ({ph})", test_user_ids)
-    _exec(f"DELETE FROM cms_block_template_activation WHERE activated_by_id IN ({ph})", test_user_ids)
-    _exec(f"DELETE FROM cms_section_template WHERE created_by_id IN ({ph})", test_user_ids)
-    _exec(f"DELETE FROM cms_block_template WHERE created_by_id IN ({ph})", test_user_ids)
+    _exec(
+        f"DELETE FROM cms_section_template_activation WHERE activated_by_id IN ({ph})",
+        test_user_ids,
+    )
+    _exec(
+        f"DELETE FROM cms_block_template_activation WHERE activated_by_id IN ({ph})",
+        test_user_ids,
+    )
+    _exec(
+        f"DELETE FROM cms_section_template WHERE created_by_id IN ({ph})", test_user_ids
+    )
+    _exec(
+        f"DELETE FROM cms_block_template WHERE created_by_id IN ({ph})", test_user_ids
+    )
 
     # ── 2. Forms ────────────────────────────────────────────────────────
     for idx_table in [
-        "form_boolean_field_index", "form_integer_field_index",
-        "form_text_field_index", "form_date_field_index",
-        "form_datetime_field_index", "form_decimal_field_index",
+        "form_boolean_field_index",
+        "form_integer_field_index",
+        "form_text_field_index",
+        "form_date_field_index",
+        "form_datetime_field_index",
+        "form_decimal_field_index",
     ]:
         _exec(
             f"""DELETE FROM {idx_table} WHERE response_id IN (
@@ -881,12 +892,18 @@ def _cleanup_previous_run(db_helper):
                 SELECT id FROM transaction_transaction WHERE created_by_id IN ({ph}))""",
         test_user_ids,
     )
-    _exec(f"DELETE FROM transaction_transaction WHERE created_by_id IN ({ph})", test_user_ids)
+    _exec(
+        f"DELETE FROM transaction_transaction WHERE created_by_id IN ({ph})",
+        test_user_ids,
+    )
 
     # ── 4. Network ──────────────────────────────────────────────────────
     # network_follow.follower_id is polymorphic (user UUID or entity UUID)
     _exec(f"DELETE FROM network_follow WHERE follower_id IN ({ph})", test_user_ids)
-    _exec(f"UPDATE network_follow SET removed_by_id = NULL WHERE removed_by_id IN ({ph})", test_user_ids)
+    _exec(
+        f"UPDATE network_follow SET removed_by_id = NULL WHERE removed_by_id IN ({ph})",
+        test_user_ids,
+    )
     _exec(
         f"DELETE FROM network_connection WHERE user_a_id IN ({ph}) OR user_b_id IN ({ph})",
         test_user_ids + test_user_ids,
@@ -902,25 +919,48 @@ def _cleanup_previous_run(db_helper):
 
     # ── 5. Notifications ────────────────────────────────────────────────
     _exec(f"DELETE FROM notification_logs WHERE user_id IN ({ph})", test_user_ids)
-    _exec(f"DELETE FROM notification_preferences WHERE user_id IN ({ph})", test_user_ids)
+    _exec(
+        f"DELETE FROM notification_preferences WHERE user_id IN ({ph})", test_user_ids
+    )
 
     # ── 6. Chat ─────────────────────────────────────────────────────────
-    _exec(f"""DELETE FROM chat_message_reaction WHERE message_id IN (
-                SELECT id FROM chat_message WHERE sender_id IN ({ph}))""", test_user_ids)
-    _exec(f"""DELETE FROM chat_message_attachment WHERE message_id IN (
-                SELECT id FROM chat_message WHERE sender_id IN ({ph}))""", test_user_ids)
+    _exec(
+        f"""DELETE FROM chat_message_reaction WHERE message_id IN (
+                SELECT id FROM chat_message WHERE sender_id IN ({ph}))""",
+        test_user_ids,
+    )
+    _exec(
+        f"""DELETE FROM chat_message_attachment WHERE message_id IN (
+                SELECT id FROM chat_message WHERE sender_id IN ({ph}))""",
+        test_user_ids,
+    )
     _exec(f"DELETE FROM chat_message WHERE sender_id IN ({ph})", test_user_ids)
-    _exec(f"DELETE FROM chat_conversation_participant WHERE user_id IN ({ph})", test_user_ids)
+    _exec(
+        f"DELETE FROM chat_conversation_participant WHERE user_id IN ({ph})",
+        test_user_ids,
+    )
     _exec(f"DELETE FROM chat_block WHERE blocker_id IN ({ph})", test_user_ids)
 
     # ── 7. Audit logs ───────────────────────────────────────────────────
     _exec(f"DELETE FROM audit_log WHERE actor_id IN ({ph})", test_user_ids)
 
     # ── 8. RBAC — memberships then roles ────────────────────────────────
-    _exec(f"UPDATE rbac_membership SET status_changed_by_id = NULL WHERE status_changed_by_id IN ({ph})", test_user_ids)
-    _exec(f"UPDATE rbac_membership SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})", test_user_ids)
-    _exec(f"UPDATE rbac_membership SET created_by_id = NULL WHERE created_by_id IN ({ph})", test_user_ids)
-    _exec(f"UPDATE rbac_membership SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
+    _exec(
+        f"UPDATE rbac_membership SET status_changed_by_id = NULL WHERE status_changed_by_id IN ({ph})",
+        test_user_ids,
+    )
+    _exec(
+        f"UPDATE rbac_membership SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        test_user_ids,
+    )
+    _exec(
+        f"UPDATE rbac_membership SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        test_user_ids,
+    )
+    _exec(
+        f"UPDATE rbac_membership SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        test_user_ids,
+    )
     _exec(f"DELETE FROM rbac_membership WHERE user_id IN ({ph})", test_user_ids)
     if test_biz_ids:
         _exec(
@@ -947,22 +987,58 @@ def _cleanup_previous_run(db_helper):
         (_test_role_names,),
     )
     # NULL out test user refs on platform roles (they survive across runs)
-    _exec(f"UPDATE rbac_role SET created_by_id = NULL WHERE created_by_id IN ({ph})", test_user_ids)
-    _exec(f"UPDATE rbac_role SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
-    _exec(f"UPDATE rbac_role SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})", test_user_ids)
+    _exec(
+        f"UPDATE rbac_role SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        test_user_ids,
+    )
+    _exec(
+        f"UPDATE rbac_role SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        test_user_ids,
+    )
+    _exec(
+        f"UPDATE rbac_role SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+        test_user_ids,
+    )
     # NULL refs from platform_account/profile (singleton, survives runs)
-    _exec(f"UPDATE platform_account SET created_by_id = NULL WHERE created_by_id IN ({ph})", test_user_ids)
-    _exec(f"UPDATE platform_account SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
-    _exec(f"UPDATE platform_profile SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
+    _exec(
+        f"UPDATE platform_account SET created_by_id = NULL WHERE created_by_id IN ({ph})",
+        test_user_ids,
+    )
+    _exec(
+        f"UPDATE platform_account SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        test_user_ids,
+    )
+    _exec(
+        f"UPDATE platform_profile SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+        test_user_ids,
+    )
 
     # ── 9. Business data ────────────────────────────────────────────────
     if test_biz_ids:
-        _exec(f"DELETE FROM business_slug_history WHERE business_id IN ({biz_ph})", test_biz_ids)
-        _exec(f"UPDATE business_profile SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
-        _exec(f"DELETE FROM business_profile WHERE business_id IN ({biz_ph})", test_biz_ids)
-        _exec(f"UPDATE business_account SET updated_by_id = NULL WHERE updated_by_id IN ({ph})", test_user_ids)
-        _exec(f"UPDATE business_account SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})", test_user_ids)
-        _exec(f"UPDATE business_account SET verified_by_id = NULL WHERE verified_by_id IN ({ph})", test_user_ids)
+        _exec(
+            f"DELETE FROM business_slug_history WHERE business_id IN ({biz_ph})",
+            test_biz_ids,
+        )
+        _exec(
+            f"UPDATE business_profile SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+            test_user_ids,
+        )
+        _exec(
+            f"DELETE FROM business_profile WHERE business_id IN ({biz_ph})",
+            test_biz_ids,
+        )
+        _exec(
+            f"UPDATE business_account SET updated_by_id = NULL WHERE updated_by_id IN ({ph})",
+            test_user_ids,
+        )
+        _exec(
+            f"UPDATE business_account SET deleted_by_id = NULL WHERE deleted_by_id IN ({ph})",
+            test_user_ids,
+        )
+        _exec(
+            f"UPDATE business_account SET verified_by_id = NULL WHERE verified_by_id IN ({ph})",
+            test_user_ids,
+        )
         _exec(f"DELETE FROM business_account WHERE id IN ({biz_ph})", test_biz_ids)
 
     # ── 10. User profiles ───────────────────────────────────────────────
@@ -974,12 +1050,17 @@ def _cleanup_previous_run(db_helper):
             WHERE user_id IN ({ph}) OR email IN (SELECT email FROM users WHERE id IN ({ph}))""",
         test_user_ids + test_user_ids,
     )
-    _exec(f"DELETE FROM auth_password_reset_tokens WHERE user_id IN ({ph})", test_user_ids)
+    _exec(
+        f"DELETE FROM auth_password_reset_tokens WHERE user_id IN ({ph})", test_user_ids
+    )
     _exec(f"DELETE FROM auth_governance_otp WHERE user_id IN ({ph})", test_user_ids)
     _exec(f"DELETE FROM auth_oauth_connections WHERE user_id IN ({ph})", test_user_ids)
     # Device sessions → refresh tokens (FK order)
     _exec(f"DELETE FROM auth_device_sessions WHERE user_id IN ({ph})", test_user_ids)
-    _exec(f"UPDATE auth_refresh_tokens SET replaced_by_id = NULL WHERE user_id IN ({ph})", test_user_ids)
+    _exec(
+        f"UPDATE auth_refresh_tokens SET replaced_by_id = NULL WHERE user_id IN ({ph})",
+        test_user_ids,
+    )
     _exec(f"DELETE FROM auth_refresh_tokens WHERE user_id IN ({ph})", test_user_ids)
 
     # ── 12. NULL out ALL remaining FK references to test users ─────────
@@ -1039,7 +1120,10 @@ def _cleanup_previous_run(db_helper):
         _exec(stmt.format(ph=ph), test_user_ids)
 
     # ── 13. Users ───────────────────────────────────────────────────────
-    _exec(f"UPDATE users SET referred_by_id = NULL WHERE referred_by_id IN ({ph})", test_user_ids)
+    _exec(
+        f"UPDATE users SET referred_by_id = NULL WHERE referred_by_id IN ({ph})",
+        test_user_ids,
+    )
     _exec(f"DELETE FROM users_groups WHERE user_id IN ({ph})", test_user_ids)
     _exec(f"DELETE FROM users_user_permissions WHERE user_id IN ({ph})", test_user_ids)
     _exec(f"DELETE FROM users WHERE id IN ({ph})", test_user_ids)

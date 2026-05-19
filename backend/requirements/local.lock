@@ -103,7 +103,7 @@ coverage==7.13.4
     # via pytest-cov
 cron-descriptor==2.0.6
     # via django-celery-beat
-cryptography==46.0.3
+cryptography==46.0.7
     # via
     #   -r requirements/base.txt
     #   autobahn
@@ -260,7 +260,7 @@ parso==0.8.6
     # via jedi
 pathspec==1.0.4
     # via black
-pillow==12.1.0
+pillow==12.2.0
     # via -r requirements/base.txt
 pip-api==0.0.34
     # via pip-audit
@@ -309,7 +309,7 @@ pygments==2.19.2
     # via
     #   ipython
     #   rich
-pyjwt==2.10.1
+pyjwt==2.12.0
     # via -r requirements/base.txt
 pyopenssl==25.3.0
     # via twisted
@@ -342,7 +342,7 @@ python-dateutil==2.9.0.post0
     #   celery
 python-discovery==1.1.3
     # via virtualenv
-python-dotenv==1.0.1
+python-dotenv==1.2.2
     # via
     #   -r requirements/base.txt
     #   uvicorn
@@ -361,7 +361,7 @@ referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
-requests==2.32.5
+requests==2.33.0
     # via
     #   -r requirements/base.txt
     #   cachecontrol

@@ -83,7 +83,7 @@ constantly==23.10.4
     # via twisted
 cron-descriptor==2.0.6
     # via django-celery-beat
-cryptography==46.0.3
+cryptography==46.0.7
     # via
     #   -r requirements/base.txt
     #   autobahn
@@ -161,7 +161,7 @@ packaging==26.0
     #   gunicorn
     #   incremental
     #   kombu
-pillow==12.1.0
+pillow==12.2.0
     # via -r requirements/base.txt
 prompt-toolkit==3.0.52
     # via click-repl
@@ -177,7 +177,7 @@ pyasn1-modules==0.4.2
     # via service-identity
 pycparser==3.0
     # via cffi
-pyjwt==2.10.1
+pyjwt==2.12.0
     # via -r requirements/base.txt
 pyopenssl==25.3.0
     # via twisted
@@ -187,7 +187,7 @@ python-dateutil==2.9.0.post0
     # via
     #   botocore
     #   celery
-python-dotenv==1.0.1
+python-dotenv==1.2.2
     # via
     #   -r requirements/base.txt
     #   uvicorn
@@ -204,7 +204,7 @@ referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
-requests==2.32.5
+requests==2.33.0
     # via -r requirements/base.txt
 rpds-py==0.30.0
     # via
