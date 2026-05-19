@@ -4,7 +4,6 @@ Pytest configuration and fixtures for Notifications app tests.
 """
 
 import pytest
-from rest_framework.test import APIClient
 
 from apps.notifications.tests.factories import (
     FailedNotificationLogFactory,
@@ -13,41 +12,11 @@ from apps.notifications.tests.factories import (
     PartialNotificationLogFactory,
     SentNotificationLogFactory,
 )
-from apps.users.tests.factories import UserFactory, VerifiedUserFactory
-
-# =============================================================================
-# API CLIENT FIXTURES
-# =============================================================================
-
-
-@pytest.fixture
-def api_client():
-    """Return an unauthenticated DRF APIClient instance."""
-    return APIClient()
-
-
-@pytest.fixture
-def authenticated_client(api_client, user):
-    """Return an APIClient authenticated as a regular user."""
-    api_client.force_authenticate(user=user)
-    return api_client
-
+from apps.users.tests.factories import UserFactory
 
 # =============================================================================
 # USER FIXTURES
 # =============================================================================
-
-
-@pytest.fixture
-def user(db):
-    """Create and return a regular test user."""
-    return UserFactory()
-
-
-@pytest.fixture
-def verified_user(db):
-    """Create and return a verified test user."""
-    return VerifiedUserFactory()
 
 
 @pytest.fixture

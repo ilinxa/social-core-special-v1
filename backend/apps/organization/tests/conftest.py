@@ -7,7 +7,6 @@ All business fixtures initialize RBAC (roles + owner membership).
 """
 
 import pytest
-from rest_framework.test import APIClient
 
 from apps.organization.tests.factories import (  # User factories; Platform factories; Business factories
     BusinessAccountFactory,
@@ -16,8 +15,6 @@ from apps.organization.tests.factories import (  # User factories; Platform fact
     BusinessSlugHistoryFactory,
     PlatformAccountFactory,
     PlatformProfileFactory,
-    StaffUserFactory,
-    SuperuserFactory,
     SuspendedBusinessFactory,
     UserFactory,
     VerifiedBusinessFactory,
@@ -40,19 +37,6 @@ def _init_business_rbac(business, owner):
 
 
 @pytest.fixture
-def api_client():
-    """Return an unauthenticated DRF APIClient instance."""
-    return APIClient()
-
-
-@pytest.fixture
-def authenticated_client(api_client, user):
-    """Return an APIClient authenticated as a regular user."""
-    api_client.force_authenticate(user=user)
-    return api_client
-
-
-@pytest.fixture
 def staff_client(api_client, staff_user):
     """Return an APIClient authenticated as a staff user."""
     api_client.force_authenticate(user=staff_user)
@@ -72,27 +56,9 @@ def admin_client(api_client, superuser):
 
 
 @pytest.fixture
-def user(db):
-    """Create and return a regular test user."""
-    return UserFactory()
-
-
-@pytest.fixture
 def user_factory(db):
     """Return the UserFactory for creating users in tests."""
     return UserFactory
-
-
-@pytest.fixture
-def staff_user(db):
-    """Create and return a staff user."""
-    return StaffUserFactory()
-
-
-@pytest.fixture
-def superuser(db):
-    """Create and return a superuser."""
-    return SuperuserFactory()
 
 
 # =============================================================================

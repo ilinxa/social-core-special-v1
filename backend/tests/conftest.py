@@ -1,29 +1,14 @@
 """
-Pytest configuration and shared fixtures.
+Pytest configuration and shared fixtures for integration tests.
 
-This file is automatically loaded by pytest. Fixtures defined here
-are available to all tests in the tests/ directory (integration tests).
+Fixtures here are available to all tests under ``backend/tests/``.
 
-Note: User and authentication fixtures are defined in each app's own
-conftest.py to avoid shadowing and ensure correct factory usage.
-
-Note: Feature gate fixtures live in the root backend/conftest.py so they
-are visible to ALL tests (both apps/ and tests/ directories).
+Note: ``api_client``, ``user``, ``authenticated_client``, ``verified_user``,
+``staff_user``, and ``superuser`` are hoisted to root ``backend/conftest.py``
+and visible from every test directory.
 """
 
 import pytest
-from rest_framework.test import APIClient
-
-# =============================================================================
-# API Client Fixtures
-# =============================================================================
-
-
-@pytest.fixture
-def api_client():
-    """Return an unauthenticated DRF APIClient instance."""
-    return APIClient()
-
 
 # =============================================================================
 # Database Fixtures

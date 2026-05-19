@@ -6,7 +6,6 @@ These fixtures are available to all tests in the email app.
 """
 
 import pytest
-from rest_framework.test import APIClient
 
 from apps.email.tests.factories import (
     ArchivedEmailTemplateFactory,
@@ -20,35 +19,6 @@ from apps.email.tests.factories import (
     QueuedEmailLogFactory,
     SentEmailLogFactory,
 )
-from apps.users.tests.factories import UserFactory, VerifiedUserFactory
-
-# =============================================================================
-# API CLIENT FIXTURES
-# =============================================================================
-
-
-@pytest.fixture
-def api_client():
-    """Return an unauthenticated DRF APIClient instance."""
-    return APIClient()
-
-
-# =============================================================================
-# USER FIXTURES
-# =============================================================================
-
-
-@pytest.fixture
-def user(db):
-    """Create and return a regular test user."""
-    return UserFactory()
-
-
-@pytest.fixture
-def verified_user(db):
-    """Create and return a verified test user."""
-    return VerifiedUserFactory()
-
 
 # =============================================================================
 # FACTORY FIXTURES

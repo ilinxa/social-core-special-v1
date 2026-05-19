@@ -1,6 +1,5 @@
 # apps/cms/tests/conftest.py
 import pytest
-from rest_framework.test import APIClient
 
 from apps.cms.constants import TemplateOrgType
 from apps.cms.models import BlockTemplateActivation, SectionTemplateActivation
@@ -23,16 +22,6 @@ from apps.organization.tests.factories import (
 from apps.rbac.selectors import RoleSelector
 from apps.rbac.services import RBACService
 from apps.users.tests.factories import UserFactory
-
-
-@pytest.fixture
-def api_client():
-    return APIClient()
-
-
-@pytest.fixture
-def user(db):
-    return UserFactory()
 
 
 @pytest.fixture

@@ -11,7 +11,6 @@ Provides:
 """
 
 import pytest
-from rest_framework.test import APIClient
 
 from apps.core.constants import AccountType, FormScope
 from apps.forms.tests.factories import (
@@ -33,28 +32,13 @@ from apps.rbac.tests.factories import (
 from apps.users.tests.factories import UserFactory
 
 # =========================================================================
-# API Clients
-# =========================================================================
-
-
-@pytest.fixture
-def api_client():
-    return APIClient()
-
-
-@pytest.fixture
-def authenticated_client(api_client, user):
-    api_client.force_authenticate(user=user)
-    return api_client
-
-
-# =========================================================================
 # Users
 # =========================================================================
 
 
 @pytest.fixture
 def user(db):
+    """Forms-specific user override — collision-free email for paired ``another_user``."""
     return UserFactory(email="forms_user@test.com")
 
 
