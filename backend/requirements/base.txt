@@ -8,7 +8,7 @@ djangorestframework==3.16.1
 # ASGI & WEBSOCKET SUPPORT
 # ============================================
 # Daphne: ASGI server for Django Channels
-daphne==4.1.2
+daphne==4.2.1
 
 # Django Channels: WebSocket and background task support
 channels==4.3.2
