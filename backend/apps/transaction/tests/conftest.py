@@ -3,7 +3,6 @@ from uuid import uuid4
 
 import pytest
 from django.utils import timezone
-from rest_framework.test import APIClient
 
 from apps.core.constants import AccountType, ContextType
 from apps.core.types import ActorContext
@@ -28,28 +27,13 @@ from apps.transaction.tests.factories import (
 from apps.users.tests.factories import UserFactory
 
 # =========================================================================
-# API Clients
-# =========================================================================
-
-
-@pytest.fixture
-def api_client():
-    return APIClient()
-
-
-@pytest.fixture
-def authenticated_client(api_client, user):
-    api_client.force_authenticate(user=user)
-    return api_client
-
-
-# =========================================================================
 # Users
 # =========================================================================
 
 
 @pytest.fixture
 def user(db):
+    """Transaction-specific user override — collision-free email for paired users."""
     return UserFactory(email="txn_user@test.com")
 
 

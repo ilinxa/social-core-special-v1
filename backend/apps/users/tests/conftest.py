@@ -10,14 +10,11 @@ from io import BytesIO
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
-from rest_framework.test import APIClient
 
 from apps.users.tests.factories import (  # User factories; Profile factories
     CompleteProfileFactory,
     InactiveUserFactory,
     ReferredUserFactory,
-    StaffUserFactory,
-    SuperuserFactory,
     UserFactory,
     UserProfileFactory,
     UserWithProfileFactory,
@@ -27,19 +24,6 @@ from apps.users.tests.factories import (  # User factories; Profile factories
 # =============================================================================
 # API CLIENT FIXTURES
 # =============================================================================
-
-
-@pytest.fixture
-def api_client():
-    """Return an unauthenticated DRF APIClient instance."""
-    return APIClient()
-
-
-@pytest.fixture
-def authenticated_client(api_client, user):
-    """Return an APIClient authenticated as a regular user."""
-    api_client.force_authenticate(user=user)
-    return api_client
 
 
 @pytest.fixture
@@ -66,30 +50,6 @@ def admin_client(api_client, superuser):
 # =============================================================================
 # USER FIXTURES
 # =============================================================================
-
-
-@pytest.fixture
-def user(db):
-    """Create and return a regular test user."""
-    return UserFactory()
-
-
-@pytest.fixture
-def verified_user(db):
-    """Create and return a verified user."""
-    return VerifiedUserFactory()
-
-
-@pytest.fixture
-def staff_user(db):
-    """Create and return a staff user."""
-    return StaffUserFactory()
-
-
-@pytest.fixture
-def superuser(db):
-    """Create and return a superuser."""
-    return SuperuserFactory()
 
 
 @pytest.fixture

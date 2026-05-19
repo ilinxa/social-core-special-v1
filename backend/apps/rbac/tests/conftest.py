@@ -9,7 +9,6 @@ from uuid import uuid4
 
 import pytest
 from django.conf import settings
-from rest_framework.test import APIClient
 
 # =============================================================================
 # SKIP MARKERS
@@ -68,31 +67,13 @@ from apps.rbac.tests.factories import (  # User/Account factories; Permission fa
 )
 
 # =============================================================================
-# API CLIENT FIXTURES
-# =============================================================================
-
-
-@pytest.fixture
-def api_client():
-    """Return an unauthenticated DRF APIClient instance."""
-    return APIClient()
-
-
-@pytest.fixture
-def authenticated_client(api_client, user):
-    """Return an APIClient authenticated as a regular user."""
-    api_client.force_authenticate(user=user)
-    return api_client
-
-
-# =============================================================================
 # USER FIXTURES
 # =============================================================================
 
 
 @pytest.fixture
 def user(db):
-    """Create and return a verified test user."""
+    """Verified user override — rbac tests rely on ``is_verified=True``."""
     return UserFactory(is_verified=True)
 
 

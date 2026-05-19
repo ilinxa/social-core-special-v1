@@ -12,6 +12,7 @@ Integration test fixtures are in tests/conftest.py.
 import copy
 
 import pytest
+from rest_framework.test import APIClient
 
 # =============================================================================
 # Feature Gate Configuration
@@ -309,3 +310,63 @@ def feature_config_override():
 
     yield _override
     feature_config._config = original
+
+
+# =============================================================================
+# Shared API Client + User Fixtures (hoisted from per-app conftests — PR9)
+# =============================================================================
+
+
+@pytest.fixture
+def api_client():
+    """Return an unauthenticated DRF APIClient instance."""
+    return APIClient()
+
+
+@pytest.fixture
+def user(db):
+    """Create and return a regular test user.
+
+    Apps needing a specialized ``user`` (e.g. ``is_verified=True`` or a custom
+    email) MUST override this fixture in their own ``conftest.py``. Currently
+    overridden by: chat, explore, network, rbac (``is_verified=True``);
+    forms, transaction (custom emails).
+    """
+    from apps.users.tests.factories import UserFactory
+
+    return UserFactory()
+
+
+@pytest.fixture
+def authenticated_client(api_client, user):
+    """Return an APIClient authenticated as a regular user via ``force_authenticate``.
+
+    The ``explore`` app overrides this with a real JWT-login flow because its
+    tests exercise the full authentication path.
+    """
+    api_client.force_authenticate(user=user)
+    return api_client
+
+
+@pytest.fixture
+def verified_user(db):
+    """Create and return a verified test user."""
+    from apps.users.tests.factories import VerifiedUserFactory
+
+    return VerifiedUserFactory()
+
+
+@pytest.fixture
+def staff_user(db):
+    """Create and return a staff test user."""
+    from apps.users.tests.factories import StaffUserFactory
+
+    return StaffUserFactory()
+
+
+@pytest.fixture
+def superuser(db):
+    """Create and return a superuser."""
+    from apps.users.tests.factories import SuperuserFactory
+
+    return SuperuserFactory()

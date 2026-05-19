@@ -629,6 +629,39 @@
         "docs/descriptions/backend/deployment_config_full_example.json",
         "progress/101-200.json"
       ]
+    },
+    {
+      "id": 128,
+      "title": "PR9 - Fixture hoist: api_client/user/authenticated_client/verified_user/staff_user/superuser to root conftest",
+      "category": "refactoring",
+      "tags": [
+        "tests",
+        "fixtures",
+        "consistency-cleanup",
+        "conftest"
+      ],
+      "timestamp": "2026-05-19T04:00:00Z",
+      "summary": "Closes MAJOR #2 from the May 2026 consistency audit. Hoisted 6 canonical fixtures (api_client, user, authenticated_client, verified_user, staff_user, superuser) from 14 app conftests + backend/tests/conftest.py to the root backend/conftest.py. App-specific overrides preserved: chat/explore/network/rbac keep their `user(is_verified=True)` override; forms/transaction keep custom-email `user` overrides; explore keeps its real-JWT `authenticated_client` (uses AuthService.login instead of force_authenticate). Removed ~46 duplicate fixture definitions and the orphan `from rest_framework.test import APIClient` / unused `*Factory` imports they left behind. Root conftest gains `import APIClient` at top and 6 fixture defs with lazy `from apps.users.tests.factories import ...` inside each body to avoid Django app-loading issues at conftest import time. Verified zero regression: full suite stacked on verify/all-prs-merged still runs 4614/41/0; pr9 alone on main runs 4587/6/41 (same as main baseline; the 6 failures are pre-existing ConflictError asserts that PR1 fixes).",
+      "critical": "Recovered the working set from a dropped git stash (`git stash apply <dangling-commit>`) after a verify-branch stack test left the stash dropped. Lesson: when stacking unfinished work on another branch for testing, KEEP the stash entry (`git stash apply`, not `git stash pop`), or commit first and cherry-pick. Also: pytest fixture scope resolution means a hoisted `user` fixture in root conftest is shadowed by an app-local `user` fixture automatically — this is how `chat`/`explore`/`network`/`rbac`/`forms`/`transaction` keep their custom variants without any explicit override mechanism.",
+      "files_changed": [
+        "backend/conftest.py",
+        "backend/tests/conftest.py",
+        "backend/apps/auth/tests/conftest.py",
+        "backend/apps/cms/tests/conftest.py",
+        "backend/apps/chat/tests/conftest.py",
+        "backend/apps/core/tests/conftest.py",
+        "backend/apps/core/observability/audit/tests/conftest.py",
+        "backend/apps/email/tests/conftest.py",
+        "backend/apps/explore/tests/conftest.py",
+        "backend/apps/forms/tests/conftest.py",
+        "backend/apps/network/tests/conftest.py",
+        "backend/apps/notifications/tests/conftest.py",
+        "backend/apps/organization/tests/conftest.py",
+        "backend/apps/rbac/tests/conftest.py",
+        "backend/apps/transaction/tests/conftest.py",
+        "backend/apps/users/tests/conftest.py",
+        "progress/101-200.json"
+      ]
     }
   ]
 }

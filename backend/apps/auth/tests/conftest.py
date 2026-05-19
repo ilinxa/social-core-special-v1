@@ -7,7 +7,6 @@ These fixtures are available to all tests in the auth app.
 
 import pytest
 from django.core.cache import cache
-from rest_framework.test import APIClient
 
 from apps.auth.tests.factories import (
     AppleOAuthConnectionFactory,
@@ -24,13 +23,7 @@ from apps.auth.tests.factories import (
     UsedPasswordResetTokenFactory,
     UsedVerificationTokenFactory,
 )
-from apps.users.tests.factories import (
-    InactiveUserFactory,
-    StaffUserFactory,
-    SuperuserFactory,
-    UserFactory,
-    VerifiedUserFactory,
-)
+from apps.users.tests.factories import InactiveUserFactory, UserFactory
 
 # =============================================================================
 # THROTTLE ISOLATION
@@ -75,19 +68,6 @@ def immediate_on_commit(monkeypatch):
 
 
 @pytest.fixture
-def api_client():
-    """Return an unauthenticated DRF APIClient instance."""
-    return APIClient()
-
-
-@pytest.fixture
-def authenticated_client(api_client, user):
-    """Return an APIClient authenticated as a regular user."""
-    api_client.force_authenticate(user=user)
-    return api_client
-
-
-@pytest.fixture
 def verified_client(api_client, verified_user):
     """Return an APIClient authenticated as a verified user."""
     api_client.force_authenticate(user=verified_user)
@@ -97,30 +77,6 @@ def verified_client(api_client, verified_user):
 # =============================================================================
 # USER FIXTURES
 # =============================================================================
-
-
-@pytest.fixture
-def user(db):
-    """Create and return a regular test user (unverified)."""
-    return UserFactory()
-
-
-@pytest.fixture
-def verified_user(db):
-    """Create and return a verified test user."""
-    return VerifiedUserFactory()
-
-
-@pytest.fixture
-def staff_user(db):
-    """Create and return a staff test user."""
-    return StaffUserFactory()
-
-
-@pytest.fixture
-def superuser(db):
-    """Create and return a superuser."""
-    return SuperuserFactory()
 
 
 @pytest.fixture

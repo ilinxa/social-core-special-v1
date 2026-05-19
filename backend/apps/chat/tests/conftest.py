@@ -1,7 +1,6 @@
 import uuid
 
 import pytest
-from rest_framework.test import APIClient
 
 from apps.chat.constants import (
     ConversationType,
@@ -15,12 +14,8 @@ from apps.users.tests.factories import UserFactory
 
 
 @pytest.fixture
-def api_client():
-    return APIClient()
-
-
-@pytest.fixture
 def user(db):
+    """Verified user override — chat tests require ``is_verified=True``."""
     return UserFactory(is_verified=True)
 
 
@@ -32,12 +27,6 @@ def user_b(db):
 @pytest.fixture
 def user_c(db):
     return UserFactory(is_verified=True)
-
-
-@pytest.fixture
-def authenticated_client(api_client, user):
-    api_client.force_authenticate(user=user)
-    return api_client
 
 
 @pytest.fixture
