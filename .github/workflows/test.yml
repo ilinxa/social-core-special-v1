@@ -69,10 +69,13 @@ jobs:
           --health-retries 5
     env:
       DJANGO_SETTINGS_MODULE: backend_core.settings.local_docker
-      # Non-insecure value so apps/core/tests/test_security_headers.py can
-      # importlib.import_module("backend_core.settings.production"), which
-      # asserts SECRET_KEY does not start with "django-insecure" at import time.
+      # Values required for the production settings module to import cleanly
+      # under apps/core/tests/test_security_headers.py — production.py validates
+      # at import time that SECRET_KEY isn't the dev default and ALLOWED_HOSTS
+      # is non-empty and doesn't contain '*'. CI-only constants; production
+      # deploys read from secrets, not the workflow YAML.
       DJANGO_SECRET_KEY: ci-test-secret-key-not-for-production-use-PUjJrQYZx5Lq8wK3bN7H
+      ALLOWED_HOSTS: localhost,test.example.com
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
       POSTGRES_DB: backend_core_db
