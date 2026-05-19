@@ -130,9 +130,11 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
     "user": "100000/hour",
     "burst": "6000/minute",
     "login": "1000/minute",
+    "register": "1000/hour",
     "password_reset": "1000/hour",
     "verification": "1000/minute",
     "refresh": "1000/minute",
+    "oauth": "1000/minute",
 }
 
 # ============================================

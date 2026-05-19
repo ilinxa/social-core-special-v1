@@ -1,5 +1,11 @@
-from rest_framework.throttling import AnonRateThrottle
+import ast
+import inspect
+from pathlib import Path
 
+import pytest
+from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
+
+from apps.auth import throttles as auth_throttles
 from apps.auth.throttles import (
     LoginRateThrottle,
     OAuthRateThrottle,
@@ -16,6 +22,8 @@ from apps.auth.views import (
     RegisterView,
     VerifyEmailLinkView,
 )
+
+SETTINGS_DIR = Path(__file__).resolve().parents[3] / "backend_core" / "settings"
 
 
 class TestLoginRateThrottle:
@@ -106,3 +114,71 @@ class TestThrottleRatesConfigured:
         rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
         assert "oauth" in rates
         assert rates["oauth"] == "10/minute"
+
+
+# =============================================================================
+# Drift Guard: every declared scope must appear in every settings file
+# =============================================================================
+#
+# A scope referenced by a view but missing from DEFAULT_THROTTLE_RATES raises
+# ImproperlyConfigured (HTTP 500) at request time. The default `settings`
+# fixture only sees the active test settings (`local`), so a missing scope in
+# `local_docker.py` -- which the E2E backend boots with -- slips through
+# unit tests. We parse the settings files statically so each file's
+# DEFAULT_THROTTLE_RATES is checked independently, without `from .base import *`
+# letting one module mutate the dict another module observes.
+
+
+def _declared_scopes() -> set[str]:
+    return {
+        cls.scope
+        for _, cls in inspect.getmembers(auth_throttles, inspect.isclass)
+        if issubclass(cls, SimpleRateThrottle) and getattr(cls, "scope", None)
+    }
+
+
+def _rate_keys(path: Path) -> set[str]:
+    keys: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        target = node.targets[0]
+        # Form A: REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {...}
+        if (
+            isinstance(target, ast.Subscript)
+            and isinstance(target.slice, ast.Constant)
+            and target.slice.value == "DEFAULT_THROTTLE_RATES"
+            and isinstance(node.value, ast.Dict)
+        ):
+            for k in node.value.keys:
+                if isinstance(k, ast.Constant):
+                    keys.add(k.value)
+        # Form B: REST_FRAMEWORK = {... "DEFAULT_THROTTLE_RATES": {...} ...}
+        if (
+            isinstance(target, ast.Name)
+            and target.id == "REST_FRAMEWORK"
+            and isinstance(node.value, ast.Dict)
+        ):
+            for k, v in zip(node.value.keys, node.value.values):
+                if (
+                    isinstance(k, ast.Constant)
+                    and k.value == "DEFAULT_THROTTLE_RATES"
+                    and isinstance(v, ast.Dict)
+                ):
+                    for kk in v.keys:
+                        if isinstance(kk, ast.Constant):
+                            keys.add(kk.value)
+    return keys
+
+
+@pytest.mark.parametrize("settings_file", ["base.py", "local_docker.py"])
+class TestEnvironmentThrottleRatesCoverDeclaredScopes:
+    def test_all_declared_scopes_have_rates(self, settings_file: str) -> None:
+        required = _declared_scopes()
+        configured = _rate_keys(SETTINGS_DIR / settings_file)
+        missing = required - configured
+        assert not missing, (
+            f"backend_core/settings/{settings_file} DEFAULT_THROTTLE_RATES is "
+            f"missing scopes {sorted(missing)} "
+            f"(declared by apps.auth.throttles)."
+        )
