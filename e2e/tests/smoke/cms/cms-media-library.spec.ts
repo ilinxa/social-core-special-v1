@@ -44,9 +44,10 @@ test.describe('CMS Media Library (Platform Admin)', () => {
     const mediaPage = new PlatformMediaPage(platformAdminPage);
     await mediaPage.goto();
 
-    // Either empty state or upload button should be visible (mutually inclusive)
+    // Either empty state or upload button should be visible (mutually inclusive).
+    // `.first()` because both can render at once and `.or()` would yield 2 in strict mode.
     await expect(
-      mediaPage.emptyState.or(mediaPage.uploadButton),
+      mediaPage.emptyState.or(mediaPage.uploadButton).first(),
     ).toBeVisible();
   });
 

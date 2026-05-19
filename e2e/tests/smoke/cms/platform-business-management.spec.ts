@@ -35,11 +35,11 @@ test.describe('CMS Business Management (Platform Admin)', () => {
     const toggle = bizPage.getBusinessToggle('E2E Test Business');
     await toggle.click();
 
-    // Either "Enabled" or "Disabled" badge should update
+    // Either "Enabled" or "Disabled" badge should update. Match the same
+    // single-regex pattern used by the "toggle off" test below to avoid
+    // `.or()` yielding 2 matches in strict mode when both badges render.
     await expect(
-      platformAdminPage.getByText(/enabled/i).first().or(
-        platformAdminPage.getByText(/disabled/i).first(),
-      ),
+      platformAdminPage.getByText(/enabled|disabled/i).first(),
     ).toBeVisible();
   });
 

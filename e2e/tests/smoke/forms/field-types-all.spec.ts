@@ -28,8 +28,9 @@ test.describe('Field Types', () => {
     // Wait for page to finish loading
     await expect(listPage.newFormButton).toBeVisible();
 
-    // Should show templates or empty message
+    // Should show templates or empty message. `.first()` after `.or()` because
+    // both branches can render at once and strict mode rejects 2+ matches.
     const firstTemplate = page.getByText(/draft|active|archived/i).first();
-    await expect(firstTemplate.or(listPage.emptyMessage)).toBeVisible();
+    await expect(firstTemplate.or(listPage.emptyMessage).first()).toBeVisible();
   });
 });
