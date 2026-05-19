@@ -3,10 +3,10 @@ name: Backend Tests
 on:
   push:
     branches: [main, develop]
-    paths: ['backend/**']
+    paths: ['backend/**', '.github/workflows/test.yml']
   pull_request:
     branches: [main, develop]
-    paths: ['backend/**']
+    paths: ['backend/**', '.github/workflows/test.yml']
 
 jobs:
   lint:
@@ -69,6 +69,10 @@ jobs:
           --health-retries 5
     env:
       DJANGO_SETTINGS_MODULE: backend_core.settings.local_docker
+      # Non-insecure value so apps/core/tests/test_security_headers.py can
+      # importlib.import_module("backend_core.settings.production"), which
+      # asserts SECRET_KEY does not start with "django-insecure" at import time.
+      DJANGO_SECRET_KEY: ci-test-secret-key-not-for-production-use-PUjJrQYZx5Lq8wK3bN7H
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
       POSTGRES_DB: backend_core_db
